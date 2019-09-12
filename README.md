@@ -1,3 +1,8 @@
+*********************
+<strong>Currently this project requires a specific combination of IDF 4 with gcc 5.2. You'll have to implement the gcc 5.2 toolchain from an IDF 3.2 install into the IDF 4 directory in order to successfully compile it</strong>
+*********************
+
+	
 TODO
 - when IP changes, best is to reboot at this point
 
@@ -19,6 +24,12 @@ nvs_set autoexec1 str -v "join \<SSID\> \<password\>"
 
 nvs_set autoexec2 str -v "squeezelite -o I2S -b 500:2000 -d all=info -m ESP32"
 
+nvs_set autoexec2 str -v "squeezelite -o SPDIF -R -b 500:2000 -d all=info -m ESP32"
+
+nvs_set autoexec2 str -v "squeezelite -o \\"BT -n '\<sinkname\>' \\" -R -b 500:2000 -d all=info -m ESP32"
+
+(for BT and SPDIF, the -R option allows resampling)
+
 3/ enable autoexec
 
 nvs_set autoexec u8 -v 1		
@@ -32,15 +43,21 @@ The "join" and "squeezelite" commands can also be typed at the prompt to start m
 
 The squeezelite options are very similar to the regular Linux ones. Differences are :
 
-	- the output is -o [\"BT -n <sinkname>\"] | [I2S]
+	- the output is -o [\"BT -n '<sinkname>' \"] | [I2S]
 	
 	- if you've compiled with RESAMPLE option, normal soxr options are available using -R [-u <options>]. Note that anything above LQ or MQ will overload the CPU
 	
 	- if you've used RESAMPLE16, <options> are (b|l|m)[:i], with b = basic linear interpolation, l = 13 taps, m = 21 taps, i = interpolate filter coefficients
 	
-To add options that require quotes ("), escape them with \". For example, so use a BT speaker named MySpeaker and resample everything to 44100 (which is needed with Bluetooth) and use 16 bits resample with medium quality, the command line is:
+To add options that require quotes ("), escape them with \\". For example, so use a BT speaker named MySpeaker, accept audio up to 192kHz and resample everything to 44100 and use 16 bits resample with medium quality, the command line is:
 
-nvs_set autoexec2 str -v "squeezelite -o \"BT -n 'MySpeaker'\" -b 500:2000 -R -u m -Z 192000 -r \"44100-44100\""
+nvs_set autoexec2 str -v "squeezelite -o \\"BT -n 'BT \<sinkname\>'\\" -b 500:2000 -R -u m -Z 192000 -r \"44100-44100\"
+
+See squeezlite command line, but keys options are
+
+	- Z <rate> : tell LMS what is the max sample rate supported before LMS resamples
+	- R (see above)
+	- r \"<minrate>-<maxrate>\"
 
 # Additional misc notes to do you build
 - as of this writing, ESP-IDF has a bug int he way the PLL values are calculated for i2s, so you *must* use the i2s.c file in the patch directory
