@@ -88,15 +88,17 @@ void set_volume(unsigned left, unsigned right) {
 
 bool test_open(const char *device, unsigned rates[], bool userdef_rates) {
 	memset(rates, 0, MAX_SUPPORTED_SAMPLERATES * sizeof(unsigned));
-	if (!strcasecmp(device, "BT")) {
-		rates[0] = 44100;	
-	} if (!strcasecmp(device, "SPDIF")) {
+	if (!strcasecmp(device, "I2S")) {
+		unsigned _rates[] = { 192000, 176400, 96000, 88200, 48000, 
+							  44100, 32000, 24000, 22050, 16000, 
+							  12000, 11025, 8000, 0 };	
+		memcpy(rates, _rates, sizeof(_rates));
+	} else if (!strcasecmp(device, "SPDIF")) {
 		unsigned _rates[] = { 48000, 44100, 0 };	
 		memcpy(rates, _rates, sizeof(_rates));
 	} else {
-		unsigned _rates[] = { 192000, 176400, 96000, 88200, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 0 };	
-		memcpy(rates, _rates, sizeof(_rates));
-	}
+		rates[0] = 44100;	
+	}	
 	return true;
 }
 
