@@ -25,10 +25,6 @@ XMT - 3.3V
 Use the `squeezelite-esp32-I2S-4MFlash-sdkconfig.defaults` configuration file.
 
 ## Setting up ESP-IDF
-*********************
-<strong>Currently this project requires a specific combination of IDF 4 with gcc 5.2. You'll have to implement the gcc 5.2 toolchain from an IDF 3.2 install into the IDF 4 directory in order to successfully compile it</strong>
-*********************
-
 ### Docker
 You can use docker to build squeezelite-esp32  
 First you need to build the Docker container:
@@ -43,13 +39,12 @@ The above command will mount this repo into the docker container and start a bas
 for you to then follow the below build steps
 
 ### Manual Install of ESP-IDF
+<strong>Currently this project requires a specific combination of IDF 4 with gcc 5.2. You'll have to implement the gcc 5.2 toolchain from an IDF 3.2 install into the IDF 4 directory in order to successfully compile it</strong>
 You can install IDF manually on Linux or Windows (using the Subsystem for Linux) following the instructions at: https://www.instructables.com/id/ESP32-Development-on-Windows-Subsystem-for-Linux/
 And then copying the i2s.c patch file from this repo over to the esp-idf folder
 
 ## Building Squeezelite-esp32
-*********************
-<strong>Note that the master branch is quite outdated. Check out the other branches for more up to date code and build instructions</strong>
-*********************
+<strong>Note: that the master branch is quite outdated. Check out the other branches for more up to date code and build instructions</strong>
 
 TODO
 - when IP changes, best is to reboot at this point
