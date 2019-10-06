@@ -44,7 +44,7 @@ You can install IDF manually on Linux or Windows (using the Subsystem for Linux)
 And then copying the i2s.c patch file from this repo over to the esp-idf folder
 
 ## Building Squeezelite-esp32
-<strong>Note: that the master branch is quite outdated. Check out the other branches for more up to date code and build instructions</strong>
+<strong>Note: the master branch is quite outdated. Check out the other branches for more up to date code and build instructions</strong>
 
 TODO
 - when IP changes, best is to reboot at this point
