@@ -59,9 +59,13 @@ make menuconfig
 ```
 Then you will need to build the recovery binary and squeezelite binary:
 ```
+# Build recovery.bin, bootloader.bin, ota_data_initial.bin, partitions.bin  
 PROJECT_NAME="recovery" make -j4 all EXTRA_CPPFLAGS='-DRECOVERY_APPLICATION=1'
+# Now force a rebuild by touching all the files which may have a RECOVERY_APPLICATION specific source compile logic
 find . \( -name "*.cpp" -o -name "*.c" -o -name "*.h" \) -type f -print0 | xargs -0 grep -l "RECOVERY_APPLICATION" | xargs touch
+# Build squeezelite.bin
 PROJECT_NAME="squeezelite" make -j4 app EXTRA_CPPFLAGS='-DRECOVERY_APPLICATION=0'
+
 make flash monitor
 ```
 
