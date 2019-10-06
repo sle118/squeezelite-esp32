@@ -40,11 +40,14 @@ for you to then follow the below build steps
 
 ### Manual Install of ESP-IDF
 <strong>Currently this project requires a specific combination of IDF 4 with gcc 5.2. You'll have to implement the gcc 5.2 toolchain from an IDF 3.2 install into the IDF 4 directory in order to successfully compile it</strong>
+
 You can install IDF manually on Linux or Windows (using the Subsystem for Linux) following the instructions at: https://www.instructables.com/id/ESP32-Development-on-Windows-Subsystem-for-Linux/
 And then copying the i2s.c patch file from this repo over to the esp-idf folder
 
 ## Building Squeezelite-esp32
+*****************
 <strong>Note: the master branch is quite outdated. Check out the other branches for more up to date code and build instructions</strong>
+*****************
 
 TODO
 - when IP changes, best is to reboot at this point
@@ -103,7 +106,7 @@ See squeezlite command line, but keys options are
 	- R (see above)
 	- r \"<minrate>-<maxrate>\"
 
-# Additional misc notes to do you build
+## Additional misc notes to do you build
 - as of this writing, ESP-IDF has a bug int he way the PLL values are calculated for i2s, so you *must* use the i2s.c file in the patch directory
 - for all libraries, add -mlongcalls.
 - audio libraries are complicated to rebuild, open an issue if you really want to
