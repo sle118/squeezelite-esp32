@@ -50,14 +50,20 @@ nvs_set autoexec1 str -v "squeezelite -o \"BT -n 'MySpeaker'\" -b 500:2000 -R -u
 
 # Building Squeezelite-esp32
 MOST IMPORTANT: create the right default config file
-- make defconfig
+```
+make defconfig
+```
 Then adapt the config file to your wifi/BT/I2C device (can alos be done on the command line)
-- make menuconfig
+```
+make menuconfig
+```
 Then you will need to build the recovery binary and squeezelite binary:
-- PROJECT_NAME="recovery" make -j4 all EXTRA_CPPFLAGS='-DRECOVERY_APPLICATION=1'
-- find . \( -name "*.cpp" -o -name "*.c" -o -name "*.h" \) -type f -print0 | xargs -0 grep -l "RECOVERY_APPLICATION" | xargs touch
-- PROJECT_NAME="squeezelite" make -j4 app EXTRA_CPPFLAGS='-DRECOVERY_APPLICATION=0'
-- make flash monitor
+```
+PROJECT_NAME="recovery" make -j4 all EXTRA_CPPFLAGS='-DRECOVERY_APPLICATION=1'
+find . \( -name "*.cpp" -o -name "*.c" -o -name "*.h" \) -type f -print0 | xargs -0 grep -l "RECOVERY_APPLICATION" | xargs touch
+PROJECT_NAME="squeezelite" make -j4 app EXTRA_CPPFLAGS='-DRECOVERY_APPLICATION=0'
+make flash monitor
+```
 
 Once the application is running, under monitor, you can monitor the system activity. 
 
