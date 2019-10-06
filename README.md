@@ -6,21 +6,21 @@ Works with the SqueezeAMP see [here](https://forums.slimdevices.com/showthread.p
 Use the `squeezelite-esp32-SqueezeAmp-sdkconfig.defaults` configuration file.
 
 ### ESP32-WROVER + I2S DAC
-Squeezelite-esp32 requires esp32 chipset and 4MB PSRAM. ESP32-WROVER meets these requirements. 
+Squeezelite-esp32 requires esp32 chipset and 4MB PSRAM. ESP32-WROVER meets these requirements.  
 To get an audio output an I2S DAC can be used. Cheap PCM5102 I2S DACs work others may also work. PCM5012 DACs can be hooked up via:
 
-I2S - WROVER
-VCC - 3.3V
-3.3V - 3.3V
-GND - GND
-FLT - GND
-DMP - GND
-SCL - GND
-BCK - 26
-DIN - 22
-LCK - 25
-FMT - GND
-XMT - 3.3V
+I2S - WROVER  
+VCC - 3.3V  
+3.3V - 3.3V  
+GND - GND  
+FLT - GND  
+DMP - GND  
+SCL - GND  
+BCK - 26  
+DIN - 22  
+LCK - 25  
+FMT - GND  
+XMT - 3.3V 
 
 Use the `squeezelite-esp32-I2S-4MFlash-sdkconfig.defaults` configuration file.
 
@@ -30,7 +30,7 @@ Use the `squeezelite-esp32-I2S-4MFlash-sdkconfig.defaults` configuration file.
 *********************
 
 ### Docker
-You can use docker to build squeezelite-esp32
+You can use docker to build squeezelite-esp32  
 First you need to build the Docker container:
 ```
 docker build -t esp-idf .
