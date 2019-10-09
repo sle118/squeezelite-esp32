@@ -1,4 +1,4 @@
-/* 
+/*
  *  Squeezelite for esp32
  *
  *  (c) Sebastien 2019
@@ -8,7 +8,7 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -18,8 +18,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
- 
-/* 
+
+/*
 Synchronisation is a bit of a hack with i2s. The esp32 driver is always
 full when it starts, so there is a delay of the total length of buffers.
 In other words, i2w_write blocks at first call, until at least one buffer
@@ -28,14 +28,14 @@ has been written (it uses a queue with produce / consume).
 The first hack is to consume that length at the beginning of tracks when
 synchronization is active. It's about ~180ms @ 44.1kHz
 
-The second hack is that we never know exactly the number of frames in the 
+The second hack is that we never know exactly the number of frames in the
 DMA buffers when we update the output.frames_played_dmp. We assume that
 after i2s_write, these buffers are always full so by measuring the gap
 between time after i2s_write and update of frames_played_dmp, we have a
-good idea of the error. 
+good idea of the error.
 
 The third hack is when sample rate changes, buffers are reset and we also
-do the change too early, but can't do that exaclty at the right time. So 
+do the change too early, but can't do that exaclty at the right time. So
 there might be a pop and a de-sync when sampling rate change happens. Not
 sure that using rate_delay would fix that
 */
@@ -49,6 +49,8 @@ sure that using rate_delay would fix that
 #include <signal.h>
 #include "time.h"
 #include "led.h"
+#include "audio_hal.h"
+#include "ac101.h"
 
 #define LOCK   mutex_lock(outputbuf->mutex)
 #define UNLOCK mutex_unlock(outputbuf->mutex)
@@ -86,7 +88,7 @@ sure that using rate_delay would fix that
 typedef enum { DAC_ON = 0, DAC_OFF, DAC_POWERDOWN, DAC_VOLUME } dac_cmd_e;
 
 // must have an integer ratio with FRAME_BLOCK (see spdif comment)
-#define DMA_BUF_LEN		512	
+#define DMA_BUF_LEN		512
 #define DMA_BUF_COUNT	12
 
 #define DECLARE_ALL_MIN_MAX 	\
@@ -102,7 +104,7 @@ typedef enum { DAC_ON = 0, DAC_OFF, DAC_POWERDOWN, DAC_VOLUME } dac_cmd_e;
 	RESET_MIN_MAX(rec);	\
 	RESET_MIN_MAX(i2s_time);	\
 	RESET_MIN_MAX(buffering);
-	
+
 #define STATS_PERIOD_MS 5000
 
 extern struct outputstate output;
@@ -134,18 +136,18 @@ static void spdif_convert(ISAMPLE_T *src, size_t frames, u32_t *dst, size_t *cou
 
 #define TAS575x
 
-#undef	CONFIG_I2S_BCK_IO 
+#undef	CONFIG_I2S_BCK_IO
 #define CONFIG_I2S_BCK_IO 	33
-#undef 	CONFIG_I2S_WS_IO	
+#undef 	CONFIG_I2S_WS_IO
 #define CONFIG_I2S_WS_IO	25
 #undef 	CONFIG_I2S_DO_IO
 #define CONFIG_I2S_DO_IO	32
 #undef 	CONFIG_I2S_NUM
 #define CONFIG_I2S_NUM		0
 
-#undef	CONFIG_SPDIF_BCK_IO 
+#undef	CONFIG_SPDIF_BCK_IO
 #define CONFIG_SPDIF_BCK_IO 33
-#undef 	CONFIG_SPDIF_WS_IO	
+#undef 	CONFIG_SPDIF_WS_IO
 #define CONFIG_SPDIF_WS_IO	25
 #undef 	CONFIG_SPDIF_DO_IO
 #define CONFIG_SPDIF_DO_IO	15
@@ -163,12 +165,12 @@ struct tas575x_cmd_s {
 };
 
 u8_t config_spdif_gpio = CONFIG_SPDIF_DO_IO;
-	
+
 static const struct tas575x_cmd_s tas575x_init_sequence[] = {
     { 0x00, 0x00 },		// select page 0
     { 0x02, 0x10 },		// standby
     { 0x0d, 0x10 },		// use SCK for PLL
-    { 0x25, 0x08 },		// ignore SCK halt 
+    { 0x25, 0x08 },		// ignore SCK halt
 	{ 0x02, 0x00 },		// restart
 	{ 0xff, 0xff }		// end of table
 };
@@ -189,29 +191,30 @@ static const struct tas575x_cmd_s tas575x_cmd[] = {
 };
 #endif
 
+
 /****************************************************************************************
  * Initialize the DAC output
  */
 void output_init_i2s(log_level level, char *device, unsigned output_buf_size, char *params, unsigned rates[], unsigned rate_delay, unsigned idle) {
 	loglevel = level;
-	
+
 #ifdef TAS575x
 	gpio_pad_select_gpio(JACK_GPIO);
 	gpio_set_direction(JACK_GPIO, GPIO_MODE_INPUT);
-			
+
 	adc1_config_width(ADC_WIDTH_BIT_12);
     adc1_config_channel_atten(ADC1_CHANNEL_7, ADC_ATTEN_DB_0);
-    			
+
 	// init volume & mute
 	gpio_pad_select_gpio(VOLUME_GPIO);
 	gpio_set_direction(VOLUME_GPIO, GPIO_MODE_OUTPUT);
 	gpio_set_level(VOLUME_GPIO, 0);
-	
+
 	// configure i2c
 	i2c_param_config(I2C_PORT, &i2c_config);
 	i2c_driver_install(I2C_PORT, I2C_MODE_MASTER, false, false, false);
 	i2c_cmd_handle_t i2c_cmd = i2c_cmd_link_create();
-	
+
 	for (int i = 0; tas575x_init_sequence[i].reg != 0xff; i++) {
 		i2c_master_start(i2c_cmd);
 		i2c_master_write_byte(i2c_cmd, I2C_ADDR << 1 | I2C_MASTER_WRITE, I2C_MASTER_NACK);
@@ -221,15 +224,25 @@ void output_init_i2s(log_level level, char *device, unsigned output_buf_size, ch
 		LOG_DEBUG("i2c write %x at %u", tas575x_init_sequence[i].reg, tas575x_init_sequence[i].value);
 	}
 
-	i2c_master_stop(i2c_cmd);	
+	i2c_master_stop(i2c_cmd);
 	esp_err_t ret = i2c_master_cmd_begin(I2C_PORT, i2c_cmd, 500 / portTICK_RATE_MS);
     i2c_cmd_link_delete(i2c_cmd);
-	
+
 	if (ret != ESP_OK) {
 		LOG_ERROR("could not intialize TAS575x %d", ret);
 	}
-#endif	
-	
+#endif
+
+// Setup AC101
+// TODO: This is the wrong place for it
+// TODO: This should behind a build flag
+audio_hal_codec_config_t audio_hal_codec_cfg = AUDIO_HAL_AC101_DEFAULT();
+ac101_init(&audio_hal_codec_cfg);
+ac101_config_i2s(audio_hal_codec_cfg.dac_output, &audio_hal_codec_cfg.i2s_iface);
+ac101_ctrl_state(audio_hal_codec_cfg.dac_output, AUDIO_HAL_CTRL_START);
+ac101_set_voice_volume(255);
+
+
 #ifdef CONFIG_I2S_BITS_PER_CHANNEL
 	switch (CONFIG_I2S_BITS_PER_CHANNEL) {
 		case 24:
@@ -261,53 +274,53 @@ void output_init_i2s(log_level level, char *device, unsigned output_buf_size, ch
 		LOG_ERROR("Cannot allocate i2s buffer");
 		return;
 	}
-		
+
 	running=true;
 
 	i2s_pin_config_t pin_config;
-	
+
 	if (spdif) {
-		pin_config = (i2s_pin_config_t) { .bck_io_num = CONFIG_SPDIF_BCK_IO, .ws_io_num = CONFIG_SPDIF_WS_IO, 
+		pin_config = (i2s_pin_config_t) { .bck_io_num = CONFIG_SPDIF_BCK_IO, .ws_io_num = CONFIG_SPDIF_WS_IO,
 										  .data_out_num = CONFIG_SPDIF_DO_IO, .data_in_num = -1 //Not used
 									};
 		i2s_config.sample_rate = output.current_sample_rate * 2;
 		i2s_config.bits_per_sample = 32;
 		// Normally counted in frames, but 16 sample are transformed into 32 bits in spdif
-		i2s_config.dma_buf_len = DMA_BUF_LEN / 2;	
+		i2s_config.dma_buf_len = DMA_BUF_LEN / 2;
 		i2s_config.dma_buf_count = DMA_BUF_COUNT * 2;
-		/* 
-		   In DMA, we have room for (LEN * COUNT) frames of 32 bits samples that 
+		/*
+		   In DMA, we have room for (LEN * COUNT) frames of 32 bits samples that
 		   we push at sample_rate * 2. Each of these peuso-frames is a single true
 		   audio frame. So the real depth is true frames is (LEN * COUNT / 2)
-		*/   
-		dma_buf_frames = DMA_BUF_COUNT * DMA_BUF_LEN / 2;	
+		*/
+		dma_buf_frames = DMA_BUF_COUNT * DMA_BUF_LEN / 2;
 	} else {
-		pin_config = (i2s_pin_config_t) { .bck_io_num = CONFIG_I2S_BCK_IO, .ws_io_num = CONFIG_I2S_WS_IO, 
+		pin_config = (i2s_pin_config_t) { .bck_io_num = CONFIG_I2S_BCK_IO, .ws_io_num = CONFIG_I2S_WS_IO,
 										.data_out_num = CONFIG_I2S_DO_IO, .data_in_num = -1 //Not used
 									};
 		i2s_config.sample_rate = output.current_sample_rate;
 		i2s_config.bits_per_sample = bytes_per_frame * 8 / 2;
 		// Counted in frames (but i2s allocates a buffer <= 4092 bytes)
-		i2s_config.dma_buf_len = DMA_BUF_LEN;	
+		i2s_config.dma_buf_len = DMA_BUF_LEN;
 		i2s_config.dma_buf_count = DMA_BUF_COUNT;
-		dma_buf_frames = DMA_BUF_COUNT * DMA_BUF_LEN;	
-#ifdef TAS575x	
+		dma_buf_frames = DMA_BUF_COUNT * DMA_BUF_LEN;
+#ifdef TAS575x
 		gpio_pad_select_gpio(CONFIG_SPDIF_DO_IO);
 		gpio_set_direction(CONFIG_SPDIF_DO_IO, GPIO_MODE_OUTPUT);
 		gpio_set_level(CONFIG_SPDIF_DO_IO, 0);
-#endif			
+#endif
 	}
 
 	i2s_config.mode = I2S_MODE_MASTER | I2S_MODE_TX;
 	i2s_config.channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT;
 	i2s_config.communication_format = I2S_COMM_FORMAT_I2S| I2S_COMM_FORMAT_I2S_MSB;
 	// in case of overflow, do not replay old buffer
-	i2s_config.tx_desc_auto_clear = true;		
+	i2s_config.tx_desc_auto_clear = true;
 	i2s_config.use_apll = true;
 	i2s_config.intr_alloc_flags = ESP_INTR_FLAG_LEVEL1; //Interrupt level 1
 
-	LOG_INFO("Initializing I2S mode %s with rate: %d, bits per sample: %d, buffer frames: %d, number of buffers: %d ", 
-			spdif ? "S/PDIF" : "normal", 
+	LOG_INFO("Initializing I2S mode %s with rate: %d, bits per sample: %d, buffer frames: %d, number of buffers: %d ",
+			spdif ? "S/PDIF" : "normal",
 			i2s_config.sample_rate, i2s_config.bits_per_sample, i2s_config.dma_buf_len, i2s_config.dma_buf_count);
 
 	i2s_driver_install(CONFIG_I2S_NUM, &i2s_config, 0, NULL);
@@ -315,21 +328,21 @@ void output_init_i2s(log_level level, char *device, unsigned output_buf_size, ch
 	i2s_stop(CONFIG_I2S_NUM);
 	i2s_zero_dma_buffer(CONFIG_I2S_NUM);
 	isI2SStarted=false;
-	
+
 	dac_cmd(DAC_OFF);
 
 	esp_pthread_cfg_t cfg = esp_pthread_get_default_config();
-	
+
     cfg.thread_name= "output_i2s";
     cfg.inherit_cfg = false;
 	cfg.prio = CONFIG_ESP32_PTHREAD_TASK_PRIO_DEFAULT + 1;
     cfg.stack_size = PTHREAD_STACK_MIN + OUTPUT_THREAD_STACK_SIZE;
     esp_pthread_set_cfg(&cfg);
 	pthread_create(&thread, NULL, output_thread_i2s, NULL);
-	
+
 	cfg.thread_name= "output_i2s_sts";
 	cfg.prio = CONFIG_ESP32_PTHREAD_TASK_PRIO_DEFAULT - 1;
-    cfg.stack_size = 2048;	
+    cfg.stack_size = 2048;
 	esp_pthread_set_cfg(&cfg);
 	pthread_create(&stats_thread, NULL, output_thread_i2s_stats, NULL);
 }
@@ -344,55 +357,55 @@ void output_close_i2s(void) {
 	UNLOCK;
 	pthread_join(thread, NULL);
 	pthread_join(stats_thread, NULL);
-	
+
 	i2s_driver_uninstall(CONFIG_I2S_NUM);
 	free(obuf);
-	
-#ifdef TAS575x	
+
+#ifdef TAS575x
 	i2c_driver_delete(I2C_PORT);
-#endif	
+#endif
 }
 
 /****************************************************************************************
  * change volume
  */
 bool output_volume_i2s(unsigned left, unsigned right) {
-#ifdef TAS575x	
+#ifdef TAS575x
 	if (!spdif) gpio_set_level(VOLUME_GPIO, left || right);
-#endif	
- return false;	
-} 
-	
+#endif
+ return false;
+}
+
 
 /****************************************************************************************
  * Write frames to the output buffer
  */
 static int _i2s_write_frames(frames_t out_frames, bool silence, s32_t gainL, s32_t gainR,
 								s32_t cross_gain_in, s32_t cross_gain_out, ISAMPLE_T **cross_ptr) {
-#if BYTES_PER_FRAME == 8									
+#if BYTES_PER_FRAME == 8
 	s32_t *optr;
-#endif	
-	
+#endif
+
 	if (!silence) {
 		if (output.fade == FADE_ACTIVE && output.fade_dir == FADE_CROSS && *cross_ptr) {
 			_apply_cross(outputbuf, out_frames, cross_gain_in, cross_gain_out, cross_ptr);
 		}
-		
+
 #if BYTES_PER_FRAME == 4
 		if (gainL != FIXED_ONE || gainR!= FIXED_ONE) {
 			_apply_gain(outputbuf, out_frames, gainL, gainR);
 		}
-			
+
 		memcpy(obuf + oframes * bytes_per_frame, outputbuf->readp, out_frames * bytes_per_frame);
 #else
-		optr = (s32_t*) outputbuf->readp;	
-#endif		
+		optr = (s32_t*) outputbuf->readp;
+#endif
 	} else {
-#if BYTES_PER_FRAME == 4		
+#if BYTES_PER_FRAME == 4
 		memcpy(obuf + oframes * bytes_per_frame, silencebuf, out_frames * bytes_per_frame);
-#else		
+#else
 		optr = (s32_t*) silencebuf;
-#endif	
+#endif
 	}
 
 #if BYTES_PER_FRAME == 8
@@ -404,7 +417,7 @@ static int _i2s_write_frames(frames_t out_frames, bool silence, s32_t gainL, s32
 	)
 
 	_scale_and_pack_frames(obuf + oframes * bytes_per_frame, optr, out_frames, gainL, gainR, output.format);
-#endif	
+#endif
 
 	oframes += out_frames;
 
@@ -423,16 +436,16 @@ static void *output_thread_i2s() {
 	bool synced;
 	output_state state = OUTPUT_OFF;
 	char *sbuf = NULL;
-	
+
 	// spdif needs 16 bytes per frame : 32 bits/sample, 2 channels, BMC encoded
 	if (spdif && (sbuf = malloc(FRAME_BLOCK * 16)) == NULL) {
 		LOG_ERROR("Cannot allocate SPDIF buffer");
 	}
-	
+
 	while (running) {
-			
+
 		TIME_MEASUREMENT_START(timer_start);
-		
+
 		LOCK;
 		if(jack_mutes_amp){
 			// todo: implement some muting logic
@@ -445,7 +458,7 @@ static void *output_thread_i2s() {
 			else if (output.state == OUTPUT_RUNNING) led_on(LED_GREEN);
 		}
 		state = output.state;
-		
+
 		if (output.state == OUTPUT_OFF) {
 			UNLOCK;
 			if (isI2SStarted) {
@@ -459,7 +472,7 @@ static void *output_thread_i2s() {
 		} else if (output.state == OUTPUT_STOPPED) {
 			synced = false;
 		}
-		
+
 		oframes = 0;
 		output.updated = gettime_ms();
 		output.frames_played_dmp = output.frames_played;
@@ -468,14 +481,14 @@ static void *output_thread_i2s() {
 		_output_frames( iframes );
 		// oframes must be a global updated by the write callback
 		output.frames_in_process = oframes;
-						
+
 		SET_MIN_MAX_SIZED(oframes,rec,iframes);
 		SET_MIN_MAX_SIZED(_buf_used(outputbuf),o,outputbuf->size);
 		SET_MIN_MAX_SIZED(_buf_used(streambuf),s,streambuf->size);
 		SET_MIN_MAX( TIME_MEASUREMENT_GET(timer_start),buffering);
-		
-		/* must skip first whatever is in the pipe (but not when resuming). 
-		This test is incorrect when we pause a track that has just started, 
+
+		/* must skip first whatever is in the pipe (but not when resuming).
+		This test is incorrect when we pause a track that has just started,
 		but this is higly unlikely and I don't have a better one for now */
 		if (output.state == OUTPUT_START_AT) {
 			discard = output.frames_played_dmp ? 0 : output.device_frames;
@@ -486,56 +499,56 @@ static void *output_thread_i2s() {
 			UNLOCK;
 			continue;
 		}
-		
+
 		UNLOCK;
-		
+
 		// now send all the data
 		TIME_MEASUREMENT_START(timer_start);
-		
+
 		if (!isI2SStarted ) {
 			isI2SStarted = true;
 			LOG_INFO("Restarting I2S.");
 			i2s_zero_dma_buffer(CONFIG_I2S_NUM);
 			i2s_start(CONFIG_I2S_NUM);
-			if (!spdif) dac_cmd(DAC_ON);	
-		} 
-		
+			if (!spdif) dac_cmd(DAC_ON);
+		}
+
 		// this does not work well as set_sample_rates resets the fifos (and it's too early)
 		if (i2s_config.sample_rate != output.current_sample_rate) {
 			LOG_INFO("changing sampling rate %u to %u", i2s_config.sample_rate, output.current_sample_rate);
-			/* 
+			/*
 			if (synced)
 				//  can sleep for a buffer_queue - 1 and then eat a buffer (discard) if we are synced
 				usleep(((DMA_BUF_COUNT - 1) * DMA_BUF_LEN * bytes_per_frame * 1000) / 44100 * 1000);
 				discard = DMA_BUF_COUNT * DMA_BUF_LEN * bytes_per_frame;
-			}	
+			}
 			*/
 			i2s_config.sample_rate = output.current_sample_rate;
 			i2s_set_sample_rates(CONFIG_I2S_NUM, spdif ? i2s_config.sample_rate * 2 : i2s_config.sample_rate);
 			i2s_zero_dma_buffer(CONFIG_I2S_NUM);
 			//return;
 		}
-		
+
 		// we assume that here we have been able to entirely fill the DMA buffers
 		if (spdif) {
 			spdif_convert((ISAMPLE_T*) obuf, oframes, (u32_t*) sbuf, &count);
 			i2s_write(CONFIG_I2S_NUM, sbuf, oframes * 16, &bytes, portMAX_DELAY);
 			bytes /= 4;
 		} else {
-			i2s_write(CONFIG_I2S_NUM, obuf, oframes * bytes_per_frame, &bytes, portMAX_DELAY);			
-		}	
+			i2s_write(CONFIG_I2S_NUM, obuf, oframes * bytes_per_frame, &bytes, portMAX_DELAY);
+		}
 		fullness = gettime_ms();
-			
+
 		if (bytes != oframes * bytes_per_frame) {
 			LOG_WARN("I2S DMA Overflow! available bytes: %d, I2S wrote %d bytes", oframes * bytes_per_frame, bytes);
 		}
-		
+
 		SET_MIN_MAX( TIME_MEASUREMENT_GET(timer_start),i2s_time);
-		
+
 	}
-	
+
 	if (spdif) free(sbuf);
-	
+
 	return 0;
 }
 
@@ -544,9 +557,9 @@ static void *output_thread_i2s() {
  */
 static void *output_thread_i2s_stats() {
 	while (running) {
-#ifdef TAS575x		
+#ifdef TAS575x
 		LOG_ERROR("Jack %d Voltage %.2fV", !gpio_get_level(JACK_GPIO), adc1_get_raw(ADC1_CHANNEL_7) / 4095. * (10+174)/10. * 1.1);
-#endif		
+#endif
 		LOCK;
 		output_state state = output.state;
 		UNLOCK;
@@ -570,7 +583,7 @@ static void *output_thread_i2s_stats() {
 			LOG_INFO("              ----------+----------+-----------+-----------+");
 			RESET_ALL_MIN_MAX;
 		}
-		LOG_INFO("Heap internal:%zu (min:%zu) external:%zu (min:%zu)", 
+		LOG_INFO("Heap internal:%zu (min:%zu) external:%zu (min:%zu)",
 					heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
 					heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL),
 					heap_caps_get_free_size(MALLOC_CAP_SPIRAM),
@@ -586,9 +599,9 @@ static void *output_thread_i2s_stats() {
 void dac_cmd(dac_cmd_e cmd, ...) {
 	va_list args;
 	esp_err_t ret = ESP_OK;
-	
+
 	va_start(args, cmd);
-#ifdef TAS575x	
+#ifdef TAS575x
 	i2c_cmd_handle_t i2c_cmd = i2c_cmd_link_create();
 
 	switch(cmd) {
@@ -600,23 +613,23 @@ void dac_cmd(dac_cmd_e cmd, ...) {
 		i2c_master_write_byte(i2c_cmd, I2C_ADDR << 1 | I2C_MASTER_WRITE, I2C_MASTER_NACK);
 		i2c_master_write_byte(i2c_cmd, tas575x_cmd[cmd].reg, I2C_MASTER_NACK);
 		i2c_master_write_byte(i2c_cmd, tas575x_cmd[cmd].value, I2C_MASTER_NACK);
-		i2c_master_stop(i2c_cmd);	
+		i2c_master_stop(i2c_cmd);
 		ret	= i2c_master_cmd_begin(I2C_PORT, i2c_cmd, 50 / portTICK_RATE_MS);
 	}
-	
+
     i2c_cmd_link_delete(i2c_cmd);
-	
+
 	if (ret != ESP_OK) {
 		LOG_ERROR("could not intialize TAS575x %d", ret);
 	}
-#endif	
+#endif
 	va_end(args);
 }
 
 /****************************************************************************************
  * SPDIF support
  */
- 
+
 #define PREAMBLE_B  (0xE8) //11101000
 #define PREAMBLE_M  (0xE2) //11100010
 #define PREAMBLE_W  (0xE4) //11100100
@@ -626,29 +639,29 @@ void dac_cmd(dac_cmd_e cmd, ...) {
 
 extern const u16_t spdif_bmclookup[256];
 
-/* 
- SPDIF is supposed to be (before BMC encoding, from LSB to MSB)				
-	PPPP AAAA  SSSS SSSS  SSSS SSSS  SSSS VUCP				
+/*
+ SPDIF is supposed to be (before BMC encoding, from LSB to MSB)
+	PPPP AAAA  SSSS SSSS  SSSS SSSS  SSSS VUCP
  after BMC encoding, each bits becomes 2 hence this becomes a 64 bits word. The
  the trick is to start not with a PPPP sequence but with an VUCP sequence to that
  the 16 bits samples are aligned with a BMC word boundary. Note that the LSB of the
- audio is transmitted first (not the MSB) and that ESP32 libray sends R then L, 
+ audio is transmitted first (not the MSB) and that ESP32 libray sends R then L,
  contrary to what seems to be usually done, so (dst) order had to be changed
 */
 void spdif_convert(ISAMPLE_T *src, size_t frames, u32_t *dst, size_t *count) {
 	u16_t hi, lo, aux;
-	
+
 	// frames are 2 channels of 16 bits
 	frames *= 2;
 
 	while (frames--) {
-#if BYTES_PER_FRAME == 4		
+#if BYTES_PER_FRAME == 4
 		hi  = spdif_bmclookup[(u8_t)(*src >> 8)];
 		lo  = spdif_bmclookup[(u8_t) *src];
 #else
 		hi  = spdif_bmclookup[(u8_t)(*src >> 24)];
 		lo  = spdif_bmclookup[(u8_t) *src >> 16];
-#endif	
+#endif
 		lo ^= ~((s16_t)hi) >> 16;
 
 		// 16 bits sample:
@@ -665,7 +678,7 @@ void spdif_convert(ISAMPLE_T *src, size_t frames, u32_t *dst, size_t *count) {
 		} else {
 			*(dst+1) = VUCP | ((((*count) & 0x01) ? PREAMBLE_W : PREAMBLE_M) << 16) | aux;
 		}
-		
+
 		src++;
 		dst += 2;
 	}
@@ -705,10 +718,3 @@ const u16_t spdif_bmclookup[256] = { //biphase mark encoded values (least signif
 	0xccaa, 0x4caa, 0x2caa, 0xacaa, 0x34aa, 0xb4aa, 0xd4aa, 0x54aa,
 	0x32aa, 0xb2aa, 0xd2aa, 0x52aa, 0xcaaa, 0x4aaa, 0x2aaa, 0xaaaa
 };
-
-
-
-
-
-
-
