@@ -1,11 +1,32 @@
-*********************
-<strong>Currently this project requires a specific combination of IDF 4 with gcc 5.2. You'll have to implement the gcc 5.2 toolchain from an IDF 3.2 install into the IDF 4 directory in order to successfully compile it</strong>
-*********************
+# Squeezelite-esp32
+## Supported Hardware 
+### SqueezeAMP
+Works with the SqueezeAMP see [here](https://forums.slimdevices.com/showthread.php?110926-pre-ANNOUNCE-SqueezeAMP-and-SqueezeliteESP32) and [here](https://github.com/philippe44/SqueezeAMP/blob/master/README.md)
+
+Use the `squeezelite-esp32-SqueezeAmp-sdkconfig.defaults` configuration file.
+
+### ESP32-WROVER + I2S DAC
+Squeezelite-esp32 requires esp32 chipset and 4MB PSRAM. ESP32-WROVER meets these requirements.  
+To get an audio output an I2S DAC can be used. Cheap PCM5102 I2S DACs work others may also work. PCM5012 DACs can be hooked up via:
+
+I2S - WROVER  
+VCC - 3.3V  
+3.3V - 3.3V  
+GND - GND  
+FLT - GND  
+DMP - GND  
+SCL - GND  
+BCK - 26  
+DIN - 22  
+LCK - 25  
+FMT - GND  
+XMT - 3.3V 
+
+Use the `squeezelite-esp32-I2S-4MFlash-sdkconfig.defaults` configuration file.
 
 ## Setting up ESP-IDF
-
 ### Docker
-You can use docker to build squeezelite-esp32
+You can use docker to build squeezelite-esp32  
 First you need to build the Docker container:
 ```
 docker build -t esp-idf .
@@ -18,10 +39,15 @@ The above command will mount this repo into the docker container and start a bas
 for you to then follow the below build steps
 
 ### Manual Install of ESP-IDF
+<strong>Currently this project requires a specific combination of IDF 4 with gcc 5.2. You'll have to implement the gcc 5.2 toolchain from an IDF 3.2 install into the IDF 4 directory in order to successfully compile it</strong>
+
 You can install IDF manually on Linux or Windows (using the Subsystem for Linux) following the instructions at: https://www.instructables.com/id/ESP32-Development-on-Windows-Subsystem-for-Linux/
 And then copying the i2s.c patch file from this repo over to the esp-idf folder
 
-## Building Repo
+## Building Squeezelite-esp32
+*****************
+<strong>Note: the master branch is quite outdated. Check out the other branches for more up to date code and build instructions</strong>
+*****************
 
 TODO
 - when IP changes, best is to reboot at this point
@@ -80,7 +106,7 @@ See squeezlite command line, but keys options are
 	- R (see above)
 	- r \"<minrate>-<maxrate>\"
 
-# Additional misc notes to do you build
+## Additional misc notes to do you build
 - as of this writing, ESP-IDF has a bug int he way the PLL values are calculated for i2s, so you *must* use the i2s.c file in the patch directory
 - for all libraries, add -mlongcalls.
 - audio libraries are complicated to rebuild, open an issue if you really want to
