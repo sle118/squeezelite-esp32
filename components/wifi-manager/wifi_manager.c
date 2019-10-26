@@ -164,8 +164,6 @@ void wifi_manager_start(){
 	/* disable the default wifi logging */
 	esp_log_level_set("wifi", ESP_LOG_NONE);
 
-	/* initialize flash memory */
-	nvs_flash_init();
 
 	/* memory allocation */
 	wifi_manager_queue = xQueueCreate( 3, sizeof( queue_message) );
@@ -307,10 +305,7 @@ bool wifi_manager_fetch_wifi_sta_config(){
 		ESP_LOGI(TAG, "wifi_manager_fetch_wifi_settings: sta_ip_addr: %s", ip4addr_ntoa(&wifi_settings.sta_static_ip_config.ip));
 		ESP_LOGI(TAG, "wifi_manager_fetch_wifi_settings: sta_gw_addr: %s", ip4addr_ntoa(&wifi_settings.sta_static_ip_config.gw));
 		ESP_LOGI(TAG, "wifi_manager_fetch_wifi_settings: sta_netmask: %s", ip4addr_ntoa(&wifi_settings.sta_static_ip_config.netmask));
-
 		return wifi_manager_config_sta->sta.ssid[0] != '\0';
-
-
 	}
 	else{
 		return false;
@@ -319,33 +314,48 @@ bool wifi_manager_fetch_wifi_sta_config(){
 }
 
 cJSON * wifi_manager_get_new_json(cJSON **old){
+	ESP_LOGD(TAG,"wifi_manager_get_new_json called");
 	cJSON * root=*old;
 	if(root!=NULL){
 	    cJSON_Delete(root);
 	    *old=NULL;
 	}
+	ESP_LOGD(TAG,"wifi_manager_get_new_json done");
 	 return cJSON_CreateObject();
 }
+cJSON * wifi_manager_get_basic_info(cJSON **old){
+	const esp_app_desc_t* desc = esp_ota_get_app_description();
+	ESP_LOGD(TAG,"wifi_manager_get_basic_info called");
+	cJSON *root = wifi_manager_get_new_json(old);
+	cJSON_AddItemToObject(root, "project_name", cJSON_CreateString(desc->project_name));
+	cJSON_AddItemToObject(root, "version", cJSON_CreateString(desc->version));
+	cJSON_AddNumberToObject(root,"recovery",	RECOVERY_APPLICATION	);
+	cJSON_AddItemToObject(root, "ota_dsc", cJSON_CreateString(ota_get_status()));
+	cJSON_AddNumberToObject(root,"ota_pct",	ota_get_pct_complete()	);
+	cJSON_AddItemToObject(root, "Jack", cJSON_CreateString(JACK_LEVEL));
+	cJSON_AddNumberToObject(root,"Voltage",	adc1_get_raw(ADC1_CHANNEL_7) / 4095. * (10+174)/10. * 1.1);
+	ESP_LOGD(TAG,"wifi_manager_get_basic_info done");
+	return root;
+}
 cJSON * wifi_manager_clear_ip_info_json(cJSON **old){
-	 cJSON *root = wifi_manager_get_new_json(old);
-// 	 cJSON_AddItemToObject(root, "message", cJSON_CreateString("Initializing"));
+	ESP_LOGD(TAG,"wifi_manager_clear_ip_info_json called");
+	cJSON *root = wifi_manager_get_basic_info(old);
+	ESP_LOGD(TAG,"wifi_manager_clear_ip_info_json done");
  	 return root;
 }
 
 
 void wifi_manager_generate_ip_info_json(update_reason_code_t update_reason_code){
+	ESP_LOGD(TAG,"wifi_manager_generate_ip_info_json called");
 	wifi_config_t *config = wifi_manager_get_wifi_sta_config();
-	ip_info_cjson = wifi_manager_get_new_json(&ip_info_cjson);
+	ip_info_cjson = wifi_manager_get_basic_info(&ip_info_cjson);
+
 	if(update_reason_code == UPDATE_OTA) {
 		update_reason_code = last_update_reason_code;
 	}
 	else {
 		last_update_reason_code = update_reason_code;
 	}
-	const esp_app_desc_t* desc = esp_ota_get_app_description();
-	cJSON_AddItemToObject(ip_info_cjson, "project_name", cJSON_CreateString(desc->project_name));
-	cJSON_AddItemToObject(ip_info_cjson, "version", cJSON_CreateString(desc->version));
-	cJSON_AddNumberToObject(ip_info_cjson,"recovery",	RECOVERY_APPLICATION	);
 	cJSON_AddNumberToObject(ip_info_cjson, "urc", update_reason_code);
 	if(config){
 		cJSON_AddItemToObject(ip_info_cjson, "ssid", cJSON_CreateString((char *)config->sta.ssid));
@@ -359,14 +369,7 @@ void wifi_manager_generate_ip_info_json(update_reason_code_t update_reason_code)
 			cJSON_AddItemToObject(ip_info_cjson, "gw", cJSON_CreateString(ip4addr_ntoa(&ip_info.gw)));
 		}
 	}
-
-
-	cJSON_AddItemToObject(ip_info_cjson, "ota_dsc", cJSON_CreateString(ota_get_status()));
-	cJSON_AddNumberToObject(ip_info_cjson,"ota_pct",	ota_get_pct_complete()	);
-
-	cJSON_AddItemToObject(ip_info_cjson, "Jack", cJSON_CreateString(JACK_LEVEL));
-	cJSON_AddNumberToObject(ip_info_cjson,"Voltage",	adc1_get_raw(ADC1_CHANNEL_7) / 4095. * (10+174)/10. * 1.1);
-
+	ESP_LOGD(TAG,"wifi_manager_generate_ip_info_json done");
 }
 
 
@@ -548,13 +551,15 @@ wifi_config_t* wifi_manager_get_wifi_sta_config(){
 	return wifi_manager_config_sta;
 }
 
+
+
 void wifi_manager_connect_async(){
 	/* in order to avoid a false positive on the front end app we need to quickly flush the ip json
 	 * There'se a risk the front end sees an IP or a password error when in fact
 	 * it's a remnant from a previous connection
 	 */
 	if(wifi_manager_lock_json_buffer( portMAX_DELAY )){
-		wifi_manager_clear_ip_info_json(&ip_info_cjson);
+		ip_info_cjson= wifi_manager_clear_ip_info_json(&ip_info_cjson);
 		wifi_manager_unlock_json_buffer();
 	}
 	wifi_manager_send_message(ORDER_CONNECT_STA, (void*)CONNECTION_REQUEST_USER);
@@ -780,22 +785,28 @@ void wifi_manager( void * pvParameters ){
 			case EVENT_SCAN_DONE:
 				/* As input param, it stores max AP number ap_records can hold. As output param, it receives the actual AP number this API returns.
 				 * As a consequence, ap_num MUST be reset to MAX_AP_NUM at every scan */
+				ESP_LOGD(TAG,"Getting AP list records");
 				ap_num = MAX_AP_NUM;
 				ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&ap_num, accessp_records));
 				/* make sure the http server isn't trying to access the list while it gets refreshed */
+				ESP_LOGD(TAG,"Preparing to build ap JSON list");
 				if(wifi_manager_lock_json_buffer( pdMS_TO_TICKS(1000) )){
 					/* Will remove the duplicate SSIDs from the list and update ap_num */
 					wifi_manager_filter_unique(accessp_records, &ap_num);
 					wifi_manager_generate_acess_points_json();
 					wifi_manager_unlock_json_buffer();
+					ESP_LOGD(TAG,"Done building ap JSON list");
 				}
 				else{
 					ESP_LOGE(TAG, "could not get access to json mutex in wifi_scan");
 				}
 
 				/* callback */
-				if(cb_ptr_arr[msg.code]) (*cb_ptr_arr[msg.code])(NULL);
-
+				if(cb_ptr_arr[msg.code]) {
+					ESP_LOGD(TAG,"Invoking SCAN DONE callback");
+					(*cb_ptr_arr[msg.code])(NULL);
+					ESP_LOGD(TAG,"Done Invoking SCAN DONE callback");
+				}
 				break;
 			case EVENT_REFRESH_OTA:
 				if(wifi_manager_lock_json_buffer( portMAX_DELAY )){

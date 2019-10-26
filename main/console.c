@@ -89,14 +89,6 @@ void process_autoexec(){
 	}
 }
 
-static void initialize_nvs() {
-	esp_err_t err = nvs_flash_init();
-	if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-		ESP_ERROR_CHECK(nvs_flash_erase());
-		err = nvs_flash_init();
-	}
-	ESP_ERROR_CHECK(err);
-}
 
 void initialize_console() {
 
@@ -151,8 +143,7 @@ void initialize_console() {
 }
 
 void console_start() {
-	initialize_nvs();
-	//initialize_filesystem();
+
 	initialize_console();
 
 	/* Register commands */

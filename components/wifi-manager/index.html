@@ -32,13 +32,13 @@
                 <a class="nav-link" data-toggle="tab" href="#tab-audio">Audio + LMS</a>
             </li>
             <li class="nav-item">
+                <a class="nav-link" data-toggle="tab" href="#tab-firmware">Firmware</a>
+            </li>
+            <li class="nav-item">
                 <a class="nav-link" data-toggle="tab" href="#tab-gpio">GPIO</a>
             </li>
             <li class="nav-item">
                 <a class="nav-link" data-toggle="tab" href="#tab-nvs">NVS editor</a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" data-toggle="tab" href="#tab-system">System</a>
             </li>
             <li class="nav-item">
                 <a class="nav-link" data-toggle="tab" href="#tab-credits">Credits</a>
@@ -268,7 +268,7 @@
                     </div>
                 </div>
 
-                <div class="tab-pane fade" id="tab-system">
+                <div class="tab-pane fade" id="tab-firmware">
                     <div id="boot-div">
                         <form id="boot-form" action="/recovery.json" method="post" target="dummyframe">
                             <button id="boot-button" type="submit" class="btn btn-primary">Recovery</button>
@@ -285,9 +285,9 @@
                         <thead>
                             <tr>
                                 <th scope="col">Firmware version</th>
-                                <th scope="col">IDF version</th>
                                 <th scope="col">Release date</th>
                                 <th scope="col">HW platform</th>
+                                <th scope="col">IDF version</th>
                                 <th scope="col">Branch</th>
                                 <th scope="col">Flash this FW</th>
                             </tr>
@@ -310,18 +310,19 @@
                 </div>
 
                 <div class="tab-pane fade" id="tab-credits">
-                    <section>
-                         <p><strong>squeezelite-esp32</strong>, &copy; 2019, philippe44, sle118, daduke<br />Licensed under the GPL</p>
+                    <div class="jumbotron">
+                        <p><strong><a href="https://github.com/sle118/squeezelite-esp32">squeezelite-esp32</a></strong>, &copy; 2019, philippe44, sle118, daduke<br />Licensed under the GPL</p>
                          <p>
                             This app would not be possible without the following libraries:
                         </p>
                         <ul>
+                            <li>squeezelite, &copy;  2012-2019, Adrian Smith and Ralph Irving. Licensed under the GPL License.</li>
                             <li>esp32-wifi-manager, &copy;  2017-2019, Tony Pottier. Licensed under the MIT License.</li>
                             <li>SpinKit, &copy;  2015, Tobias Ahlin. Licensed under the MIT License.</li>
                             <li>jQuery, The jQuery Foundation. Licensed under the MIT License.</li>
                             <li>cJSON, &copy; 2009-2017, Dave Gamble and cJSON contributors. Licensed under the MIT License.</li>
                         </ul>
-                    </section>
+                    </div>
                 </div>
 
             </div>

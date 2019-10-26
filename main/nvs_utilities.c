@@ -18,40 +18,6 @@ const char current_namespace[] = "config";
 const char settings_partition[] = "settings";
 static const char * TAG = "platform_esp32";
 
-bool isNameValid(char * key){
-	bool bFound=false;
-	nvs_handle nvs;
-	esp_err_t err;
-	int8_t val=0;
-
-	err = nvs_open(current_namespace, NVS_READONLY, &nvs);
-	if (err != ESP_OK) {
-		ESP_LOGE(TAG,"Error opening nvs storage for namespace %s",current_namespace);
-		return false;
-	}
-	err = nvs_get_i8(nvs, key,  &val);
-	if(err==ESP_OK || err== ESP_ERR_NVS_INVALID_LENGTH){
-		bFound=true;
-	}
-	else {
-		ESP_LOGD(TAG,"Search for key %s in namespace %s returned %#08X",key,current_namespace,err);
-	}
-//	 nvs_iterator_t it = nvs_entry_find(NVS_DEFAULT_PART_NAME, current_namespace, NVS_TYPE_ANY);
-//	  while (it != NULL) {
-//	          nvs_entry_info_t info;
-//	          nvs_entry_info(it, &info);
-//	          it = nvs_entry_next(it);
-//	          if(!strcmp(info.key,key)){
-//	        	  bFound=true;
-//	          }
-//	          printf("key '%s', type '%d' \n", info.key, info.type);
-//	  };
-//	  // Note: no need to release iterator obtained from nvs_entry_find function when
-//	  //       nvs_entry_find or nvs_entry_next function return NULL, indicating no other
-//	  //       element for specified criteria was found.
-	nvs_close(nvs);
-	  return bFound;
-}
 esp_err_t store_nvs_value(nvs_type_t type, const char *key, void * data) {
 	if (type == NVS_TYPE_BLOB)
 		return ESP_ERR_NVS_TYPE_MISMATCH;
@@ -66,7 +32,7 @@ esp_err_t store_nvs_value_len(nvs_type_t type, const char *key, void * data,
 		return ESP_ERR_NVS_TYPE_MISMATCH;
 	}
 
-	err = nvs_open(current_namespace, NVS_READWRITE, &nvs);
+	err = nvs_open_from_partition(settings_partition, current_namespace, NVS_READWRITE, &nvs);
 	if (err != ESP_OK) {
 		return err;
 	}
@@ -133,7 +99,7 @@ void * get_nvs_value_alloc(nvs_type_t type, const char *key) {
 	esp_err_t err;
 	void * value=NULL;
 
-	err = nvs_open(current_namespace, NVS_READONLY, &nvs);
+	err = nvs_open_from_partition(settings_partition, current_namespace, NVS_READONLY, &nvs);
 	if (err != ESP_OK) {
 		ESP_LOGE(TAG,"Could not open the nvs storage.");
 		return NULL;
@@ -191,7 +157,7 @@ esp_err_t get_nvs_value(nvs_type_t type, const char *key, void*value, const uint
 	nvs_handle nvs;
 	esp_err_t err;
 
-	err = nvs_open(current_namespace, NVS_READONLY, &nvs);
+	err = nvs_open_from_partition(settings_partition, current_namespace, NVS_READONLY, &nvs);
 	if (err != ESP_OK) {
 		return err;
 	}

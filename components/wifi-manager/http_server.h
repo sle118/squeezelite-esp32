@@ -89,6 +89,12 @@ void CODE_RAM_LOCATION http_server_start();
 char* CODE_RAM_LOCATION http_server_get_header(char *request, char *header_name, int *len);
 
 void CODE_RAM_LOCATION strreplace(char *src, char *str, char *rep);
+/* @brief lock the json config object */
+bool http_server_lock_json_object(TickType_t xTicksToWait);
+/* @brief unlock the json config object */
+void http_server_unlock_json_object();
+#define PROTECTED_JSON_CALL(a)  if(http_server_lock_json_object( portMAX_DELAY )){ \ a; http_server_unlocklock_json_object(); }  else{  ESP_LOGE(TAG, "could not get access to json mutex in wifi_scan"); }
+
 
 
 #ifdef __cplusplus

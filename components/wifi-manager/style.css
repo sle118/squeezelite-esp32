@@ -6,12 +6,13 @@ body {
     padding-right: 12px;
 }
 a {
-    color: darkblue;
+    color: #fff;
     transition: color .2s ease-out;
     text-decoration: none
 }
 a:hover {
-    color: red;
+    color: #99f;
+    text-decoration: none
 }
 input:focus,
 select:focus,

@@ -43,6 +43,7 @@
 #include "trace.h"
 #include "wifi_manager.h"
 #include "squeezelite-ota.h"
+#include <math.h>
 
 static EventGroupHandle_t wifi_event_group;
 bool enable_bt_sink=false;
@@ -101,6 +102,14 @@ static void initialize_nvs() {
 		err = nvs_flash_init();
 	}
 	ESP_ERROR_CHECK(err);
+
+	err = nvs_flash_init_partition(settings_partition);
+	if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+		ESP_ERROR_CHECK(nvs_flash_erase_partition(settings_partition));
+		err = nvs_flash_init_partition(settings_partition);
+	}
+	ESP_ERROR_CHECK(err);
+
 }
 char * process_ota_url(){
     nvs_handle nvs;
@@ -145,6 +154,21 @@ char * process_ota_url(){
 //CONFIG_A2DP_CONTROL_DELAY_MS=500
 //CONFIG_A2DP_CONNECT_TIMEOUT_MS=1000
 //CONFIG_WIFI_MANAGER_MAX_RETRY=2
+u16_t get_adjusted_volume(u16_t volume){
+
+	char * str_factor = get_nvs_value_alloc_default(NVS_TYPE_STR, "volumefactor", "3", 0);
+	if(str_factor != NULL ){
+
+		float factor = atof(str_factor);
+		free(str_factor);
+		return (u16_t) (65536.0f * powf( (volume/ 128.0f), factor) );
+	}
+	else {
+		ESP_LOGW(TAG,"Error retrieving volume factor.  Returning unmodified volume level. ");
+		return volume;
+	}
+
+}
 
 void register_default_nvs(){
 	nvs_value_set_default(NVS_TYPE_STR, "bt_sink_name", CONFIG_BT_NAME, 0);

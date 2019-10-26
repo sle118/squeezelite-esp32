@@ -193,7 +193,7 @@ esp_err_t init_config(esp_http_client_config_t * conf, const char * url){
 
 	conf->cert_pem =cert==NULL?(char *)server_cert_pem_start:cert;
 	conf->event_handler = _http_event_handler;
-	conf->buffer_size = 2048*2;
+	conf->buffer_size = 2048*4;
 	conf->disable_auto_redirect=true;
 	conf->skip_cert_common_name_check = false;
 	conf->url = strdup(url);
@@ -314,31 +314,16 @@ void ota_task(void *pvParameter)
 }
 
 esp_err_t process_recovery_ota(const char * bin_url){
-
-	// Initialize NVS.
-	int ret=0;
-    esp_err_t err = nvs_flash_init();
+	int ret = 0;
     if(ota_status.bOTAThreadStarted){
 		ESP_LOGE(TAG,"OTA Already started. ");
 		return ESP_FAIL;
 	}
 	memset(&ota_status, 0x00, sizeof(ota_status));
 	ota_status.bOTAThreadStarted=true;
-    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-    	// todo: If we ever change the size of the nvs partition, we need to figure out a mechanism to enlarge the nvs.
-        // 1.OTA app partition table has a smaller NVS partition size than the non-OTA
-        // partition table. This size mismatch may cause NVS initialization to fail.
-        // 2.NVS partition contains data in new format and cannot be recognized by this version of code.
-        // If this happens, we erase NVS partition and initialize NVS again.
-    	ESP_LOGW(TAG,"NVS flash size has changed. Formatting nvs");
-    	ESP_ERROR_CHECK(nvs_flash_erase());
-        err = nvs_flash_init();
-    }
-    ESP_ERROR_CHECK(err);
     char * urlPtr=strdup(bin_url);
 	// the first thing we need to do here is to erase the firmware url
 	// to avoid a boot loop
-
 
 #ifdef CONFIG_ESP32_WIFI_TASK_PINNED_TO_CORE_1
 #define OTA_CORE 0
@@ -348,13 +333,11 @@ esp_err_t process_recovery_ota(const char * bin_url){
 #define OTA_CORE 1
 #endif
     ESP_LOGI(TAG, "Starting ota on core %u for : %s", OTA_CORE,urlPtr);
-
     ret=xTaskCreatePinnedToCore(&ota_task, "ota_task", 1024*20, (void *)urlPtr, ESP_TASK_MAIN_PRIO+1, NULL, OTA_CORE);
     if (ret != pdPASS)  {
             ESP_LOGI(TAG, "create thread %s failed", "ota_task");
             return ESP_FAIL;
     }
-
     return ESP_OK;
 }
 

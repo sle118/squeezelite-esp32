@@ -9,6 +9,10 @@ Max number of WiFi static RX buffer 12-16 (6)
 Max number of WiFi dynamic buffer 24-64 (16 or 10)
 Max number of WiFi static TX buffer 12-16 (6)
 
+i2C
+i2cconfig  --port=0 --sda=27 --scl=26
+
+
 SPI RAM
 Maximum malloc() to always put in internal memory 512 (2048)
 
@@ -20,14 +24,23 @@ Put .bss in SPIRAM?
 # WiFi
 nvs_set autoexec1 str -v "join <SSID> <password>"
 # enable
-nv_set autoexec u8 -v 1		
+nvs_set autoexec u8 -v 1		
 
-nvs_set autoexec2 str -v "squeezelite -o \"BT -n 'RIVAARENA'\" -b 500:2000 -d all=info -m ESP32 -R -Z 96000 -r \"44100-44100\" -e flac"
-nvs_set autoexec2 str -v "squeezelite -o \"BT -n 'RIVAARENA'\" -b 500:2000 -d all=info -m ESP32 -R -Z 96000 -r \"44100-44100\""
-nvs_set autoexec2 str -v "squeezelite -o \"BT -n 'RIVAARENA'\" -b 500:2000 -d all=info -m ESP32 -R -u m -Z 192000 -r \"44100-44100\" -s 192.168.2.144"
-nvs_set autoexec2 str -v "squeezelite -o \"BT -n 'RIVAARENA'\" -b 500:2000 -d all=info -m ESP32 -r \"44100-44100\" -e flac"
+nvs_set autoexec2 str -v "squeezelite -o \"BT -n 'RIVAARENA'\" -b 500:2000 -d all=info -m ESP32-BT -R -Z 96000 -r \"44100-44100\" -e flac"
+nvs_set autoexec2 str -v "squeezelite -o \"BT -n 'RIVAARENA'\" -b 500:2000 -d all=info -m ESP32-BT -R -Z 96000 -r \"44100-44100\""
+nvs_set autoexec2 str -v "squeezelite -o \"BT -n 'RIVAARENA'\" -b 500:2000 -d all=info -R -Z 96000 -r \"44100-44100\""
+nvs_set autoexec2 str -v "squeezelite -o \"BT -n 'RIVAARENA'\" -b 500:2000 -d all=info -m ESP32-BT -R -u m -Z 192000 -r \"44100-44100\" -s 192.168.2.144"
+nvs_set autoexec2 str -v "squeezelite -o \"BT -n 'RIVAARENA'\" -b 500:2000 -d all=info -m ESP32-BT -r \"44100-44100\" -e flac"
 nvs_set autoexec2 str -v "squeezelite -o I2S -b 500:2000 -d all=info -m ESP32 -R -Z 96000 -r \"44100-44100\" -s 192.168.2.144"
 nvs_set autoexec2 str -v "squeezelite -o I2S -b 500:2000 -d all=info -m ESP32 -R -Z 96000 -r \"96000-96000\" -s 192.168.2.144"
-nvs_set autoexec2 str -v "squeezelite -o I2S -b 500:2000 -d all=info -d slimproto=debug -d stream=sdebug -m ESP32 -s 192.168.2.144"
-nvs_set autoexec2 str -v "squeezelite -o I2S -b 500:2000 -d all=debug -m ESP32 -s 192.168.2.144"
+nvs_set autoexec2 str -v "squeezelite -o I2S -b 500:2000 -d all=info -m ESP32 -s 192.168.2.144"
 nvs_set autoexec2 str -v "squeezelite -o I2S -b 500:2000 -d all=info -m ESP32"
+nvs_set autoexec2 str -v "squeezelite -o I2S -b 500:2000 -m ESP32 -s 192.168.2.144"
+nvs_set autoexec2 str -v "squeezelite -o I2S -b 500:2000 -d all=info -m ESP32 -s 192.168.2.10"
+nvs_set autoexec2 str -v "squeezelite -o I2S -b 500:2000 -d decode=info -m ESP32 -s 192.168.2.144"
+nvs_set autoexec2 str -v "squeezelite -o SPDIF -b 500:2000 -d all=info -m ESP32"
+
+curl -fsSL https://download.docker.com/linux/debian/gpg | sudo apt-key add -
+sudo add-apt-repository "deb [arch=arm64] https://download.docker.com/linux/debian $(lsb_release -cs) stable"
+sudo add-apt-repository "deb [arch=armhf] https://download.docker.com/linux/debian $(lsb_release -cs) stable"
+sudo apt-get install docker-ce docker-ce-cli containerd.io

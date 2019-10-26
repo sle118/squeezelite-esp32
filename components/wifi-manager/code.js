@@ -162,10 +162,12 @@ $(document).ready(function(){
 
         $.ajax({
             url: '/connect.json',
-            dataType: 'json',
+            dataType: 'text',
             method: 'DELETE',
             cache: false,
-            data: { 'timestamp': Date.now()}
+            contentType: 'application/json; charset=utf-8',
+            data: JSON.stringify({ 'timestamp': Date.now()})
+            
         });
 
         startCheckStatusInterval();
@@ -181,30 +183,40 @@ $(document).ready(function(){
         showMessage('please wait for the ESP32 to reboot', 'WARNING');
         $.ajax({
             url: '/config.json',
-            dataType: 'json',
+            dataType: 'text',
             method: 'POST',
             cache: false,
             headers: { "X-Custom-autoexec": autoexec },
-            data: data,
+            contentType: 'application/json; charset=utf-8',
+            data: JSON.stringify(data),
             error: function (xhr, ajaxOptions, thrownError) {
                 console.log(xhr.status);
                 console.log(thrownError);
                 if (thrownError != '') showMessage(thrownError, 'ERROR');
-            }
-        });
-        console.log('sent config JSON with headers:', autoexec);
-        console.log('now triggering reboot');
-        $.ajax({
-            url: '/reboot.json',
-            dataType: 'json',
-            method: 'POST',
-            cache: false,
-            data: { 'timestamp': Date.now()},
-            error: function (xhr, ajaxOptions, thrownError) {
-                console.log(xhr.status);
-                console.log(thrownError);
-                if (thrownError != '') showMessage(thrownError, 'ERROR');
-            }
+            },
+            complete: function(response) {
+                //var returnedResponse = JSON.parse(response.responseText);
+                console.log(response.responseText);
+                console.log('sent config JSON with headers:', autoexec);
+                console.log('now triggering reboot');
+                $.ajax({
+                    url: '/reboot.json',
+                    dataType: 'text',
+                    method: 'POST',
+                    cache: false,
+                    contentType: 'application/json; charset=utf-8',
+                    data: JSON.stringify({ 'timestamp': Date.now()}),
+                    error: function (xhr, ajaxOptions, thrownError) {
+                        console.log(xhr.status);
+                        console.log(thrownError);
+                        if (thrownError != '') showMessage(thrownError, 'ERROR');
+                    },
+                    complete: function(response) {
+                    	console.log('reboot call completed');
+
+                    }
+                });
+            }            
         });
     });
 
@@ -215,11 +227,12 @@ $(document).ready(function(){
 
         $.ajax({
             url: '/config.json',
-            dataType: 'json',
+            dataType: 'text',
             method: 'POST',
             cache: false,
             headers: { "X-Custom-autoexec1": autoexec1 },
-            data: data,
+            contentType: 'application/json; charset=utf-8',
+            data: JSON.stringify(data),
             error: function (xhr, ajaxOptions, thrownError) {
                 console.log(xhr.status);
                 console.log(thrownError);
@@ -227,6 +240,7 @@ $(document).ready(function(){
             }
         });
         console.log('sent config JSON with headers:', autoexec1);
+        console.log('sent data:', JSON.stringify(data));
     });
 
     $("input#save-gpio").on("click", function() {
@@ -242,11 +256,12 @@ $(document).ready(function(){
         });
         $.ajax({
             url: '/config.json',
-            dataType: 'json',
+            dataType: 'text',
             method: 'POST',
             cache: false,
             headers: headers,
-            data: data,
+            contentType: 'application/json; charset=utf-8',
+            data: JSON.stringify(data),
             error: function (xhr, ajaxOptions, thrownError) {
                 console.log(xhr.status);
                 console.log(thrownError);
@@ -254,6 +269,7 @@ $(document).ready(function(){
             }
         });
         console.log('sent config JSON with headers:', JSON.stringify(headers));
+        console.log('sent config JSON with data:', JSON.stringify(data));
     });
 
     $("#save-nvs").on("click", function() {
@@ -275,11 +291,12 @@ $(document).ready(function(){
         }
         $.ajax({
             url: '/config.json',
-            dataType: 'json',
+            dataType: 'text',
             method: 'POST',
             cache: false,
             headers: headers,
-            data: data,
+            contentType: 'application/json; charset=utf-8',
+            data: JSON.stringify(data),
             error: function (xhr, ajaxOptions, thrownError) {
                 console.log(xhr.status);
                 console.log(thrownError);
@@ -287,6 +304,7 @@ $(document).ready(function(){
             }
         });
         console.log('sent config JSON with headers:', JSON.stringify(headers));
+        console.log('sent config JSON with data:', JSON.stringify(data));
     });
 
     $("#flash").on("click", function() {
@@ -297,11 +315,12 @@ $(document).ready(function(){
         data['fwurl'] = url;
         $.ajax({
             url: '/config.json',
-            dataType: 'json',
+            dataType: 'text',
             method: 'POST',
             cache: false,
             headers: { "X-Custom-fwurl": url },
-            data: data,
+            contentType: 'application/json; charset=utf-8',
+            data: JSON.stringify(data),
             error: function (xhr, ajaxOptions, thrownError) {
                 console.log(xhr.status);
                 console.log(thrownError);
@@ -361,9 +380,9 @@ $(document).ready(function(){
                 $("#releaseTable").append(
                     "<tr class='release"+trclass+"'>"+
                         "<td data-toggle='tooltip' title='"+body+"'>"+ver+"</td>"+
-                        "<td>"+idf+"</td>"+
                         "<td>"+date+"</td>"+
                         "<td>"+cfg+"</td>"+
+                        "<td>"+idf+"</td>"+
                         "<td>"+branch+"</td>"+
                         "<td><input id='generate-command' type='button' class='btn btn-success' value='Select' data-url='"+url+"' onclick='setURL(this);' /></td>"+
                     "</tr>"
@@ -463,10 +482,11 @@ function performConnect(conntype){
 
     $.ajax({
         url: '/connect.json',
-        dataType: 'json',
+        dataType: 'text',
         method: 'POST',
         cache: false,
         headers: { 'X-Custom-ssid': selectedSSID, 'X-Custom-pwd': pwd, 'X-Custom-host_name': dhcpname },
+        contentType: 'application/json; charset=utf-8',
         data: { 'timestamp': Date.now()},
         error: function (xhr, ajaxOptions, thrownError) {
             console.log(xhr.status);
@@ -604,7 +624,7 @@ function checkStatus(){
                 recovery = true;
                 $("#otadiv").show();
                 $('a[href^="#tab-audio"]').hide();
-                $('a[href^="#tab-gpio"]').hide();
+                $('a[href^="#tab-gpio"]').show();
                 $('a[href^="#tab-nvs"]').show();
                 $("footer.footer").removeClass('sl');
                 $("footer.footer").addClass('recovery');
@@ -615,7 +635,7 @@ function checkStatus(){
                 recovery = false;
                 $("#otadiv").hide();
                 $('a[href^="#tab-audio"]').show();
-                $('a[href^="#tab-gpio"]').show();
+                $('a[href^="#tab-gpio"]').hide();
                 $('a[href^="#tab-nvs"]').hide();
                 $("footer.footer").removeClass('recovery');
                 $("footer.footer").addClass('sl');
@@ -656,15 +676,17 @@ function checkStatus(){
         }
         blockAjax = false;
     })
-    .fail(function() {
-        showMessage('Could not get status.json!', 'ERROR');
+    .fail(function(xhr, ajaxOptions, thrownError) {
+        console.log(xhr.status);
+        console.log(thrownError);
+        if (thrownError != '') showMessage(thrownError, 'ERROR');
         blockAjax = false;
     });
 }
 
 function getConfig() {
     $.getJSON("/config.json", function(data) {
-        for (var key in data) {
+        Object.keys(data).sort().forEach(function(key, i) {
             if (data.hasOwnProperty(key)) {
                 if (key == 'autoexec') {
                     if (data["autoexec"] === "1") {
@@ -689,7 +711,7 @@ function getConfig() {
                 );
                 $("input#"+key).val(data[key]);
             }
-        }
+        });
         $("tbody#nvsTable").append(
             "<tr>"+
                 "<td>"+
@@ -701,9 +723,11 @@ function getConfig() {
             "</tr>"
         );
     })
-    .fail(function() {
-        showMessage('Could not get config.json!', 'ERROR');
-        console.log("failed to fetch config!");
+    .fail(function(xhr, ajaxOptions, thrownError) {
+        console.log(xhr.status);
+        console.log(thrownError);
+        if (thrownError != '') showMessage(thrownError, 'ERROR');
+        blockAjax = false;
     });
 }
 

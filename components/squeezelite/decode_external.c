@@ -22,6 +22,7 @@
 #include "squeezelite.h"
 #include "bt_app_sink.h"
 #include "raop_sink.h"
+#include <math.h>
 
 #define LOCK_O   mutex_lock(outputbuf->mutex)
 #define UNLOCK_O mutex_unlock(outputbuf->mutex)
@@ -90,6 +91,8 @@ static void sink_data_handler(const uint8_t *data, uint32_t len)
 /****************************************************************************************
  * BT sink command handler
  */
+
+extern u16_t get_adjusted_volume(u16_t volume);
 static void bt_sink_cmd_handler(bt_sink_cmd_t cmd, ...) 
 {
 	va_list args;
@@ -133,7 +136,7 @@ static void bt_sink_cmd_handler(bt_sink_cmd_t cmd, ...)
 		break;
 	case BT_SINK_VOLUME: {
 		u16_t volume = (u16_t) va_arg(args, u32_t);
-		volume *= 65536 / 128;
+		volume = get_adjusted_volume(volume);
 		set_volume(volume, volume);
 		break;
 	}
