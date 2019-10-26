@@ -49,8 +49,11 @@ sure that using rate_delay would fix that
 #include <signal.h>
 #include "time.h"
 #include "led.h"
-#include "audio_hal.h"
-#include "ac101.h"
+
+#ifdef CONFIG_ESP32_A1S
+  #include "audio_hal.h"
+  #include "ac101.h"
+#endif
 
 #define LOCK   mutex_lock(outputbuf->mutex)
 #define UNLOCK mutex_unlock(outputbuf->mutex)
@@ -131,6 +134,20 @@ static void *output_thread_i2s();
 static void *output_thread_i2s_stats();
 static void dac_cmd(dac_cmd_e cmd, ...);
 static void spdif_convert(ISAMPLE_T *src, size_t frames, u32_t *dst, size_t *count);
+
+#ifdef CONFIG_ESP32_A1S
+#define AC101
+
+#undef	CONFIG_I2S_BCK_IO
+#define CONFIG_I2S_BCK_IO 27
+#undef 	CONFIG_I2S_WS_IO
+#define CONFIG_I2S_WS_IO	26
+#undef 	CONFIG_I2S_DO_IO
+#define CONFIG_I2S_DO_IO	25
+#undef 	CONFIG_I2S_NUM
+#define CONFIG_I2S_NUM		0
+
+#endif
 
 #ifdef CONFIG_SQUEEZEAMP
 
@@ -233,15 +250,36 @@ void output_init_i2s(log_level level, char *device, unsigned output_buf_size, ch
 	}
 #endif
 
-// Setup AC101
-// TODO: This is the wrong place for it
-// TODO: This should behind a build flag
-audio_hal_codec_config_t audio_hal_codec_cfg = AUDIO_HAL_AC101_DEFAULT();
-ac101_init(&audio_hal_codec_cfg);
-ac101_config_i2s(audio_hal_codec_cfg.dac_output, &audio_hal_codec_cfg.i2s_iface);
-ac101_ctrl_state(audio_hal_codec_cfg.dac_output, AUDIO_HAL_CTRL_START);
-ac101_set_voice_volume(255);
+#ifdef AC101
+  // Setup AC101
+  // Get Default Configuration
+  audio_hal_codec_config_t audio_hal_codec_cfg = AUDIO_HAL_AC101_DEFAULT();
 
+  #ifdef CONFIG_I2S_BITS_PER_CHANNEL
+  	switch (CONFIG_I2S_BITS_PER_CHANNEL) {
+  		case 24:
+  			audio_hal_codec_cfg.i2s_iface.bits = AUDIO_HAL_BIT_LENGTH_24BITS;
+  			break;
+  		case 16:
+  			audio_hal_codec_cfg.i2s_iface.bits = AUDIO_HAL_BIT_LENGTH_16BITS;
+  			break;
+  		default:
+  			LOG_ERROR("Unsupported bit depth %d for AC101",CONFIG_I2S_BITS_PER_CHANNEL);
+  			break;
+  	}
+  #else
+    audio_hal_codec_cfg.i2s_iface.bits = AUDIO_HAL_BIT_LENGTH_16BITS;
+  #endif
+
+  esp_err_t ret = ac101_init(&audio_hal_codec_cfg);
+  ret |= ac101_config_i2s(audio_hal_codec_cfg.dac_output, &audio_hal_codec_cfg.i2s_iface);
+  ret |= ac101_ctrl_state(audio_hal_codec_cfg.dac_output, AUDIO_HAL_CTRL_START);
+  ret |= ac101_set_voice_volume(255);
+
+  if (ret != ESP_OK) {
+		LOG_ERROR("could not intialize AC101 %d", ret);
+	}
+#endif
 
 #ifdef CONFIG_I2S_BITS_PER_CHANNEL
 	switch (CONFIG_I2S_BITS_PER_CHANNEL) {

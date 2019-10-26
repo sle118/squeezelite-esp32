@@ -14,12 +14,12 @@ menu "Squeezelite-ESP32"
         	string "logging level for decode"
         	default "info"
         	help
-        		Set logging level info|debug|sdebug 	
+        		Set logging level info|debug|sdebug
    		config LOGGING_OUTPUT
         	string "logging level for output"
         	default "info"
         	help
-        		Set logging level info|debug|sdebug 	
+        		Set logging level info|debug|sdebug
 	endmenu
     menu "Audio CODEC libraries"
     config INCLUDE_FLAC
@@ -41,18 +41,18 @@ menu "Squeezelite-ESP32"
         bool "VORBIS"
         default 1
         help
-            Include vorbis/ogg library for ogg/vorbis decoding.			
+            Include vorbis/ogg library for ogg/vorbis decoding.
 	config INCLUDE_ALAC
         bool "ALAC"
         default 1
         help
-            Include alac library for alac decoding.			
+            Include alac library for alac decoding.
 	config INCLUDE_OPUS
         bool "OPUS"
         default 1
         help
-            Include opus library for opus decoding.						
-	   
+            Include opus library for opus decoding.
+
     endmenu
 	menu "Audio Output"
 		choice OUTPUT_TYPE
@@ -60,35 +60,37 @@ menu "Squeezelite-ESP32"
 	        default BASIC_I2C_BT
 	        help
 	            Type of hardware platform
-	        config SQUEEZEAMP 
+	        config SQUEEZEAMP
 	            bool "SqueezeAMP (TAS575x & Bluetooth)"
 	        config BASIC_I2C_BT
 	            bool "Generic I2S & Bluetooth"
+	        config ESP32_A1S
+	            bool "ESP32-A1S (AC101)"
 	    endchoice
-	  	
-		menu "DAC I2S settings" 
+
+		menu "DAC I2S settings"
 			depends on BASIC_I2C_BT
-	    	config I2S_NUM         
+	    	config I2S_NUM
 		        int "I2S channel (0 or 1). "
 		        default 0
 		        help
-		            I2S dma channel to use.  
-		    config I2S_BCK_IO         
+		            I2S dma channel to use.
+		    config I2S_BCK_IO
 		        int "I2S Bit clock GPIO number. "
 		        default 26
 		        help
-		            I2S Bit Clock gpio pin to use.  
-		    config I2S_WS_IO         
+		            I2S Bit Clock gpio pin to use.
+		    config I2S_WS_IO
 		        int "I2S Word Select GPIO number. "
 		        default 25
 		        help
 		            I2S Word Select gpio pin to use.
-		    config I2S_DO_IO         
+		    config I2S_DO_IO
 		        int "I2S Data I/O GPIO number. "
 		        default 22
 		        help
 		            I2S data I/O gpio pin to use.
-		    choice 
+		    choice
 	  			prompt "Bit Depth for I2S output"
 		        default I2S_BITS_PER_CHANNEL_16
 		        config I2S_BITS_PER_CHANNEL_24
@@ -105,31 +107,31 @@ menu "Squeezelite-ESP32"
 			    default 24 if I2S_BITS_PER_CHANNEL_24
 			    default 8 if I2S_BITS_PER_CHANNEL_8
 		endmenu
-		
-		menu "SPDIF settings" 
+
+		menu "SPDIF settings"
 		    depends on BASIC_I2C_BT
-			config SDIF_NUM         
+			config SDIF_NUM
 		        int "SDPIF/I2S channel (0 or 1)"
 		        default 0
 		        help
-		            I2S dma channel to use.  
-		    config SPDIF_BCK_IO         
+		            I2S dma channel to use.
+		    config SPDIF_BCK_IO
 		        int "SDPIF/I2S Bit clock GPIO number"
 		        default 26
 		        help
-		            Not used but must be configured.  
-		    config SPDIF_WS_IO         
+		            Not used but must be configured.
+		    config SPDIF_WS_IO
 		        int "SPDIF/I2S Word Select GPIO number"
 		        default 25
 		        help
-		            Not used but must be configured.  
-		    config SPDIF_DO_IO         
+		            Not used but must be configured.
+		    config SPDIF_DO_IO
 		        int "I2S Data I/O GPIO number"
 		        default 15
 		        help
 		            SPDIF/I2S data I/O gpio pin to use
 		endmenu
-				
+
 		menu "A2DP settings"
 		    config A2DP_SINK_NAME
 		        string "Name of Bluetooth A2DP device"
@@ -150,10 +152,10 @@ menu "Squeezelite-ESP32"
 		    	int "Time out duration when trying to connect to an A2DP audio sink"
 		        default 1000
 		        help
-		            Increasing this value will give more chance for less stable connections to be established.	   
+		            Increasing this value will give more chance for less stable connections to be established.
 		endmenu
 	endmenu
-	
+
 	menu "Audio Input"
 		config BT_SINK
 			bool "Bluetooth receiver"
@@ -165,9 +167,9 @@ menu "Squeezelite-ESP32"
 			string "Name of Bluetooth A2DP device"
 		        default "ESP32-BT"
 		    help
-				This is the name of the bluetooth speaker that will be broadcasted			
-		config BT_SINK_PIN		
-			depends on BT_SINK		
+				This is the name of the bluetooth speaker that will be broadcasted
+		config BT_SINK_PIN
+			depends on BT_SINK
 			int "Bluetooth PIN code"
 		        default 1234
 		config AIRPLAY_SINK
@@ -178,13 +180,13 @@ menu "Squeezelite-ESP32"
 			string "Name of AirPlay device"
 				default "ESP32-AirPlay"
 		    help
-				This is the name of the AirPlay speaker that will be broadcasted		
+				This is the name of the AirPlay speaker that will be broadcasted
 		config AIRPLAY_PORT
 			depends on AIRPLAY_SINK
 			string "AirPlay listening port"
 				default 5000
 		    help
 				AirPlay service listening port
-	endmenu	
+	endmenu
 
 endmenu
