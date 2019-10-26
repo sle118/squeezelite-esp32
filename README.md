@@ -24,6 +24,11 @@ XMT - 3.3V
 
 Use the `squeezelite-esp32-I2S-4MFlash-sdkconfig.defaults` configuration file.
 
+### ESP32-A1S Development Board
+The ESP32-A1S chipset has extra PSRAM and buit in I2S DAC (among other things). See https://wiki.ai-thinker.com/esp32-audio-kit for more details on the board. 
+
+Use the `A1S-4MFlash-sdkconfig.defaults` configuration file.
+
 ## Setting up ESP-IDF
 ### Docker
 You can use docker to build squeezelite-esp32  
