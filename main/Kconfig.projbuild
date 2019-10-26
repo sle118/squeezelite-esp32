@@ -68,6 +68,22 @@ menu "Squeezelite-ESP32"
 	            bool "ESP32-A1S (AC101)"
 	    endchoice
 
+		menu "A1S DAC settings"
+			depends on ESP32_A1S
+		    choice
+	  			prompt "Bit Depth for I2S output"
+		        default A1S_BITS_PER_CHANNEL_16
+		        config A1S_BITS_PER_CHANNEL_24
+		            bool "24 Bits"
+		        config A1S_BITS_PER_CHANNEL_16
+		            bool "16 Bits"
+		    endchoice
+			config A1S_BITS_PER_CHANNEL
+			    int
+			    default 16 if A1S_BITS_PER_CHANNEL_16
+			    default 24 if A1S_BITS_PER_CHANNEL_24
+		endmenu
+
 		menu "DAC I2S settings"
 			depends on BASIC_I2C_BT
 	    	config I2S_NUM

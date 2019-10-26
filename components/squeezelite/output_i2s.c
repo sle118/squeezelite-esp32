@@ -255,8 +255,8 @@ void output_init_i2s(log_level level, char *device, unsigned output_buf_size, ch
   // Get Default Configuration
   audio_hal_codec_config_t audio_hal_codec_cfg = AUDIO_HAL_AC101_DEFAULT();
 
-  #ifdef CONFIG_I2S_BITS_PER_CHANNEL
-  	switch (CONFIG_I2S_BITS_PER_CHANNEL) {
+  #ifdef CONFIG_A1S_BITS_PER_CHANNEL
+  	switch (CONFIG_A1S_BITS_PER_CHANNEL) {
   		case 24:
   			audio_hal_codec_cfg.i2s_iface.bits = AUDIO_HAL_BIT_LENGTH_24BITS;
   			break;
@@ -264,7 +264,7 @@ void output_init_i2s(log_level level, char *device, unsigned output_buf_size, ch
   			audio_hal_codec_cfg.i2s_iface.bits = AUDIO_HAL_BIT_LENGTH_16BITS;
   			break;
   		default:
-  			LOG_ERROR("Unsupported bit depth %d for AC101",CONFIG_I2S_BITS_PER_CHANNEL);
+  			LOG_ERROR("Unsupported bit depth %d for AC101",CONFIG_A1S_BITS_PER_CHANNEL);
   			break;
   	}
   #else
