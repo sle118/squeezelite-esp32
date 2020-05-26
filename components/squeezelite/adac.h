@@ -24,5 +24,6 @@ struct adac_s {
 };
 
 extern struct adac_s dac_tas57xx;
+extern struct adac_s dac_tas5713;
 extern struct adac_s dac_a1s;
 extern struct adac_s dac_external;

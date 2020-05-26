@@ -232,16 +232,30 @@ void output_init_i2s(log_level level, char *device, unsigned output_buf_size, ch
 		gpio_set_direction(CONFIG_SPDIF_DO_IO, GPIO_MODE_OUTPUT);
 		gpio_set_level(CONFIG_SPDIF_DO_IO, 0);
 #endif
-
+/*
 		i2s_config.sample_rate = output.current_sample_rate;
 		i2s_config.bits_per_sample = bytes_per_frame * 8 / 2;
 		// Counted in frames (but i2s allocates a buffer <= 4092 bytes)
 		i2s_config.dma_buf_len = DMA_BUF_LEN;	
 		i2s_config.dma_buf_count = DMA_BUF_COUNT;
 		dma_buf_frames = DMA_BUF_COUNT * DMA_BUF_LEN;	
-		
+*/		
+		/* The TAS5713 sounds a lot like spdif, so try it out */
+		i2s_config.sample_rate = output.current_sample_rate;
+		i2s_config.bits_per_sample = 32;
+		// Normally counted in frames, but 16 sample are transformed into 32 bits in spdif
+		i2s_config.dma_buf_len = DMA_BUF_LEN;	
+		i2s_config.dma_buf_count = DMA_BUF_COUNT;
+		/* 
+		   In DMA, we have room for (LEN * COUNT) frames of 32 bits samples that 
+		   we push at sample_rate * 2. Each of these peuso-frames is a single true
+		   audio frame. So the real depth is true frames is (LEN * COUNT / 2)
+		*/   
+		dma_buf_frames = DMA_BUF_COUNT * DMA_BUF_LEN / 2;	
+
 		// finally let DAC driver initialize I2C and I2S
 		if (dac_tas57xx.init(I2C_PORT, CONFIG_I2S_NUM, &i2s_config)) adac = &dac_tas57xx;
+		else if (dac_tas5713.init(I2C_PORT, CONFIG_I2S_NUM, &i2s_config)) adac = &dac_tas5713;
 		else if (dac_a1s.init(I2C_PORT, CONFIG_I2S_NUM, &i2s_config)) adac = &dac_a1s;
 		else if (!dac_external.init(I2C_PORT, CONFIG_I2S_NUM, &i2s_config)) {
 			LOG_WARN("DAC not configured and SPDIF not enabled, I2S will not continue");
@@ -491,8 +505,12 @@ static void *output_thread_i2s(void *arg) {
 			i2s_write(CONFIG_I2S_NUM, sbuf, oframes * 16, &bytes, portMAX_DELAY);
 			bytes /= 4;
 		} else {
-			i2s_write(CONFIG_I2S_NUM, obuf, oframes * bytes_per_frame, &bytes, portMAX_DELAY);			
+
+			i2s_write_expand(CONFIG_I2S_NUM, obuf, oframes * bytes_per_frame, 16, 32, &bytes, portMAX_DELAY);
+			//i2s_write(CONFIG_I2S_NUM, obuf, oframes * bytes_per_frame, &bytes, portMAX_DELAY);			
 		}	
+
+
 		fullness = gettime_ms();
 			
 		if (bytes != oframes * bytes_per_frame) {
