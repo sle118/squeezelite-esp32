@@ -1,4 +1,4 @@
-/* 
+/*
  *  Squeezelite for esp32
  *
  *  (c) Sebastien 2019
@@ -9,36 +9,34 @@
  *
  *  (c) C. Rohs 2020 added support for the tas5713 (eg. HiFiBerry AMP)
  */
- 
-#include "squeezelite.h" 
+
+#include "adac.h"
+#include "driver/gpio.h"
+#include "driver/i2c.h"
+#include "driver/i2s.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "driver/i2s.h"
-#include "driver/i2c.h"
-#include "driver/gpio.h"
-#include "adac.h"
+#include "squeezelite.h"
 //#include "dac_5713.h"
 
 #define ARRAY_SIZE(array) (sizeof(array) / sizeof(*array))
 #define TAS5713 0x36 /* i2c address of TAS5713 */
 
 // TAS5713 I2C-bus register addresses
-#define TAS5713_CLOCK_CTRL              0x00
-#define TAS5713_DEVICE_ID               0x01
-#define TAS5713_ERROR_STATUS            0x02
-#define TAS5713_SYSTEM_CTRL1            0x03
-#define TAS5713_SERIAL_DATA_INTERFACE   0x04
-#define TAS5713_SYSTEM_CTRL2            0x05
-#define TAS5713_SOFT_MUTE               0x06
-#define TAS5713_VOL_MASTER              0x07
-#define TAS5713_VOL_CH1                 0x08
-#define TAS5713_VOL_CH2                 0x09
-#define TAS5713_VOL_HEADPHONE           0x0A
-#define TAS5713_OSC_TRIM                0x1B
+#define TAS5713_CLOCK_CTRL 0x00
+#define TAS5713_DEVICE_ID 0x01
+#define TAS5713_ERROR_STATUS 0x02
+#define TAS5713_SYSTEM_CTRL1 0x03
+#define TAS5713_SERIAL_DATA_INTERFACE 0x04
+#define TAS5713_SYSTEM_CTRL2 0x05
+#define TAS5713_SOFT_MUTE 0x06
+#define TAS5713_VOL_MASTER 0x07
+#define TAS5713_VOL_CH1 0x08
+#define TAS5713_VOL_CH2 0x09
+#define TAS5713_VOL_HEADPHONE 0x0A
+#define TAS5713_OSC_TRIM 0x1B
 
-
-
-static bool init(int i2c_port_num, int i2s_num, i2s_config_t *config);
+static bool init(int i2c_port_num, int i2s_num, i2s_config_t* config);
 static void deinit(void);
 static void speaker(bool active);
 static void headset(bool active);
@@ -68,7 +66,7 @@ static const struct tas5713_cmd_s tas57xx_cmd[] = {
     {TAS5713_SYSTEM_CTRL2, 0x40}, // TAS57_STANDBY
     {TAS5713_SYSTEM_CTRL2, 0x40}, // TAS57_DOWN
     {TAS5713_SYSTEM_CTRL2, 0x40}, // TAS57_ANALOGUE_OFF
-    {TAS5713_SYSTEM_CTRL2, 0x40}, // TAS57_STANDBY         
+    {TAS5713_SYSTEM_CTRL2, 0x40}, // TAS57_STANDBY
     {TAS5713_SYSTEM_CTRL2, 0x00}, // TAS57_ACTIVE
 };
 
@@ -83,7 +81,7 @@ static u8_t tas5713_get(u8_t reg);
  * init
  */
 static bool init(int i2c_port_num, int i2s_num, i2s_config_t* i2s_config) {
-    i2c_port = i2c_port_num;
+    i2c_port      = i2c_port_num;
     esp_err_t res = 0;
     // configure i2c
     i2c_config_t i2c_config = {
@@ -123,7 +121,6 @@ static bool init(int i2c_port_num, int i2s_num, i2s_config_t* i2s_config) {
     tas5713_set(TAS5713_VOL_CH2, 0x30);
     tas5713_set(TAS5713_VOL_HEADPHONE, 0xFF);
 
-
     // configure I2S pins & install driver
     i2s_pin_config_t i2s_pin_config = (i2s_pin_config_t){
         .bck_io_num   = CONFIG_I2S_BCK_IO,
@@ -131,6 +128,14 @@ static bool init(int i2c_port_num, int i2s_num, i2s_config_t* i2s_config) {
         .data_out_num = CONFIG_I2S_DO_IO,
         .data_in_num  = CONFIG_I2S_DI_IO,
     };
+
+    /* This is important, the tas5713 typically has the mclock connected
+       to the sclk. In this configuration, mclk must be a multiple of the sclk.
+       The lowest multiple is 64x. To achieve this, we must send 32 bits per
+       channel on I2S. So reconfigure the I2S for that here, we will have
+       to expand the I2S stream when it is sent */
+    i2s_config.bits_per_sample = 32;
+
     res |= i2s_driver_install(i2s_num, i2s_config, 0, NULL);
     res |= i2s_set_pin(i2s_num, &i2s_pin_config);
     LOG_INFO("DAC using I2S bck:%d, ws:%d, do:%d",
@@ -149,8 +154,8 @@ static bool init(int i2c_port_num, int i2s_num, i2s_config_t* i2s_config) {
 /****************************************************************************************
  * init
  */
-static void deinit(void)	{	 
-	i2c_driver_delete(i2c_port);
+static void deinit(void) {
+    i2c_driver_delete(i2c_port);
 }
 
 /****************************************************************************************
@@ -182,13 +187,12 @@ static void power(adac_power_e mode) {
  */
 static void speaker(bool active) {
     LOG_INFO("TAS5713 power not implemented!");
-} 
+}
 
 /****************************************************************************************
  * headset
  */
-static void headset(bool active) {
-}
+static void headset(bool active) {}
 
 /****************************************************************************************
  * DAC specific commands
@@ -213,7 +217,6 @@ void tas5713_set(uint8_t reg, uint8_t val) {
 
     if (ret != ESP_OK) { LOG_ERROR("Could send command to TAS5713 %d", ret); }
 }
-
 
 /****************************************************************************************
  * Read from i2c for the tas5713, doubles as tas detect
