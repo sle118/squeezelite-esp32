@@ -16,6 +16,7 @@
 #include "gds_text.h"
 #include "gds_draw.h"
 #include "gds_image.h"
+#include "led_strip.h"
 
 #pragma pack(push, 1)
 
@@ -278,6 +279,28 @@ static void displayer_task(void* arg);
    4-5 - same as left channel parameters
 */
 
+#define LED_STRIP_LENGTH 17U
+#define LED_STRIP_RMT_INTR_NUM 19U
+
+static struct led_color_t led_strip_buf_1[LED_STRIP_LENGTH];
+static struct led_color_t led_strip_buf_2[LED_STRIP_LENGTH];
+
+bool init_vu_leds()
+{
+       struct led_strip_t led_strip = {
+               .rgb_led_type = RGB_LED_TYPE_WS2812,
+               .rmt_channel = RMT_CHANNEL_1,
+               .rmt_interrupt_num = LED_STRIP_RMT_INTR_NUM,
+               .gpio = GPIO_NUM_21,
+               .led_strip_buf_1 = led_strip_buf_1,
+               .led_strip_buf_2 = led_strip_buf_2,
+               .led_strip_length = LED_STRIP_LENGTH};
+       led_strip.access_semaphore = xSemaphoreCreateBinary();
+
+       bool led_init_ok = led_strip_init(&led_strip);
+       return led_init_ok;
+}
+
 /****************************************************************************************
  * 
  */
@@ -331,6 +354,10 @@ bool sb_display_init(void) {
 	display_bus_chain = display_bus;
 	display_bus = display_bus_handler;
 	
+
+/* CGR TODO */ 
+    init_vu_leds();
+
 	return true;
 }
 
