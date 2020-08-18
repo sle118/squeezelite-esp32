@@ -20,7 +20,7 @@
 
 #include <string.h>
 
-#define LED_STRIP_TASK_SIZE             (512)
+#define LED_STRIP_TASK_SIZE             (1024)
 #define LED_STRIP_TASK_PRIORITY         (configMAX_PRIORITIES - 1)
 
 #define LED_STRIP_REFRESH_PERIOD_MS     (30U) // TODO: add as parameter to led_strip_init
@@ -237,6 +237,8 @@ static void led_strip_task(void *arg)
 
     for(;;) {
         rmt_wait_tx_done(led_strip->rmt_channel, portMAX_DELAY);
+        vTaskDelay(LED_STRIP_REFRESH_PERIOD_MS / portTICK_PERIOD_MS);
+
         xSemaphoreTake(led_strip->access_semaphore, portMAX_DELAY);
 
         /*
@@ -253,7 +255,7 @@ static void led_strip_task(void *arg)
             make_new_rmt_items = false;
         }
 
-        if (make_new_rmt_items) {
+        if (1 || make_new_rmt_items) {
             if (led_strip->showing_buf_1) {
                 led_make_waveform(led_strip->led_strip_buf_1, rmt_items, led_strip->led_strip_length);
             } else {
@@ -263,8 +265,8 @@ static void led_strip_task(void *arg)
 
         rmt_write_items(led_strip->rmt_channel, rmt_items, num_items_malloc, false);
         prev_showing_buf_1 = led_strip->showing_buf_1;
+
         xSemaphoreGive(led_strip->access_semaphore);
-        vTaskDelay(LED_STRIP_REFRESH_PERIOD_MS / portTICK_PERIOD_MS);
     }
 
     if (rmt_items) {
@@ -331,13 +333,13 @@ bool led_strip_init(struct led_strip_t *led_strip)
     }
 
     xSemaphoreGive(led_strip->access_semaphore);
-    BaseType_t task_created = xTaskCreate(led_strip_task,
-                                            "led_strip_task",
-                                            LED_STRIP_TASK_SIZE,
-                                            led_strip,
-                                            LED_STRIP_TASK_PRIORITY,
-                                            &led_strip_task_handle
-                                         );
+    BaseType_t task_created = xTaskCreatePinnedToCore(led_strip_task,
+                                                      "led_strip_task",
+                                                      LED_STRIP_TASK_SIZE,
+                                                      led_strip,
+                                                      LED_STRIP_TASK_PRIORITY,
+                                                      &led_strip_task_handle,
+                                                      1);
 
     if (!task_created) {
         return false;
@@ -423,6 +425,7 @@ bool led_strip_show(struct led_strip_t *led_strip)
         led_strip->showing_buf_1 = true;
         memset(led_strip->led_strip_buf_2, 0, sizeof(struct led_color_t) * led_strip->led_strip_length);
     }
+
     xSemaphoreGive(led_strip->access_semaphore);
 
     return success;
@@ -434,7 +437,6 @@ bool led_strip_show(struct led_strip_t *led_strip)
 bool led_strip_clear(struct led_strip_t *led_strip)
 {
     bool success = true;
-
     if (!led_strip) {
         return false;
     }
