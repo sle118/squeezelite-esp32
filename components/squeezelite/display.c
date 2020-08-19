@@ -288,21 +288,25 @@ static struct led_color_t led_strip_buf_2[LED_STRIP_LENGTH];
 static struct led_strip_t *rgb_vu;
 static struct led_strip_t  rgb_vu_init = {
                .rgb_led_type = RGB_LED_TYPE_WS2812,
-               .rmt_channel = RMT_CHANNEL_1,
+               .rmt_channel = RMT_CHANNEL_0,
                .rmt_interrupt_num = LED_STRIP_RMT_INTR_NUM,
                .gpio = GPIO_NUM_21,
                .led_strip_buf_1 = led_strip_buf_1,
                .led_strip_buf_2 = led_strip_buf_2,
                .led_strip_length = LED_STRIP_LENGTH};
 
-bool init_vu_leds()
-{
-       rgb_vu_init.access_semaphore = xSemaphoreCreateBinary();
-       bool led_init_ok = led_strip_init(&rgb_vu_init);
-	   if (led_init_ok){
-		   rgb_vu = &rgb_vu_init; 
-	   }
-       return led_init_ok;
+bool init_vu_leds() {
+    rgb_vu_init.access_semaphore = xSemaphoreCreateBinary();
+    bool led_init_ok = led_strip_init(&rgb_vu_init);
+    if (led_init_ok) {
+        rgb_vu = &rgb_vu_init;
+    }
+
+	/* grab all the memory just in case, not doing this was causing
+	   glitching */
+    rmt_set_mem_block_num(RMT_CHANNEL_0, 8);
+
+    return led_init_ok;
 }
 
 /****************************************************************************************

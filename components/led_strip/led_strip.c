@@ -333,13 +333,12 @@ bool led_strip_init(struct led_strip_t *led_strip)
     }
 
     xSemaphoreGive(led_strip->access_semaphore);
-    BaseType_t task_created = xTaskCreatePinnedToCore(led_strip_task,
-                                                      "led_strip_task",
-                                                      LED_STRIP_TASK_SIZE,
-                                                      led_strip,
-                                                      LED_STRIP_TASK_PRIORITY,
-                                                      &led_strip_task_handle,
-                                                      1);
+    BaseType_t task_created = xTaskCreate(led_strip_task,
+                                          "led_strip_task",
+                                          LED_STRIP_TASK_SIZE,
+                                          led_strip,
+                                          LED_STRIP_TASK_PRIORITY,
+                                          &led_strip_task_handle);
 
     if (!task_created) {
         return false;
