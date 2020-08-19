@@ -93,6 +93,29 @@ The NVS parameter "metadata_config" sets how metadata is displayed for AirPlay a
 
 You can install the excellent plugin "Music Information Screen" which is super useful to tweak the layout for these small displays.
 
+### RGB VU Meters
+The NVS parameter "led_vu_config" sets the parameters for an RGB vu meter display. The syntax is 
+```
+WS2812,width=<leds>,data<gpio>[hold=<cycles>,enable=<gpio>]
+```
+- 'width' is the number of leds in the string. This should be an odd number
+
+- 'data' is the data out gpio that controls the leds.
+
+- 'hold' is the length of time the that the peak hold decays at. The leds update at 30 FPS, thus a hold count of 30 will cause the blue led to decay at 
+one position per second.
+
+- 'enable' is a gpio that is used to enable a 5V buck regulator that may be powering the LED string. Although in practice the LEDS seem to work fine off
+of a 3.3 volt supply.
+
+Currently the only supported LEDS are the WS2812B strips. The number of LEDS used should be odd,  The display is configured as
+RRROOOGGGxxxxxRxxxxxGGGOOORRR
+Where R is an always on RED led,  The VU meters are green, starting in the middle, at full deflection the leds turn ORANGE then RED. There is a BLUE 
+peak hold.
+
+Using the RGB leds will bring in the display driver, in order to get the data, but the leds "should" co-exist with the display
+
+
 ### Infrared
 You can use any IR receiver compatible with NEC protocol (38KHz). Vcc, GND and output are the only pins that need to be connected, no pullup, no filtering capacitor, it's a straight connection.
 
