@@ -40,7 +40,7 @@ struct led_color_t {
 
 struct led_strip_t {
     const enum rgb_led_type_t rgb_led_type;
-    const uint32_t led_strip_length;
+    uint32_t led_strip_length;
 
     // RMT peripheral settings
     rmt_channel_t rmt_channel;

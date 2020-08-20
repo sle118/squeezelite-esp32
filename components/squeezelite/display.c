@@ -16,7 +16,6 @@
 #include "gds_text.h"
 #include "gds_draw.h"
 #include "gds_image.h"
-#include "led_strip.h"
 
 #pragma pack(push, 1)
 
@@ -279,36 +278,6 @@ static void displayer_task(void* arg);
    4-5 - same as left channel parameters
 */
 
-#define LED_STRIP_LENGTH 31U  /* should be odd, since there is one led in the center, and VUs on either side */
-#define LED_STRIP_RMT_INTR_NUM 20U
-
-static struct led_color_t led_strip_buf_1[LED_STRIP_LENGTH];
-static struct led_color_t led_strip_buf_2[LED_STRIP_LENGTH];
-
-static struct led_strip_t *rgb_vu;
-static struct led_strip_t  rgb_vu_init = {
-               .rgb_led_type = RGB_LED_TYPE_WS2812,
-               .rmt_channel = RMT_CHANNEL_0,
-               .rmt_interrupt_num = LED_STRIP_RMT_INTR_NUM,
-               .gpio = GPIO_NUM_21,
-               .led_strip_buf_1 = led_strip_buf_1,
-               .led_strip_buf_2 = led_strip_buf_2,
-               .led_strip_length = LED_STRIP_LENGTH};
-
-bool init_vu_leds() {
-    rgb_vu_init.access_semaphore = xSemaphoreCreateBinary();
-    bool led_init_ok = led_strip_init(&rgb_vu_init);
-    if (led_init_ok) {
-        rgb_vu = &rgb_vu_init;
-    }
-
-	/* grab all the memory just in case, not doing this was causing
-	   glitching */
-    rmt_set_mem_block_num(RMT_CHANNEL_0, 8);
-
-    return led_init_ok;
-}
-
 /****************************************************************************************
  * 
  */
@@ -361,15 +330,6 @@ bool sb_display_init(void) {
 	
 	display_bus_chain = display_bus;
 	display_bus = display_bus_handler;
-	
-
-/* CGR TODO */ 
-    LOG_WARN("Init led_vu returned %d", init_vu_leds());
-	led_strip_clear(rgb_vu);
-	led_strip_set_pixel_rgb(rgb_vu,0,10,0,0);
-	led_strip_set_pixel_rgb(rgb_vu,1,0,20,0);
-	led_strip_set_pixel_rgb(rgb_vu,2,0,0,30);
-	led_strip_show(rgb_vu);
 
 	return true;
 }
@@ -875,96 +835,7 @@ static void grfa_handler(u8_t *data, int len) {
 	
 	LOG_INFO("gfra l:%u x:%hu, y:%hu, o:%u s:%u", length, artwork.x, artwork.y, offset, size);
 }
-
-
-#define DECAY_VAL 15
-
-void display_led_vu(int left_vu_sample, int right_vu_sample) {
-    static int lp = 0;
-    static int rp = 0;
-    static int decayl = 0;
-    static int decayr = 0;
-
-	static int midpoint = (LED_STRIP_LENGTH - 1)/2;
-	static int vu_length = (LED_STRIP_LENGTH - 1)/2;
-	
-
-    /* figure out how many leds to light */
-    left_vu_sample = left_vu_sample * vu_length / VU_COUNT;
-	right_vu_sample = right_vu_sample * vu_length / VU_COUNT;
-
-    /* save the peaks */
-    if (lp > left_vu_sample) {
-        if (decayl > 0) {
-            decayl--;
-        } else {
-            decayl = DECAY_VAL;
-            lp--;
-        }
-    } else {
-        lp = left_vu_sample;
-        decayl = DECAY_VAL;
-    }
-    if (rp > right_vu_sample) {
-        if (decayr > 0) {
-            decayr--;
-        } else {
-            decayr = DECAY_VAL;
-            rp--;
-        }
-    } else {
-        rp = right_vu_sample;
-        decayr = DECAY_VAL;
-    }
-
-    lp = max(lp, left_vu_sample);
-    rp = max(rp, right_vu_sample);
-
-    led_strip_clear(rgb_vu);
-
-	/* set center led red */
-	
-
- 	led_strip_set_pixel_rgb(rgb_vu, midpoint, 10, 0, 0);
-
-    for (int i = 6; i < midpoint; i++) {
-        led_strip_set_pixel_rgb(rgb_vu, i, 0, 10, 0);
-        led_strip_set_pixel_rgb(rgb_vu, LED_STRIP_LENGTH - i - 1, 0, 10, 0);
-    }
-    for (int i = 3; i < 6; i++) {
-        led_strip_set_pixel_rgb(rgb_vu, i,  10, 10, 0);  //orange
-        led_strip_set_pixel_rgb(rgb_vu, LED_STRIP_LENGTH - i - 1, 10, 10, 0);   //orange
-    }
-    for (int i = 0; i < 3; i++) {
-        led_strip_set_pixel_rgb(rgb_vu, i, 10, 0, 0);                      //red
-        led_strip_set_pixel_rgb(rgb_vu, LED_STRIP_LENGTH - i - 1, 10, 10, 0);  //orange
-    }
-
-    /* erase left */
-    left_vu_sample = (left_vu_sample > midpoint) ? 0 : (midpoint - left_vu_sample);
-    for (int i = 0; i < left_vu_sample; i++) {
-        led_strip_set_pixel_rgb(rgb_vu, i, 0, 0, 0);
-    }
-
-    /* erase right */
-    right_vu_sample = (right_vu_sample > midpoint) ? 0 : (midpoint - right_vu_sample);
-    for (int i = 0; i < right_vu_sample; i++) {
-        led_strip_set_pixel_rgb(rgb_vu, LED_STRIP_LENGTH - i - 1, 0, 0, 0);
-    }
-
-    /* pop in the peaks */
-    lp = (lp > midpoint) ? midpoint : lp;
-    if (lp) {
-        led_strip_set_pixel_rgb(rgb_vu, midpoint - lp, 0, 0, 10);
-    }
-    rp = (rp > 20) ? 20 : rp;
-    if (rp) {
-        led_strip_set_pixel_rgb(rgb_vu, midpoint + rp, 0, 0, 10);
-    }
-
-    led_strip_show(rgb_vu);
-}
-
+ 
 /****************************************************************************************
  * Update visualization bars
  */

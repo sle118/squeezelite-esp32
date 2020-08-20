@@ -68,7 +68,7 @@ GDS_DetectFunc *drivers[] = { SH1106_Detect, SSD1306_Detect, SSD132x_Detect, SSD
 void display_init(char *welcome) {
 	bool init = false;
 	char *config = config_alloc_get_str("display_config", CONFIG_DISPLAY_CONFIG, "N/A");
-	
+
 	int width = -1, height = -1, backlight_pin = -1;
 	char *p, *drivername = strstr(config, "driver");
 
