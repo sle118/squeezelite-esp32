@@ -96,7 +96,7 @@ You can install the excellent plugin "Music Information Screen" which is super u
 ### RGB VU Meters
 The NVS parameter "led_vu_config" sets the parameters for an RGB VU meter display. The syntax is 
 ```
-WS2812,width=<leds>,data<gpio>[hold=<cycles>,enable=<gpio>,bright=<bright>]
+WS2812,length=<leds>,data<gpio>[hold=<cycles>,enable=<gpio>,refresh=<delay>,bright=<bright>]
 ```
 - 'length' is the number of leds in the string. This should be an odd number.
 
@@ -107,17 +107,21 @@ WS2812,width=<leds>,data<gpio>[hold=<cycles>,enable=<gpio>,bright=<bright>]
 - 'enable' is a gpio that is used to enable a 5V buck regulator that may be powering the LED string. Although in practice the LEDS seem to work fine with
 a 3.3 volt supply. An enable will help conserve power when the the player is in "standyby" since the ws2812 leds have a current draw even when off. 
 
--'bright' is the intensity of the LEDs, the default is 10 (out of 255)
+- 'refresh' is delay between update of the VU meters in milliseconds, The default is 30, and cannot be lower than 30.
+
+- 'bright' is the intensity of the LEDs, the default is 10 (out of 255)
 
 Currently the only supported LEDs are the WS2812B strips. The number of LEDs specified should be odd due to an LED in the center between the two channels,
-The display is configured as follows:
+The display is layed out as follows:
 ```
 RRROOOGGG...GRG...GGGOOORRR
 ```
-Where R is an always on RED led in the center of the string,  The VU meters are green at lower sound levels starting on eithr side of the RED LED. 
+Where R is an always on RED led in the center of the string,  The VU meters are green at lower sound levels starting on either side of the RED LED. 
 At higher sound levels the leds are ORANGE then RED. The peak hold LED is BLUE.
 
-Configuring the RGB leds will bring in the display driver and code that consumes the sound data that is also used by the OLED VU Meters and spectrum analyzer. Thus the OLED VUs may not be as responsive.  This short coming will be addressed in a future release.
+Configuring the RGB leds will bring in the display driver and code that consumes the sound data that is also used by the OLED VU Meters and spectrum analyzer. 
+Thus the OLED VUs may not be as responsive since they will be competing for audio data with the RGB leds that usually have faster update times.
+This short coming will be addressed in a future release.
 
 
 ### Infrared
