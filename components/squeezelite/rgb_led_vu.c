@@ -15,24 +15,17 @@
 #include "led_strip.h"
 #include "platform_config.h"
 
-
 static const char *TAG = "rgb_led_vu";
 
 #define RGB_LED_VU_STACK_SIZE 	(3*1024)
 #define VU_COUNT 48
 
-#define LONG_WAKE 		(10*1000)
-
-// lenght are number of frames, i.e. 2 channels of 16 bits
-#define	FFT_LEN_BIT	7		
-#define	FFT_LEN		(1 << FFT_LEN_BIT)
-#define RMS_LEN_BIT	6
-#define RMS_LEN		(1 << RMS_LEN_BIT)
+#define RMS_LEN_BIT    6
+#define RMS_LEN       (1 << RMS_LEN_BIT)
 
 #define max(a,b) (((a) > (b)) ? (a) : (b))
 
 static void rgb_led_vu_displayer_task(void* arg);
-
 
 #define LED_STRIP_LENGTH 31U  /* should be odd, since there is one led in the center, and VUs on either side */
 #define LED_STRIP_RMT_INTR_NUM 20U
@@ -111,7 +104,7 @@ rgb_led_vu_init(void)
 
     rgb_led_vu.hold_time = LED_STRIP_PEAK_HOLD;
     rgb_led_vu.n         = MAX_BARS;
-    rgb_led_vu.max       = 47;
+    rgb_led_vu.max       = VU_COUNT - 1;
 
     ESP_LOGI(TAG,
              "rgb_led_vu initializing with length=%d, data=%d, hold=%d, bright=%d, refresh=%d",
@@ -309,35 +302,18 @@ vu_update(void)
                 rgb_led_vu.bars[i].current = 0;
             }
         }
- /*       ESP_LOGI(TAG,
-                 "buffer is %p data is %d %d %d",
-				 visu_export.buffer,
-                 rgb_led_vu.bars[0].current,
-                 rgb_led_vu.bars[1].current,
-				 rgb_led_vu.max); */
     }
     // we took what we want, we can release the buffer
     visu_export.level = 0;
     pthread_mutex_unlock(&visu_export.mutex);
 
-    // don't refresh screen if all max are 0 (we were are somewhat idle)
+    // don't refresh if all max are 0 (we were are somewhat idle)
     int clear = 0;
     for (int i = rgb_led_vu.n; --i >= 0;) {
         clear = max(clear, rgb_led_vu.bars[i].max);
     }
-    if (clear) { display_led_vu(0, 0); }
-
-    for (int i = rgb_led_vu.n; --i >= 0;) {
-        // update maximum
-        if (rgb_led_vu.bars[i].current > rgb_led_vu.bars[i].max)
-            rgb_led_vu.bars[i].max = rgb_led_vu.bars[i].current;
-        else if (rgb_led_vu.bars[i].max)
-            rgb_led_vu.bars[i].max--;
-        else if (!clear)
-            continue;
-    }
-
-    display_led_vu(rgb_led_vu.bars[0].current, rgb_led_vu.bars[1].current);
+    if (clear){display_led_vu(0, 0);}
+    else{display_led_vu(rgb_led_vu.bars[0].current, rgb_led_vu.bars[1].current);}
 }
 
 /****************************************************************************************

@@ -107,7 +107,7 @@ WS2812,length=<leds>,data<gpio>[hold=<cycles>,enable=<gpio>,refresh=<delay>,brig
 - 'enable' is a gpio that is used to enable a 5V buck regulator that may be powering the LED string. Although in practice the LEDS seem to work fine with
 a 3.3 volt supply. An enable will help conserve power when the the player is in "standyby" since the ws2812 leds have a current draw even when off. 
 
-- 'refresh' is delay between update of the VU meters in milliseconds, The default is 30, and cannot be lower than 30.
+- 'refresh' is delay between update of the VU meters in milliseconds, The default is 100, and cannot be lower than 30.
 
 - 'bright' is the intensity of the LEDs, the default is 10 (out of 255)
 
