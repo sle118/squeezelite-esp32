@@ -330,7 +330,7 @@ bool sb_display_init(void) {
 	
 	display_bus_chain = display_bus;
 	display_bus = display_bus_handler;
-
+	
 	return true;
 }
 
@@ -835,7 +835,7 @@ static void grfa_handler(u8_t *data, int len) {
 	
 	LOG_INFO("gfra l:%u x:%hu, y:%hu, o:%u s:%u", length, artwork.x, artwork.y, offset, size);
 }
- 
+
 /****************************************************************************************
  * Update visualization bars
  */
@@ -977,6 +977,7 @@ static void visu_update(void) {
 		draw_VU(display, vu_bitmap, level, 0, visu.row, visu.rotate ? visu.height : visu.width, visu.rotate);		
 	}	
 }
+
 
 /****************************************************************************************
  * Calculate spectrum spread
