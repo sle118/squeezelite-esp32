@@ -45,11 +45,10 @@ static struct led_strip_t  led_strip_config = {
 static EXT_RAM_ATTR struct {
     TaskHandle_t task;
     int          led_data_pin;
-    int          hold_time;
+    int          hold;
     int          led_strip_length;
     uint8_t      bright;
     int          refresh;
-    int          hold;
     struct {
         int current, max;
         int limit;
@@ -80,7 +79,7 @@ rgb_led_vu_init(void)
         rgb_led_vu.led_data_pin = atoi(strchr(p, '=') + 1);
     }
     if ((p = strcasestr(config, "hold")) != NULL) {
-        rgb_led_vu.hold_time = atoi(strchr(p, '=') + 1);
+        rgb_led_vu.hold = atoi(strchr(p, '=') + 1);
     } else {
         rgb_led_vu.hold = LED_STRIP_PEAK_HOLD;
     }
@@ -102,7 +101,6 @@ rgb_led_vu_init(void)
         goto done;
     }
 
-    rgb_led_vu.hold_time = LED_STRIP_PEAK_HOLD;
     rgb_led_vu.n         = MAX_BARS;
     rgb_led_vu.max       = VU_COUNT - 1;
 
@@ -110,7 +108,7 @@ rgb_led_vu_init(void)
              "rgb_led_vu initializing with length=%d, data=%d, hold=%d, bright=%d, refresh=%d",
              rgb_led_vu.led_strip_length,
              rgb_led_vu.led_data_pin,
-             rgb_led_vu.hold_time,
+             rgb_led_vu.hold,
              rgb_led_vu.bright,
              rgb_led_vu.refresh);
 
@@ -159,8 +157,6 @@ done:
     return;
 }
 
-#define DECAY_VAL 15
-
 
 /* bugs, reds missing on one side */
 void display_led_vu(int left_vu_sample, int right_vu_sample) {
@@ -188,23 +184,23 @@ void display_led_vu(int left_vu_sample, int right_vu_sample) {
         if (decayl > 0) {
             decayl--;
         } else {
-            decayl = DECAY_VAL;
+            decayl = rgb_led_vu.hold;
             lp--;
         }
     } else {
         lp = left_vu_sample;
-        decayl = DECAY_VAL;
+        decayl = rgb_led_vu.hold;
     }
     if (rp > right_vu_sample) {
         if (decayr > 0) {
             decayr--;
         } else {
-            decayr = DECAY_VAL;
+            decayr = rgb_led_vu.hold;
             rp--;
         }
     } else {
         rp = right_vu_sample;
-        decayr = DECAY_VAL;
+        decayr = rgb_led_vu.hold;
     }
 
     lp = max(lp, left_vu_sample);
