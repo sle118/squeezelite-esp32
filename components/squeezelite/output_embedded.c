@@ -109,6 +109,14 @@ void set_volume(unsigned left, unsigned right) {
 		output.gainR = right;
 		UNLOCK;
 	} 
+	else
+	{
+		LOCK;
+		output.gainL = FIXED_ONE;
+		output.gainR = FIXED_ONE;
+		UNLOCK;
+	}
+
 }
 
 bool test_open(const char *device, unsigned rates[], bool userdef_rates) {

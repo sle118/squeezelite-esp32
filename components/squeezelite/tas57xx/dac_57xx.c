@@ -18,6 +18,12 @@
 #include "esp_log.h"
 #include "adac.h"
 
+// needed for scaling the Volume input with FIXED_ONE
+// and getting min define
+#include "squeezelite.h"
+// needed for transforming Volume to dB
+#include <math.h>
+
 #define TAS575x 0x98
 #define TAS578x	0x90
 
@@ -44,6 +50,9 @@ static const struct tas57xx_cmd_s tas57xx_init_sequence[] = {
 	{ 0x25, 0x08 },		// ignore SCK halt 
 	{ 0x08, 0x10 },		// Mute control enable (from TAS5780)
 	{ 0x54, 0x02 },		// Mute output control (from TAS5780)
+	{ 0x3c, 0x00 },		// Volume control on both channels seperate (default 0x00)
+	{ 0x3d, 0xff },		// Volume channel A to 0 (default 0x30, 0xff = Mute)
+	{ 0x3e, 0xff },		// Volume channel B to 0 (default 0x30, 0xff = Mute)
 	{ 0x02, 0x00 },		// restart
 	{ 0xff, 0xff }		// end of table
 };
@@ -130,9 +139,73 @@ static void deinit(void)	{
 
 /****************************************************************************************
  * change volume
+ * Parameter going from 0 to 65536
+ * TAS allows from 254 = -103 dB (negative maximum) to 0 = +24 dB (positive maximum)
+ * TAS default is 0 dB = 0x30 = 48 no attenuation
+ * TAS control from -103 dB to 0 dB
+ * A Value of 255 means negative infinite (Mute)
+ * TAS gain will be implemented from
+ * 
+ * -infinity (Mute) = 0xff = 255
+ * -81.5 dB = 0xd3 = 211
+ *   .
+ *   .
+ *   .
+ *  0 dB = 0x30 = 48
+ * 
+ * This scaling might be changed. We start at -81.5 dB, lower values result
+ * in nearly not hearable output at 15% Volume
+ * 
+ * representiong from 0 to 65536 the input
  */
 static bool volume(unsigned left, unsigned right) { 
-	return false; 
+	esp_err_t ret = ESP_OK;
+	i2c_cmd_handle_t i2c_cmd = i2c_cmd_link_create();
+
+	ESP_LOGI(TAG, "Volume is requested to: L: %d, R: %d", left, right);
+	if (left > 0)
+	{
+		left = (unsigned) min(round(- log10(((double) left) / (double) FIXED_ONE) * 45) + 48, 255);
+	}
+	else
+	{
+		left = 0xff;
+	}
+	ESP_LOGI(TAG, "Volume is set to: L: %d", left);
+//	left = 0xff;
+	i2c_master_start(i2c_cmd);
+	i2c_master_write_byte(i2c_cmd, tas57_addr | I2C_MASTER_WRITE, I2C_MASTER_NACK);
+	i2c_master_write_byte(i2c_cmd, 0x3d, I2C_MASTER_NACK);
+	i2c_master_write_byte(i2c_cmd, (uint8_t) left, I2C_MASTER_NACK);
+	ESP_LOGI(TAG, "i2c write %x at %u", 0x3d, (uint8_t) left);
+
+	if (left > 0)
+	{
+		right = (unsigned) min(round(- log10(((double) right) / (double) FIXED_ONE) * 45) + 48, 255);
+	}
+	else
+	{
+		right = 0xff;
+	}
+	ESP_LOGI(TAG, "Volume is set to: R: %d", right);
+//	right = 0xff;
+	i2c_master_start(i2c_cmd);
+	i2c_master_write_byte(i2c_cmd, tas57_addr | I2C_MASTER_WRITE, I2C_MASTER_NACK);
+	i2c_master_write_byte(i2c_cmd, 0x3e, I2C_MASTER_NACK);
+	i2c_master_write_byte(i2c_cmd, (uint8_t) right, I2C_MASTER_NACK);
+	ESP_LOGI(TAG, "i2c write %x at %u", 0x3e, (uint8_t) right);
+
+	i2c_master_stop(i2c_cmd);	
+	ret	= i2c_master_cmd_begin(i2c_port, i2c_cmd, 50 / portTICK_RATE_MS);
+	i2c_cmd_link_delete(i2c_cmd);
+//	ESP_LOGI(TAG, "Amplifier gain ist set to: L: %u, R: %u", (uint8_t) left, (uint8_t) right);
+
+	if (ret != ESP_OK) {
+		ESP_LOGE(TAG, "Could not set volume on TAS57xx %d", ret);
+	}
+
+	
+	return true; 
 }
 
 /****************************************************************************************
