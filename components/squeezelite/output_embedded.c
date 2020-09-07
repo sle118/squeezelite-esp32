@@ -110,6 +110,10 @@ void set_volume(unsigned left, unsigned right) {
 		UNLOCK;
 	} else {
 		LOCK;
+		/* not using the full scale
+		 * this enables the equalizer some range before getting to clipping
+		 * We loose here 1 bit of resolution.
+		 */
 		output.gainL = FIXED_ONE>>1;
 		output.gainR = FIXED_ONE>>1;
 		UNLOCK;

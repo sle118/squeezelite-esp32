@@ -147,17 +147,22 @@ static void deinit(void)	{
  * TAS gain will be implemented from
  * 
  * -infinity (Mute) = 0xff = 255
- * -81.5 dB = 0xd3 = 211
+ * -74.5 dB = 0xd3 = 197
  *   .
  *   .
  *   .
- *  0 dB = 0x30 = 48
+ *  7 dB = 0x42 = 34
  * 
- * This scaling might be changed. We start at -81.5 dB, lower values result
- * in nearly not hearable output at 15% Volume
+ * representiong from 0 to 65536 the input
+ * 
+ * This scaling might be changed. We start at -74.5 dB, lower values result
+ * in nearly not hearable output at 15% Volume. This scaling is adopted to a
+ * output.gainL/r of FIXED_ONE/2 This enalbes the eqaulizer some range for adjustments
+ * berfore clipping too early. We will use 1 bit of resolution.
  * 
  * representiong from 0 to 65536 the input
  */
+
 static bool volume(unsigned left, unsigned right) { 
 	esp_err_t ret = ESP_OK;
 	i2c_cmd_handle_t i2c_cmd = i2c_cmd_link_create();
