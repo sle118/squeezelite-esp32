@@ -163,47 +163,37 @@ static bool volume(unsigned left, unsigned right) {
 	i2c_cmd_handle_t i2c_cmd = i2c_cmd_link_create();
 
 	ESP_LOGI(TAG, "Volume is requested to: L: %d, R: %d", left, right);
-	if (left > 0)
-	{
-		left = (unsigned) min(round(- log10(((double) left) / (double) FIXED_ONE) * 45) + 48, 255);
-	}
-	else
-	{
+
+	if (left > 0) {
+		left = (unsigned) min(round(- log10(((double) left) / (double) FIXED_ONE) * 45) + 34, 255);
+	} else {
 		left = 0xff;
 	}
-	ESP_LOGI(TAG, "Volume is set to: L: %d", left);
-//	left = 0xff;
 	i2c_master_start(i2c_cmd);
 	i2c_master_write_byte(i2c_cmd, tas57_addr | I2C_MASTER_WRITE, I2C_MASTER_NACK);
 	i2c_master_write_byte(i2c_cmd, 0x3d, I2C_MASTER_NACK);
 	i2c_master_write_byte(i2c_cmd, (uint8_t) left, I2C_MASTER_NACK);
 	ESP_LOGI(TAG, "i2c write %x at %u", 0x3d, (uint8_t) left);
 
-	if (left > 0)
-	{
+	if (left > 0) {
 		right = (unsigned) min(round(- log10(((double) right) / (double) FIXED_ONE) * 45) + 48, 255);
-	}
-	else
-	{
+	} else {
 		right = 0xff;
 	}
-	ESP_LOGI(TAG, "Volume is set to: R: %d", right);
-//	right = 0xff;
 	i2c_master_start(i2c_cmd);
 	i2c_master_write_byte(i2c_cmd, tas57_addr | I2C_MASTER_WRITE, I2C_MASTER_NACK);
 	i2c_master_write_byte(i2c_cmd, 0x3e, I2C_MASTER_NACK);
 	i2c_master_write_byte(i2c_cmd, (uint8_t) right, I2C_MASTER_NACK);
 	ESP_LOGI(TAG, "i2c write %x at %u", 0x3e, (uint8_t) right);
-
+	
 	i2c_master_stop(i2c_cmd);	
 	ret	= i2c_master_cmd_begin(i2c_port, i2c_cmd, 50 / portTICK_RATE_MS);
 	i2c_cmd_link_delete(i2c_cmd);
-//	ESP_LOGI(TAG, "Amplifier gain ist set to: L: %u, R: %u", (uint8_t) left, (uint8_t) right);
+	ESP_LOGI(TAG, "Amplifier gain ist set to: L: %u, R: %u", (uint8_t) left, (uint8_t) right);
 
 	if (ret != ESP_OK) {
 		ESP_LOGE(TAG, "Could not set volume on TAS57xx %d", ret);
 	}
-
 	
 	return true; 
 }
