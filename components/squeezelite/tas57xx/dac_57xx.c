@@ -180,7 +180,7 @@ static bool volume(unsigned left, unsigned right) {
 	i2c_master_write_byte(i2c_cmd, (uint8_t) left, I2C_MASTER_NACK);
 	ESP_LOGI(TAG, "i2c write %x at %u", 0x3d, (uint8_t) left);
 
-	if (left > 0) {
+	if (right > 0) {
 		right = (unsigned) min(round(- log10(((double) right) / (double) FIXED_ONE) * 45) + 34, 255);
 	} else {
 		right = 0xff;
