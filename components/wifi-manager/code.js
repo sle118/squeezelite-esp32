@@ -1001,14 +1001,24 @@ function checkStatus(){
         if (data.hasOwnProperty('Voltage')) {
             var voltage = data['Voltage'];
             var layer;
+
+            /* assuming LiIon 18650s as a power source. I'm using the following scheme,
+            4.2 volts is abosolute max, But if you want to be nicer to your batteries, 4.1 V
+            is a better place to stop. I'm treating voltages above 3.9V per cell as full charge.
+            (at least >75% of capacity).  I'm considering 3.4v as empty.
+            I'm loosely following the graph here:
+               https://learn.adafruit.com/li-ion-and-lipoly-batteries/voltages
+            and using the 0.2C discharge profile for the rest of the values.
+            */
+
             if (voltage > 0) {
-                if (inRange(voltage, 5.8, 6.2) || inRange(voltage, 8.8, 9.2)) {
+                if (inRange(voltage, 5.8, 6.8) || inRange(voltage, 8.8, 10.2)) {
                     layer = bat0;
-                } else if (inRange(voltage, 6.2, 6.8) || inRange(voltage, 9.2, 10.0)) {
+                } else if (inRange(voltage, 6.8, 7.4) || inRange(voltage, 10.2, 11.1)) {
                     layer = bat1;
-                } else if (inRange(voltage, 6.8, 7.1) || inRange(voltage, 10.0, 10.5)) {
+                } else if (inRange(voltage, 7.4, 7.5) || inRange(voltage, 11.1, 11.25)) {
                     layer = bat2;
-                } else if (inRange(voltage, 7.1, 7.5) || inRange(voltage, 10.5, 11.0)) {
+                } else if (inRange(voltage, 7.5, 7.8) || inRange(voltage, 11.25, 11.7)) {
                     layer = bat3;
                 } else {
                     layer = bat4;
