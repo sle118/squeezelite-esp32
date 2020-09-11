@@ -44,6 +44,7 @@
 #include "gds_text.h"
 #include "gds_font.h"
 #include "display.h"
+#include "accessors.h"
 static const char certs_namespace[] = "certificates";
 static const char certs_key[] = "blob";
 static const char certs_version[] = "version";
@@ -464,7 +465,6 @@ void app_main()
 		wifi_manager_set_callback(ORDER_START_AP, &start_telnet);
 		wifi_manager_set_callback(ORDER_CONNECT_STA, &start_telnet);
 	}
-
 	console_start();
 	if(fwurl && strlen(fwurl)>0){
 		if(is_recovery_running){

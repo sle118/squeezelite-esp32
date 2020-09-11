@@ -451,11 +451,11 @@ static void register_heap()
 static void register_setdevicename()
 {
 	char * default_host_name = config_alloc_get_str("host_name",NULL,"Squeezelite");
-	name_args.name = arg_str0("n", "name", default_host_name, "Device name");
+	name_args.name = arg_str0("n", "name", default_host_name, "New Name");
 	name_args.end = arg_end(8);
 	const esp_console_cmd_t set_name= {
 	 		.command = "setname",
-			.help="Sets the name of the device (host, bluetooth, etc)",
+			.help="Device Name",
 			.hint = NULL,
 			.func = &setdevicename,
 			.argtable = &name_args

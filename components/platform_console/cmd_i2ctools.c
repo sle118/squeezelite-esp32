@@ -97,9 +97,9 @@ static struct {
 static struct {
 	struct arg_str *name;
 	struct arg_str *driver;
+	struct arg_int *address;
 	struct arg_int *width;
 	struct arg_int *height;
-	struct arg_int *address;
 	struct arg_lit *rotate;
 	struct arg_lit *hflip;
 	struct arg_lit *vflip;
@@ -108,22 +108,7 @@ static struct {
 	struct arg_lit *clear;
 	struct arg_end *end;
 } i2cdisp_args;
-char * gpio_list = NULL;
-const char * get_gpio_list(){
-	if(!gpio_list){
-		gpio_list = malloc(GPIO_PIN_COUNT*3+1);
-		memset(gpio_list,0x00,GPIO_PIN_COUNT*3+1);
 
-		for(int i = 0;i<GPIO_PIN_COUNT;i++){
-			if(GPIO_IS_VALID_OUTPUT_GPIO(i)){
-				sprintf(gpio_list+strlen(gpio_list),"%u|",i);
-			}
-		}
-		gpio_list[strlen(gpio_list)-1]='\0';
-		ESP_LOGI(TAG,"Initialized gpio list: %s",gpio_list);
-	}
-	return gpio_list;
-}
 int is_output_gpio(struct arg_int * gpio, FILE * f, int * gpio_out){
 	int res = 0;
 	const char * name = gpio->hdr.longopts?gpio->hdr.longopts:gpio->hdr.glossary;
@@ -1024,21 +1009,21 @@ cJSON * i2c_set_display_cb(){
 static void register_i2c_set_display(){
 	char * supported_drivers = display_get_supported_drivers();
 
-	i2cdisp_args.address = arg_int0("a", "address", "<n>", "Set the device address, default 60");
-	i2cdisp_args.width = arg_int0("w", "width", "<n>", "Set the display width");
-	i2cdisp_args.height = arg_int0("h", "height", "<n>", "Set the display height");
-	i2cdisp_args.name = arg_str0("t", "type", "<I2C|SPI>", "Display type, I2C or SPI. Default I2C");
-	i2cdisp_args.driver = arg_str0("d", "driver", supported_drivers?supported_drivers:"<string>", "Set the display driver name. Default SSD1306");
+	i2cdisp_args.address = arg_int0("a", "address", "<n>", "I2C address (default 60)");
+	i2cdisp_args.width = arg_int0("w", "width", "<n>", "Width");
+	i2cdisp_args.height = arg_int0("h", "height", "<n>", "Height");
+	i2cdisp_args.name = arg_str0("t", "type", "<I2C|SPI>", "Interface (default I2C)");
+	i2cdisp_args.driver = arg_str0("d", "driver", supported_drivers?supported_drivers:"<string>", "Driver (default SSD1306)");
 	i2cdisp_args.clear = arg_lit0(NULL, "clear", "clear configuration and return");
-	i2cdisp_args.hflip = arg_lit0(NULL, "hf", "Flip picture horizontally");
-	i2cdisp_args.vflip = arg_lit0(NULL, "vf", "Flip picture vertically");
-	i2cdisp_args.rotate = arg_lit0("r", "rotate", "Rotate the picture 180 deg");
-	i2cdisp_args.back = arg_int0("b", "back", get_gpio_list(),"Backlight GPIO (if applicable)");
-	i2cdisp_args.speed = arg_int0("s", "speed", "<n>","Default speed is 8000000 (8MHz) for SPI and 250000 for I2C. The SPI interface can work up to 26MHz~40MHz");
+	i2cdisp_args.hflip = arg_lit0(NULL, "hf", "Flip horizontally");
+	i2cdisp_args.vflip = arg_lit0(NULL, "vf", "Flip vertically");
+	i2cdisp_args.rotate = arg_lit0("r", "rotate", "Rotate 180 degrees");
+	i2cdisp_args.back = arg_int0("b", "back", "<n>","Backlight GPIO (if applicable)");
+	i2cdisp_args.speed = arg_int0("s", "speed", "<n>","Bus Speed (Default 8000000 for SPI, 250000 for I2C). SPI interface can work up to 26MHz~40MHz");
 	i2cdisp_args.end = arg_end(8);
 	const esp_console_cmd_t i2c_set_display= {
 	 		.command = "setdisplay",
-			.help="Sets the display options",
+			.help="Display",
 			.hint = NULL,
 			.func = &do_i2c_set_display,
 			.argtable = &i2cdisp_args
@@ -1193,15 +1178,15 @@ cJSON * spiconfig_cb(){
 
 static void register_spiconfig(void)
 {
-	spiconfig_args.clear = arg_lit0(NULL, "clear", "clear configuration");
-	spiconfig_args.clk = arg_int0("k", "clock", get_gpio_list(), "Set the gpio for SPI clock");
-	spiconfig_args.data = arg_int0("d","data", get_gpio_list(),"Set the gpio for SPI data");
-	spiconfig_args.dc = arg_int0("c","dc", get_gpio_list(), "Set the gpio for SPI dc");
-	spiconfig_args.host= arg_int0("h", "host", "int", "Set the SPI host number to use");
+	spiconfig_args.clear = arg_lit0(NULL, "clear", "Clear configuration");
+	spiconfig_args.clk = arg_int0("k", "clock", "<n>", "Clock GPIO");
+	spiconfig_args.data = arg_int0("d","data", "<n>","Data GPIO");
+	spiconfig_args.dc = arg_int0("c","dc", "<n>", "DC GPIO");
+	spiconfig_args.host= arg_int0("h", "host", "int", "SPI Host Number");
 	spiconfig_args.end = arg_end(4);
     const esp_console_cmd_t spiconfig_cmd = {
         .command = "spiconfig",
-        .help = "Config SPI bus",
+        .help = "SPI Bus Parameters",
         .hint = NULL,
         .func = &do_spiconfig_cmd,
         .argtable = &spiconfig_args
@@ -1211,16 +1196,16 @@ static void register_spiconfig(void)
 }
 static void register_i2cconfig(void)
 {
-	i2cconfig_args.clear = arg_lit0(NULL, "clear", "clear configuration");
-    i2cconfig_args.port = arg_int0("p", "port", "0|1", "Set the I2C bus port number");
-    i2cconfig_args.freq = arg_int0("f", "freq", "int", "Set the frequency(Hz) of I2C bus. e.g. 100000");
-    i2cconfig_args.sda = arg_int0("d", "sda", get_gpio_list(), "Set the gpio for I2C SDA. e.g. 19");
-    i2cconfig_args.scl = arg_int0("c", "scl", get_gpio_list(), "Set the gpio for I2C SCL. e.g. 18");
-    i2cconfig_args.load = arg_lit0("l", "load", "load existing configuration and return");
+	i2cconfig_args.clear = arg_lit0(NULL, "clear", "Clear configuration");
+    i2cconfig_args.port = arg_int0("p", "port", "0|1", "Port");
+    i2cconfig_args.freq = arg_int0("f", "freq", "int", "Frequency (Hz) e.g. 100000");
+    i2cconfig_args.sda = arg_int0("d", "sda", "<n>", "SDA GPIO. e.g. 19");
+    i2cconfig_args.scl = arg_int0("c", "scl", "<n>", "SCL GPIO. e.g. 18");
+    i2cconfig_args.load = arg_lit0("l", "load", "Load Existing Configuration");
     i2cconfig_args.end = arg_end(4);
     const esp_console_cmd_t i2cconfig_cmd = {
         .command = "i2cconfig",
-        .help = "Config I2C bus",
+        .help = "I2C Bus Parameters",
         .hint = NULL,
         .func = &do_i2cconfig_cmd,
         .argtable = &i2cconfig_args

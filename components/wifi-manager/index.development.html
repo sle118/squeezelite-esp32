@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<link rel="shortcut icon" type="image/x-icon" href="/res/favicon.ico">
+		<link rel="stylesheet" href="/res/bootstrap.css">
+		<link rel="stylesheet" href="/res/style.css">
+		<script src="/res/jquery.js"></script>
+		<script src="/res/popper.js"></script>
+		<script src="/res/bootstrap.js"></script>
+		<script src="/res/code.js"></script>
+		<title>esp32-wifi-manager</title>
+	</head>
+	<body>
+		<div id="info">
+			<svg xmlns="http://www.w3.org/2000/svg" id="jack" width="24" height="24" viewBox="0 0 24 24">
+				<g id="o_jack" display="none">
+					<path d="m 16.074253,15.636738 v -1.05413 h 5.893274 c 1.16249,0 2.108261,-0.855111 2.108261,-1.906183 0,-1.051073 -0.945771,-1.906236 -2.108261,-1.906236 H 16.074253 V 9.7160604 c 0,-0.5812492 -0.472879,-1.0541321 -1.054131,-1.0541321 H 6.7847349 c -1.256731,0 -2.301908,0.9212057 -2.496867,2.1237027 h -0.451896 c -0.540407,0 -1.001317,0.349129 -1.173459,0.835611 H 0.47312787 c -0.23285,0 -0.42164599,0.188794 -0.42164599,0.421651 v 1.251779 c 0,0.232857 0.18879599,0.421652 0.42164599,0.421652 H 2.6550809 c 0.165919,0.497866 0.632365,0.857588 1.180831,0.857588 h 0.45312 c 0.19781,1.199177 1.241345,2.116956 2.495659,2.116956 h 8.2353861 c 0.581297,0 1.054176,-0.472883 1.054176,-1.05413 z m 5.060935,-4.023245 v 2.125811 h -0.844935 v -2.125811 z m 2.097293,1.062932 c 0,0.582933 -0.561524,1.057661 -1.253986,1.062668 v -2.125337 c 0.692462,0.0049 1.253986,0.47963 1.253986,1.062669 z m -3.785535,-1.062932 v 2.125811 h -3.372693 v -2.125811 z m -18.55215712,0.851 H 2.5901939 v 0.408475 H 0.89478888 Z m 2.94118302,1.266114 c -0.221897,0 -0.40247,-0.185737 -0.40247,-0.414062 v -1.273547 c 0,-0.228271 0.180573,-0.41401 0.40247,-0.41401 h 0.418855 v 2.101671 h -0.418855 z m 2.948763,2.116956 c -0.929997,0 -1.6866,-0.756601 -1.6866,-1.686608 v -0.0087 -2.944976 -0.01545 c 0,-0.930006 0.756603,-1.6866072 1.6866,-1.6866072 h 8.2353871 c 0.114313,0 0.210838,0.096554 0.210838,0.2108266 v 5.9206786 c 0,0.114268 -0.09656,0.210824 -0.210838,0.210824 z" />
+				</g>
+			</svg>
+			<svg xmlns="http://www.w3.org/2000/svg" id="output" width="24" height="24" viewBox="0 0 24 24">
+				<g id="o_i2s" display="none">
+					<path d="M2 7L2 8L2 9L2 10L2 11L2 12L2 13L2 14L2 15L2 16L2 17L3 17L3 16L3 15L3 14L3 13L3 12L3 11L3 10L3 9L3 8L2 7M6 7L6 8L6 9L7 9L7 8L8 8L9 8L10 8L10 9L11 9L11 10L11 11L10 11L10 12L9 12L9 13L8 13L8 14L7 14L7 15L6 15L6 16L6 17L7 17L8 17L9 17L10 17L11 17L12 17L12 16L11 16L10 16L9 16L8 16L8 15L9 15L9 14L10 14L10 13L11 13L11 12L12 12L12 11L12 10L12 9L12 8L11 8L11 7L10 7L9 7L8 7L6 7M16 7L16 8L15 8L15 9L15 10L15 11L16 11L16 12L17 12L18 12L18 13L19 13L20 13L21 13L21 14L21 15L20 15L20 16L19 16L18 16L17 16L16 16L16 15L15 15L15 16L15 17L16 17L17 17L18 17L19 17L20 17L21 17L21 16L22 16L22 15L22 14L22 13L21 13L21 12L20 12L20 11L19 11L18 11L17 11L16 11L16 10L16 9L17 9L17 8L18 8L19 8L20 8L21 8L21 9L22 9L22 8L22 7L21 7L20 7L19 7L18 7L16 7z"/>
+				</g>
+				<g id="o_bt" display="none">
+					<path d="M3 7L3 8L3 9L3 10L3 11L3 12L3 13L3 14L3 15L3 16L3 17L4 17L5 17L6 17L7 17L8 17L9 17L9 16L10 16L10 15L10 14L10 13L10 12L9 12L9 11L10 11L10 10L10 9L10 8L9 8L9 7L8 7L7 7L6 7L5 7L3 7M12 7L12 8L13 8L14 8L15 8L16 8L16 9L16 10L16 11L16 12L16 13L16 14L16 15L16 16L16 17L17 17L17 16L17 15L17 14L17 13L17 12L17 11L17 10L17 9L17 8L18 8L19 8L20 8L21 8L21 7L20 7L19 7L18 7L17 7L16 7L15 7L14 7L12 7z"/>
+					<path style="fill:#272B30;" d="M4 8L4 9L4 10L4 11L5 11L6 11L7 11L8 11L8 10L9 10L9 9L9 8L8 8L7 8L6 8L4 8M4 12L4 13L4 14L4 15L4 16L5 16L6 16L7 16L8 16L8 15L9 15L9 14L9 13L8 13L8 12L7 12L6 12L4 12z"/>
+				</g>
+				<g id="o_spdif" display="none">
+					<path d="M3 1L3 2L2 2L2 3L2 4L2 5L3 5L3 6L4 6L5 6L5 7L6 7L7 7L8 7L8 8L8 9L7 9L7 10L6 10L5 10L4 10L3 10L3 9L2 9L2 10L2 11L3 11L4 11L5 11L6 11L7 11L8 11L8 10L9 10L9 9L9 8L9 7L8 7L8 6L7 6L7 5L6 5L5 5L4 5L3 5L3 4L3 3L4 3L4 2L5 2L6 2L7 2L8 2L8 3L9 3L9 2L9 1L8 1L7 1L6 1L5 1L3 1M13 1L13 2L13 3L13 4L12 4L12 5L12 6L12 7L12 8L11 8L11 9L11 10L11 11L10 11L10 12L10 13L11 13L11 12L11 11L12 11L12 10L12 9L12 8L13 8L13 7L13 6L13 5L14 5L14 4L14 3L14 2L15 2L15 1L13 1M16 1L16 2L16 3L16 4L16 5L16 6L16 7L16 8L16 9L16 10L16 11L17 11L17 10L17 9L17 8L17 7L18 7L19 7L20 7L21 7L21 6L22 6L22 5L22 4L22 3L22 2L21 2L21 1L20 1L19 1L18 1L16 1z"/>
+					<path style="fill:#272B30;" d="M17 2L17 3L17 4L17 5L17 6L18 6L19 6L20 6L20 5L21 5L21 4L21 3L20 3L20 2L19 2L17 2z"/>
+					<path d="M2 13L2 14L2 15L2 16L2 17L2 18L2 19L2 20L2 21L2 22L2 23L3 23L4 23L5 23L6 23L7 23L8 23L8 22L9 22L9 21L10 21L10 20L10 19L10 18L10 17L10 16L10 15L9 15L9 14L8 14L7 14L7 13L6 13L5 13L4 13L2 13M13 13L13 14L13 15L13 16L13 17L13 18L13 19L13 20L13 21L13 22L13 23L14 23L14 22L14 21L14 20L14 19L14 18L14 17L14 16L14 15L14 14L13 13M17 13L17 14L17 15L17 16L17 17L17 18L17 19L17 20L17 21L17 22L17 23L18 23L18 22L18 21L18 20L18 19L18 18L19 18L20 18L21 18L22 18L22 17L21 17L20 17L19 17L18 17L18 16L18 15L18 14L19 14L20 14L21 14L22 14L22 13L21 13L20 13L19 13L17 13z"/>
+					<path style="fill:#272B30;" d="M3 14L3 15L3 16L3 17L3 18L3 19L3 20L3 21L3 22L4 22L5 22L6 22L7 22L7 21L8 21L8 20L9 20L9 19L9 18L9 17L9 16L8 16L8 15L7 15L7 14L6 14L5 14L3 14z"/>
+				</g>
+			</svg>
+			<svg xmlns="http://www.w3.org/2000/svg" id="battery" width="24" height="24" viewBox="0 0 24 24">
+				<g id="bat0" display="none">
+					<path d="M19 8v8h-17v-8h17zm2-2h-21v12h21v-12zm1 9h.75c.69 0 1.25-.56 1.25-1.25v-3.5c0-.69-.56-1.25-1.25-1.25h-.75v6z"/>
+				</g>
+				<g id="bat1" display="none">
+					<path d="M19 8v8h-17v-8h17zm2-2h-21v12h21v-12zm1 9h.75c.69 0 1.25-.56 1.25-1.25v-3.5c0-.69-.56-1.25-1.25-1.25h-.75v6zm-16-6h-3v6h3v-6z"/>
+				</g>
+				<g id="bat2" display="none">
+					<path d="M19 8v8h-17v-8h17zm2-2h-21v12h21v-12zm1 9h.75c.69 0 1.25-.56 1.25-1.25v-3.5c0-.69-.56-1.25-1.25-1.25h-.75v6zm-16-6h-3v6h3v-6zm4 0h-3v6h3v-6z"/>
+				</g>
+				<g id="bat3" display="none">
+					<path d="M19 8v8h-17v-8h17zm2-2h-21v12h21v-12zm1 9h.75c.69 0 1.25-.56 1.25-1.25v-3.5c0-.69-.56-1.25-1.25-1.25h-.75v6zm-16-6h-3v6h3v-6zm4 0h-3v6h3v-6zm4 0h-3v6h3v-6z"/>
+				</g>
+				<g id="bat4" display="none">
+					<path d="M19 8v8h-17v-8h17zm2-2h-21v12h21v-12zm1 9h.75c.69 0 1.25-.56 1.25-1.25v-3.5c0-.69-.56-1.25-1.25-1.25h-.75v6zm-16-6h-3v6h3v-6zm4 0h-3v6h3v-6zm4 0h-3v6h3v-6zm4 0h-3v6h3v-6z"/>
+				</g>
+			</svg>
+		</div>
+		<ul id="navbar" class="nav nav-tabs">
+			<li class="nav-item">
+				<a class="nav-link active" data-toggle="tab" href="#tab-wifi">WiFi</a>
+			</li>
+			<li class="nav-item">
+				<a class="nav-link" data-toggle="tab" href="#tab-audio">Audio + LMS</a>
+			</li>
+			<li class="nav-item">
+				<a class="nav-link" data-toggle="tab" href="#tab-firmware">Firmware</a>
+			</li>
+			<li class="nav-item">
+				<a class="nav-link" data-toggle="tab" href="#tab-setdisplay">Configuration</a>
+			</li>
+			<li class="nav-item">
+				<a class="nav-link" data-toggle="tab" href="#tab-syslog">Status</a>
+			</li>
+			<li class="nav-item">
+				<a class="nav-link" data-toggle="tab" href="#tab-commands">Advanced</a>
+			</li>
+			<li class="nav-item">
+				<a class="nav-link" data-toggle="tab" href="#tab-nvs">NVS editor</a>
+			</li>
+			<li class="nav-item">
+				<a class="nav-link" data-toggle="tab" href="#tab-credits">Credits</a>
+			</li>
+		</ul>
+		<div id="message"></div>
+		<div id="content">
+			<div id="myTabContent" class="tab-content">
+				<div class="tab-pane fade active show" id="tab-wifi">
+					<div id="wifi">
+						<div id="wifi-status">
+							<h2>Connected to:</h2>
+							<section id="connected-to">
+								<div class="ape">
+									<div class="w0">
+										<div class="pw"><span></span></div>
+									</div>
+								</div>
+							</section>
+						</div>
+						<h2>Manual connect</h2>
+						<section id="manual_add">
+							<div class="ape">ADD (HIDDEN) SSID</div>
+						</section>
+						<h2>or choose a network...
+							<button type="button" id="updateAP" class="btn btn-info btn-sm">Update</button>
+						</h2>
+						<section id="wifi-list">
+						</section>
+					</div>
+					<div id="connect_manual">
+						<header>
+							<h1>Enter Details</h1>
+						</header>
+						<h2>DHCP host name</h2>
+						<section id="wifi-list">
+							<input id="dhcp-name2" type="text" placeholder="" value="squeezeamp">
+						</section>
+						<h2>Manual Connection</h2>
+						<section>
+							<input id="manual_ssid" type="text" placeholder="SSID" value="">
+							<input id="manual_pwd" type="password" placeholder="Password" value="">
+						</section>
+						<div class="buttons">
+							<input id="manual_join" type="button" class="btn btn-success" value="Join" data-connect="manual" />
+							<input id="manual_cancel" type="button" class="btn btn-danger" value="Cancel"/>
+						</div>
+					</div>
+					<div id="connect">
+						<header>
+							<h1>Connect to network</h1>
+						</header>
+						<h2>DHCP host name</h2>
+						<section id="wifi-list">
+							<input id="dhcp-name1" type="text" placeholder="" value="squeezeamp">
+						</section>
+						<h2>Password for <span id="ssid-pwd"></span></h2>
+						<section>
+							<input id="pwd" type="password" placeholder="Password" value="">
+						</section>
+						<div class="buttons">
+							<input id="join" type="button" class="btn btn-success" value="Join" />
+							<input id="cancel" type="button" class="btn btn-danger" value="Cancel"/>
+						</div>
+					</div>
+					<div id="connect-wait">
+						<header>
+							<h1>Please wait...</h1>
+						</header>
+						<h2>Connecting to <span id="ssid-wait"></span></h2>
+						<section>
+							<div id="loading">
+								<div class="spinner">
+									<div class="double-bounce1"></div>
+									<div class="double-bounce2"></div>
+								</div>
+								<p class="tctr">You may lose wifi access while the esp32 recalibrates its radio. Please wait until your device automatically reconnects. This can take up to 30s.</p>
+							</div>
+							<div id="connect-success">
+								<h3 class="gr">Success!</h3>
+							</div>
+							<div id="connect-fail">
+								<h3 class="rd">Connection failed</h3>
+								<p class="tctr">Please double-check wifi password if any and make sure the access point has good signal.</p>
+							</div>
+						</section>
+						<div class="buttons">
+							<input id="ok-connect" type="button" value="OK" class="btn btn-success" />
+						</div>
+					</div>
+					<div id="connect-details">
+						<div id="connect-details-wrap">
+							<header>
+								<h1></h1>
+							</header>
+							<h2></h2>
+							<section>
+								<div class="buttons">
+									<input id="disconnect" type="button" value="Disconnect" class="btn btn-danger"/>
+								</div>
+							</section>
+							<h2>IP Address</h2>
+							<section>
+								<div class="ape brdb">
+									IP Address:
+									<div id="ip" class="fr"></div>
+								</div>
+								<div class="ape brdb">
+									Subnet Mask:
+									<div id="netmask" class="fr"></div>
+								</div>
+								<div class="ape">
+									Default Gateway:
+									<div id="gw" class="fr"></div>
+								</div>
+							</section>
+							<div class="buttons">
+								<input id="ok-details" type="button" value="Back" class="btn btn-success" />
+							</div>
+						</div>
+						<div id="diag-disconnect" class="diag-box">
+							<div class="diag-box-win">
+								<p>Are you sure you would like to disconnect from this wifi?</p>
+								<div class="buttons">
+									<input id="no-disconnect" type="button" value="No" class="btn btn-success" />
+									<input id="yes-disconnect" type="button" value="Yes" class="btn btn-danger" />
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<!-- wifi -->
+				<div class="tab-pane fade" id="tab-setdisplay">
+					<div id="setname-list"></div>
+					<div id="setdisplay-list"></div>
+					<div id="i2cconfig-list"></div>
+					<div id="spiconfig-list"></div>
+				</div>
+				<!-- display -->
+				<div class="tab-pane fade" id="tab-audio">
+					<div id="audioout">
+						<h1>Audio output</h1>
+						<div class="form-group">
+							<div class="custom-control custom-radio">
+								<input type="radio" id="i2s" name="audio" class="custom-control-input" checked='checked' />
+								<label for="i2s" class="custom-control-label">I2S</label>
+							</div>
+							<div class="custom-control custom-radio">
+								<input type="radio" id="spdif" name="audio" class="custom-control-input" />
+								<label for="spdif" class="custom-control-label">SPDIF</label>
+							</div>
+							<div class="custom-control custom-radio">
+								<input type="radio" id="bt" name="audio" class="custom-control-input" />
+								<label for="bt" class="custom-control-label">Bluetooth</label>
+							</div>
+						</div>
+					</div>
+					<div id="btsinkdiv">
+						<input id="btsink" type="text" value="BT sink name" />
+					</div>
+					<div>
+						<h1>Player name</h1>
+						<input id="player" type="text" value="squeezelite" />
+					</div>
+					<div>
+						<h1>Optional setting (e.g. for LMS IP address)</h1>
+						<input id="optional" type="text" value="" placeholder="-s 192.168.0.1" />
+					</div>
+					<div class="buttons">
+						<input id="generate-command" type="button" class="btn btn-success" value="Generate" />
+					</div>
+					<h1>Squeezelite command to run</h1>
+					<section id="command-list">
+						<textarea id="autoexec1" maxlength="120">squeezelite -o I2S -b 500:2000 -d all=info -C 30 - W</textarea>
+					</section>
+					<div class="buttons">
+						<input id="save-autoexec1" type="button" class="btn btn-success" value="Save" />
+					</div>
+					<h1>Start Squeezelite (toggle to activate changes)</h1>
+					<div class="custom-control custom-switch">
+						<input type="checkbox" class="custom-control-input" id="autoexec-cb" checked="checked">
+						<label class="custom-control-label" for="autoexec-cb"></label>
+					</div>
+					<br />
+				</div>
+				<!-- audio -->
+				<div class="tab-pane fade" id="tab-firmware">
+					<div id="boot-div">
+						<form id="boot-form" action="/recovery.json" method="post" target="dummyframe">
+							<button id="boot-button" type="submit" class="btn btn-primary">Recovery</button>
+						</form>
+					</div>
+					<h1>Check for firmware upgrade</h1>
+					<div class="buttons">
+						<input type="button" id="fwcheck" class="btn btn-info" value="Check for updates" />
+					</div>
+					<div id="searchfw" class="form-group">
+						<select class="custom-select" id="fwbranch">
+							<option selected="">Choose FW branch</option>
+						</select>
+						<input class="form-control form-control-sm" id="searchinput" type="text" placeholder="search releases" id="inputSmall">
+					</div>
+					<table class="table table-hover">
+						<thead>
+							<tr>
+								<th scope="col">Firmware version</th>
+								<th scope="col">Release date</th>
+								<th scope="col">HW platform</th>
+								<th scope="col">IDF version</th>
+								<th scope="col">Branch</th>
+								<th scope="col">Flash this FW</th>
+							</tr>
+						</thead>
+						<tbody id="releaseTable">
+						</tbody>
+					</table>
+					<h2>Firmware URL:</h2>
+					<textarea id="fwurl" maxlength="1000"></textarea>
+					<div class="buttons">
+						<input type="button" id="flash" class="btn btn-danger" value="Flash!" /><span id="flash-status"></span>
+					</div>
+					<p>OR</p>
+					<div class="form-group">
+						<input type="file" class="form-control-file" id="flashfilename" aria-describedby="fileHelp">
+						<div class="buttons">
+							<button type="button" class="btn btn-danger" id="fwUpload">Upload!</button>
+						</div>
+					</div>
+					<div id="otadiv">
+						<div class="progress" id="progress">
+							<div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" style="width:0%">
+								0%
+							</div>
+						</div>
+					</div>
+				</div>
+				<!-- firmware -->
+				<div class="tab-pane fade" id="tab-commands">
+						<fieldset id="commands-list"></fieldset>
+				</div>
+				<!-- Status -->
+				<div class="tab-pane fade" id="tab-syslog">
+				<div class="card border-primary mb-3" style="">
+  				<div class="card-header">Logs</div>
+  				<div class="card-body">
+    			<table class="table table-hover">
+						<thead>
+							<tr>
+								<th scope="col">Timestamp</th>
+								<th scope="col">Message</th>
+							</tr>
+						</thead>
+						<tbody id="syslogTable">
+						</tbody>
+					</table>
+					<div class="buttons">
+						<input id="clear-syslog" type="button" class="btn btn-danger btn-sm" value="Clear" />
+					</div></div></div>
+				<div class="card border-primary mb-3" style="">
+  				<div class="card-header">Pin Assignments</div>
+  				<div class="card-body">
+					<table class="table table-hover">
+						<thead><tr><th scope="col">Device</th><th scope="col">Pin Name</th><th scope="col">GPIO Number</th><th scope="col">Type</th></tr></thead>
+						<tbody id="gpiotable"></tbody></table></div></div></div>
+				<!-- syslog -->
+				<div class="tab-pane fade" id="tab-nvs">
+					<table class="table table-hover">
+						<thead>
+							<tr>
+								<th scope="col">Key</th>
+								<th scope="col">Value</th>
+							</tr>
+						</thead>
+						<tbody id="nvsTable">
+						</tbody>
+					</table>
+					<div class="buttons">
+						<div id="boot-div">
+							<form id="reboot-form" action="/reboot.json" method="post" target="dummyframe">
+								<button id="reboot-button" type="submit" class="btn btn-primary">Reboot</button>
+							</form>
+						</div>
+						<input id="save-nvs" type="button" class="btn btn-success" value="Commit">
+						<input id="save-as-nvs" type="button" class="btn btn-success" value="Download config">
+						<input id="load-nvs" type="button" class="btn btn-success" value="Load File">
+						<input aria-describedby="fileHelp" onchange="onChooseFile(event, onFileLoad.bind(this))" id="nvsfilename" type="file" style="display:none">
+					</div>
+				</div>
+				<!-- nvs -->
+				<div class="tab-pane fade" id="tab-credits">
+					<div class="jumbotron">
+						<p><strong><a href="https://github.com/sle118/squeezelite-esp32">squeezelite-esp32</a></strong>, &copy; 2020, philippe44, sle118, daduke<br />Licensed under the GPL</p>
+						<p>
+							This app would not be possible without the following libraries:
+						</p>
+						<ul>
+							<li>squeezelite, &copy;  2012-2019, Adrian Smith and Ralph Irving. Licensed under the GPL License.</li>
+							<li>esp32-wifi-manager, &copy;  2017-2019, Tony Pottier. Licensed under the MIT License.</li>
+							<li>SpinKit, &copy;  2015, Tobias Ahlin. Licensed under the MIT License.</li>
+							<li>jQuery, The jQuery Foundation. Licensed under the MIT License.</li>
+							<li>cJSON, &copy; 2009-2017, Dave Gamble and cJSON contributors. Licensed under the MIT License.</li>
+							<li>esp32-rotary-encoder, &copy; 2011-2019, David Antliff and Ben Buxton. Licensed under the GPL License.</li>
+							<li>tarablessd1306, &copy; 2017-2018, Tara Keeling. Licensed under the MIT license.</li>
+						</ul>
+					</div>
+					<h2>Show NVS Editor</h2>
+					<div class="custom-control custom-switch">
+						<input type="checkbox" class="custom-control-input" id="show-nvs" checked="checked">
+						<label class="custom-control-label" for="show-nvs"></label>
+					</div>
+					<h2>Show Advanced Commands</h2>
+					<div class="custom-control custom-switch">
+						<input type="checkbox" class="custom-control-input" id="show-commands" checked="checked">
+						<label class="custom-control-label" for="show-commands"></label>
+					</div>
+				</div>
+				<!-- credits -->
+			</div>
+			<footer class="footer"><span id="foot-fw"></span><span id="foot-wifi"></span></footer>
+			<iframe width="0" height="0" border="0" name="dummyframe" id="dummyframe"></iframe>
+		</div>
+	</body>
+</html>

@@ -31,3 +31,14 @@ esp_err_t 					config_spi_set(const spi_bus_config_t * config, int host, int dc)
 const i2c_config_t * 		config_i2c_get(int * i2c_port);
 const spi_bus_config_t * 	config_spi_get(spi_host_device_t * spi_host);
 void 						parse_set_GPIO(void (*cb)(int gpio, char *value));
+
+typedef struct {
+	bool fixed;
+	char * name;
+	char * group;
+	int gpio;
+} gpio_entry_t;
+esp_err_t 					free_gpio_entry( gpio_entry_t ** gpio);
+gpio_entry_t * 				get_gpio_by_name(char * name,char * group, bool refresh);
+gpio_entry_t * 				get_gpio_by_no(int gpionum, bool refresh);
+cJSON * 					get_gpio_list();

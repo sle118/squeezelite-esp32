@@ -53,6 +53,7 @@ function to process requests, decode URLs, serve files, etc. etc.
 #include "esp_console.h"
 #include "argtable3/argtable3.h"
 #include "platform_console.h"
+#include "accessors.h"
  
 #define HTTP_STACK_SIZE	(5*1024)
 const char str_na[]="N/A";
@@ -576,7 +577,15 @@ esp_err_t config_get_handler(httpd_req_t *req){
 		}
 		else {
 			ESP_LOGD_LOC(TAG,  "config json : %s",json );
-			httpd_resp_send(req, (const char *)json, HTTPD_RESP_USE_STRLEN);
+			cJSON * gplist=get_gpio_list();
+			char * gpliststr=cJSON_PrintUnformatted(gplist);
+			httpd_resp_sendstr_chunk(req,"{ \"gpio\":");
+			httpd_resp_sendstr_chunk(req,gpliststr);
+			httpd_resp_sendstr_chunk(req,", \"config\":");
+			httpd_resp_sendstr_chunk(req, (const char *)json);
+			httpd_resp_sendstr_chunk(req,"}");
+			httpd_resp_sendstr_chunk(req,NULL);
+			free(gpliststr);
 			free(json);
 		}
 	}

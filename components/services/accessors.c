@@ -15,12 +15,23 @@
 #include "accessors.h"
 #include "globdefs.h"
 #include "display.h"
+#include "display.h"
+#include "cJSON.h"
+#include "driver/gpio.h"
+#include "stdbool.h"
+#include "driver/adc.h"
 
 static const char *TAG = "services";
 static const char *i2c_name="I2C";
 static const char *spi_name="SPI";
-
+static cJSON * gpio_list=NULL;
 #define min(a,b) (((a) < (b)) ? (a) : (b))
+#ifndef QUOTE
+	#define QUOTE(name) #name
+#endif
+#ifndef STR
+	#define STR(macro)  QUOTE(macro)
+#endif
 
 /****************************************************************************************
  * 
@@ -154,3 +165,228 @@ void parse_set_GPIO(void (*cb)(int gpio, char *value)) {
 	
 	free(nvs_item);
 }	
+
+/****************************************************************************************
+ *
+ */
+cJSON * get_gpio_entry(const char * name, const char * prefix, int gpio, bool fixed){
+	cJSON * entry = cJSON_CreateObject();
+	cJSON_AddNumberToObject(entry,"gpio",gpio);
+	cJSON_AddStringToObject(entry,"name",name);
+	cJSON_AddStringToObject(entry,"group",prefix);
+	cJSON_AddBoolToObject(entry,"fixed",fixed);
+	return entry;
+}
+
+/****************************************************************************************
+ *
+ */
+cJSON * get_GPIO_list() {
+	cJSON * list = cJSON_CreateArray();
+	char *nvs_item, *p, type[16];
+	int gpio;
+
+	if ((nvs_item = config_alloc_get(NVS_TYPE_STR, "set_GPIO")) == NULL) return list;
+
+	p = nvs_item;
+
+	do {
+		if (sscanf(p, "%d=%15[^,]", &gpio, type) > 0 && (GPIO_IS_VALID_GPIO(gpio) ||  gpio==GPIO_NUM_NC)){
+			cJSON_AddItemToArray(list,get_gpio_entry(type,"gpio", gpio, false));
+		}
+		p = strchr(p, ',');
+	} while (p++);
+
+	free(nvs_item);
+
+	return list;
+}
+
+/****************************************************************************************
+ *
+ */
+cJSON * get_GPIO_from_string(const char * nvs_item, const char * prefix, cJSON * list, bool fixed){
+	cJSON * llist = list;
+	int gpio=0,offset=0,soffset=0,ret1=0,sret=0;
+
+	if(!llist){
+		llist = cJSON_CreateArray();
+	}
+	const char  *p=NULL;
+	char type[16];
+	int slen=strlen(nvs_item)+1;
+	char * buf1=malloc(slen);
+	char * buf2=malloc(slen);
+	ESP_LOGD(TAG,"Parsing string %s",nvs_item);
+	p = strchr(nvs_item, ':');
+	p=p?p+1:nvs_item;
+	while((((ret1=sscanf(p, "%[^=]=%d%n", type,&gpio,&offset)) ==2) || ((sret=sscanf(p, "%[^=]=%[^, ],%n", buf1,buf2,&soffset)) > 0 )) && (offset || soffset)){
+		if(ret1==2 && (GPIO_IS_VALID_GPIO(gpio) ||  gpio==GPIO_NUM_NC)){
+			cJSON_AddItemToArray(list,get_gpio_entry(type,prefix,gpio,fixed));
+			p+=offset;
+		} else {
+			p+=soffset;
+		}
+
+		while(*p==' ' || *p==',') p++;
+		gpio=-1;
+	}
+	free(buf1);
+	free(buf2);
+	return llist;
+
+}
+
+/****************************************************************************************
+ *
+ */
+cJSON * get_GPIO_from_nvs(const char * item, const char * prefix, cJSON * list, bool fixed){
+	char * nvs_item=NULL;
+	cJSON * llist=list;
+	if ((nvs_item = config_alloc_get(NVS_TYPE_STR, item)) == NULL) return list;
+	llist = get_GPIO_from_string(nvs_item,prefix,list, fixed);
+	free(nvs_item);
+	return llist;
+}
+
+/****************************************************************************************
+ *
+ */
+esp_err_t get_gpio_structure(cJSON * gpio_entry, gpio_entry_t ** gpio){
+	esp_err_t err = ESP_OK;
+	*gpio = malloc(sizeof(gpio_entry_t));
+	//gpio,name,fixed
+	cJSON * val = cJSON_GetObjectItem(gpio_entry,"gpio");
+	if(val){
+		(*gpio)->gpio= (int)val->valuedouble;
+	}
+	else {
+		ESP_LOGE(TAG,"gpio pin not found");
+		err=ESP_FAIL;
+	}
+	val = cJSON_GetObjectItem(gpio_entry,"name");
+	if(val){
+		(*gpio)->name= strdup(cJSON_GetStringValue(val));
+	}
+	else {
+		ESP_LOGE(TAG,"gpio name value not found");
+		err=ESP_FAIL;
+	}
+	val = cJSON_GetObjectItem(gpio_entry,"group");
+	if(val){
+		(*gpio)->group= strdup(cJSON_GetStringValue(val));
+	}
+	else {
+		ESP_LOGE(TAG,"gpio group value not found");
+		err=ESP_FAIL;
+	}
+	val = cJSON_GetObjectItem(gpio_entry,"fixed");
+	if(val){
+		(*gpio)->fixed= cJSON_IsTrue(val);
+	}
+	else {
+		ESP_LOGE(TAG,"gpio fixed indicator not found");
+		err=ESP_FAIL;
+	}
+
+	return err;
+}
+
+/****************************************************************************************
+ *
+ */
+esp_err_t free_gpio_entry( gpio_entry_t ** gpio) {
+	if(* gpio){
+		free((* gpio)->name);
+		free((* gpio)->group);
+		free(* gpio);
+		* gpio=NULL;
+		return ESP_OK;
+	}
+	return ESP_FAIL;
+}
+
+/****************************************************************************************
+ *
+ */
+gpio_entry_t * get_gpio_by_no(int gpionum, bool refresh){
+	cJSON * gpio_header=NULL;
+	gpio_entry_t * gpio=NULL;
+	if(refresh){
+			get_gpio_list();
+	}
+	cJSON_ArrayForEach(gpio_header,gpio_list)
+	{
+		if(get_gpio_structure(gpio_header, &gpio)==ESP_OK && gpio->gpio==gpionum){
+			ESP_LOGD(TAG,"Found GPIO: %s=%d %s", gpio->name,gpio->gpio,gpio->fixed?"(FIXED)":"(VARIABLE)");
+		}
+	}
+	return gpio;
+}
+
+/****************************************************************************************
+ *
+ */
+gpio_entry_t * get_gpio_by_name(char * name,char * group, bool refresh){
+	cJSON * gpio_header=NULL;
+	if(refresh){
+		get_gpio_list();
+	}
+	gpio_entry_t * gpio=NULL;
+	cJSON_ArrayForEach(gpio_header,gpio_list)
+	{
+		if(get_gpio_structure(gpio_header, &gpio)==ESP_OK && strcasecmp(gpio->name,name)&& strcasecmp(gpio->group,group)){
+			ESP_LOGD(TAG,"Found GPIO: %s=%d %s", gpio->name,gpio->gpio,gpio->fixed?"(FIXED)":"(VARIABLE)");
+		}
+	}
+	return gpio;
+}
+
+/****************************************************************************************
+ *
+ */
+cJSON * get_gpio_list() {
+	gpio_num_t gpio_num;
+	if(gpio_list){
+		cJSON_free(gpio_list);
+	}
+	gpio_list = get_GPIO_list();
+
+#ifndef CONFIG_BAT_LOCKED
+	char *bat_config = config_alloc_get_default(NVS_TYPE_STR, "bat_config", NULL, 0);
+	if (bat_config) {
+		char *p;
+		int channel;
+		if ((p = strcasestr(bat_config, "channel") ) != NULL)
+		{
+			channel = atoi(strchr(p, '=') + 1);
+			if(channel != -1){
+				if(adc1_pad_get_io_num(channel,&gpio_num )==ESP_OK){
+					cJSON_AddItemToArray(gpio_list,get_gpio_entry("bat","",gpio_num,false));
+				}
+			}
+		}
+		free(bat_config);
+	}
+#else
+		if(adc1_pad_get_io_num(CONFIG_BAT_CHANNEL,&gpio_num )==ESP_OK){
+			cJSON_AddItemToArray(gpio_list,get_gpio_entry("bat","",gpio_num,true));
+		}
+#endif
+	gpio_list = get_GPIO_from_nvs("i2c_config","i2c", gpio_list, false);
+	gpio_list = get_GPIO_from_nvs("spi_config","spi", gpio_list, false);
+
+	char *spdif_config = config_alloc_get_str("spdif_config", CONFIG_SPDIF_CONFIG, "bck=" STR(CONFIG_SPDIF_BCK_IO)
+											  ",ws=" STR(CONFIG_SPDIF_WS_IO) ",do=" STR(CONFIG_SPDIF_DO_IO));
+
+	gpio_list=get_GPIO_from_string(spdif_config,"spdif", gpio_list, (strlen(CONFIG_SPDIF_CONFIG)>0 || CONFIG_SPDIF_DO_IO>0 ));
+	char *dac_config = config_alloc_get_str("dac_config", CONFIG_DAC_CONFIG, "model=i2s,bck=" STR(CONFIG_I2S_BCK_IO)
+											",ws=" STR(CONFIG_I2S_WS_IO) ",do=" STR(CONFIG_I2S_DO_IO)
+											",sda=" STR(CONFIG_I2C_SDA) ",scl=" STR(CONFIG_I2C_SCL)
+											",mute=" STR(CONFIG_MUTE_GPIO));
+
+	gpio_list=get_GPIO_from_string(dac_config,"dac", gpio_list, (strlen(CONFIG_DAC_CONFIG)>0 || CONFIG_I2S_DO_IO>0 ));
+	free(spdif_config);
+	free(dac_config);
+	return gpio_list;
+}
