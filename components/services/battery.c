@@ -43,8 +43,8 @@ static struct {
 /****************************************************************************************
  * 
  */
-double battery_value_svc(void) {
-	return (double) battery.avg;
+float battery_value_svc(void) {
+	return battery.avg;
  }
  
 /****************************************************************************************
