@@ -21,7 +21,7 @@ my $log = Slim::Utils::Log->addLogCategory({
 
 use constant GITHUB_ASSET_URI => "https://api.github.com/repos/sle118/squeezelite-esp32/releases/assets/";
 use constant GITHUB_DOWNLOAD_URI => "https://github.com/sle118/squeezelite-esp32/releases/download/";
-my $FW_DOWNLOAD_ID_REGEX = qr|plugins/SqueezeESP32/firmware/(\d+)|;
+my $FW_DOWNLOAD_ID_REGEX = qr|plugins/SqueezeESP32/firmware/(-?\d+)|;
 my $FW_DOWNLOAD_REGEX = qr|plugins/SqueezeESP32/firmware/([-a-z0-9-/.]+\.bin)$|i;
 my $FW_FILENAME_REGEX = qr/^squeezelite-esp32-.*\.bin(\.tmp)?$/;
 
@@ -123,6 +123,15 @@ sub handleFirmwareDownload {
 	my $id;
 	if (!defined $request || !(($id) = $request->uri =~ $FW_DOWNLOAD_ID_REGEX)) {
 		return $_errorDownloading->(undef, 'Invalid request', $request->uri, 400);
+	}
+
+	# this is the magic number used on the client to figure out whether the plugin does support download proxying
+	if ($id == -99) {
+		$response->code(204);
+		$response->header('Access-Control-Allow-Origin' => '*');
+
+		$httpClient->send_response($response);
+		return Slim::Web::HTTP::closeHTTPSocket($httpClient);
 	}
 
 	Slim::Networking::SimpleAsyncHTTP->new(
