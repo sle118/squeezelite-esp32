@@ -13,7 +13,7 @@ But squeezelite-esp32 is highly extensible and you can add
 
 - Buttons and Rotary Encoder and map/combine them to various functions (play, pause, volume, next ...)
 - IR receiver (no pullup resistor or capacitor needed, just the 38kHz receiver)
-- Monochrome, GrayScale or Color displays using SPI or I2S (supported drivers are SH1106, SSD1306, SSD1322, SSD1326/7, SSD1351, ST7735, ST7789 and IL9341).
+- Monochrome, GrayScale or Color displays using SPI or I2C (supported drivers are SH1106, SSD1306, SSD1322, SSD1326/7, SSD1351, ST7735, ST7789 and ILI9341).
 
 Other features include
 
@@ -172,7 +172,7 @@ Ground -------------------------- coax signal ground
 The NVS parameter "display_config" sets the parameters for an optional display. Syntax is
 ```
 I2C,width=<pixels>,height=<pixels>[address=<i2c_address>][,reset=<gpio>][,HFlip][,VFlip][driver=SSD1306|SSD1326[:1|4]|SSD1327|SH1106]
-SPI,width=<pixels>,height=<pixels>,cs=<gpio>[,back=<gpio>][,reset=<gpio>][,speed=<speed>][,HFlip][,VFlip][driver=SSD1306|SSD1322|SSD1326[:1|4]|SSD1327|SH1106|SSD1675|ST7735|ST7789[,rotate]]
+SPI,width=<pixels>,height=<pixels>,cs=<gpio>[,back=<gpio>][,reset=<gpio>][,speed=<speed>][,HFlip][,VFlip][driver=SSD1306|SSD1322|SSD1326[:1|4]|SSD1327|SH1106|SSD1675|ST7735|ST7789|ILI9341[:16|18][,rotate]]
 ```
 - back: a LED backlight used by some older devices (ST7735). It is PWM controlled for brightness
 - reset: some display have a reset pin that is should normally be pulled up if unused
@@ -188,7 +188,7 @@ SPI,width=<pixels>,height=<pixels>,cs=<gpio>[,back=<gpio>][,reset=<gpio>][,speed
 - SSD1675 is an e-ink paper and is experimental as e-ink is really not suitable for LMS du to its very low refresh rate
 - ST7735 is a 128x160 65k color SPI [here](https://www.waveshare.com/product/displays/lcd-oled/lcd-oled-3/1.8inch-lcd-module.htm). This needs a backlight control
 - ST7789 is a 240x320 65k (262k not enabled) color SPI [here](https://www.waveshare.com/product/displays/lcd-oled/lcd-oled-3/2inch-lcd-module.htm). It also exist with 240x240 displays. See **rotate** for use in portrait mode
-- IL9341 is another 240x320 65k (262k capable) color SPI. I've not used it much, the driver it has been provided by one external contributor to the project
+- ILI9341 is another 240x320 65k (262k capable) color SPI. I've not used it much, the driver it has been provided by one external contributor to the project
 
 To use the display on LMS, add repository https://raw.githubusercontent.com/sle118/squeezelite-esp32/master/plugin/repo.xml. You will then be able to tweak how the vu-meter and spectrum analyzer are displayed, as well as size of artwork. You can also install the excellent plugin "Music Information Screen" which is super useful to tweak the layout.
 
