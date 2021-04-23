@@ -16,6 +16,7 @@
 #include "gds_text.h"
 #include "gds_draw.h"
 #include "gds_image.h"
+#include "led_vu.h"
 
 #pragma pack(push, 1)
 
@@ -986,6 +987,16 @@ static void visu_update(void) {
 		int level = (visu.bars[0].current + visu.bars[1].current) / 2;
 		draw_VU(display, vu_bitmap, level, 0, visu.row, visu.rotate ? visu.height : visu.width, visu.rotate);		
 	}	
+
+	// update led_vu
+	//   based on bar quantity as ESP32 visu.mode and visu.style is complex 
+	if (visu.n < 2) {
+		led_vu_clear();
+	} else if (visu.n == 2) {
+		led_vu_display(visu.bars[0].current * LED_VU_SCALE / visu.max, visu.bars[1].current * LED_VU_SCALE / visu.max, !visu.style);
+	} else {
+		led_vu_spin_dial(visu.bars[1].current * LED_VU_SCALE / visu.max, visu.bars[(visu.n/2)+1].current * LED_VU_SCALE / visu.max, visu.style);
+	}
 }
 
 
@@ -1139,6 +1150,8 @@ static void visu_handler( u8_t *data, int len) {
 		LOG_INFO("Visualizer with %u bars of width %d:%d:%d:%d (%w:%u,h:%u,c:%u,r:%u,s:%.02f)", visu.n, visu.bar_border, visu.bar_width, visu.bar_gap, visu.border, visu.width, visu.height, visu.col, visu.row, visu.spectrum_scale);
 	} else {
 		LOG_INFO("Stopping visualizer");
+
+		led_vu_clear();
 	}	
 	
 	xSemaphoreGive(displayer.mutex);
@@ -1202,7 +1215,7 @@ static void displayer_task(void *args) {
 		// update visu if active
 		if (visu.mode && visu.wake <= 0) {
 			visu_update();
-			visu.wake = 100;
+			visu.wake = 65; // decreaced refresh for ledvu.  possibly use visu.speed
 		}
 		
 		// need to make sure we own display

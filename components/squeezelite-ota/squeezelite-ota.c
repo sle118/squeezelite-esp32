@@ -37,6 +37,7 @@
 #include "gds.h"
 #include "gds_text.h"
 #include "gds_draw.h"
+#include "led_vu.h"
 #include "platform_esp32.h"
 #include "lwip/sockets.h"
 
@@ -174,6 +175,8 @@ static void loc_displayer_progressbar(uint8_t pct){
 	}
 	ESP_LOGD(TAG,"Updating Display");
 	GDS_Update(display);
+
+	led_vu_progress_bar(pct);
 }
 void sendMessaging(messaging_types type,const char * fmt, ...){
     va_list args;
@@ -451,6 +454,10 @@ void ota_task_cleanup(const char * message, ...){
 	    va_start(args, message);
 		sendMessaging(MESSAGING_ERROR,message, args);
 	    va_end(args);
+		
+		led_vu_color_red();
+	} else {
+		led_vu_color_green();
 	}
 	FREE_RESET(ota_status->ota_write_data);
 	FREE_RESET(ota_status->bin_data);
