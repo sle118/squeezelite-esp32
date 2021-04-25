@@ -85,6 +85,12 @@ sub handler {
 			$client->update_tones($equalizer);
 		}		
 	}
+	
+	if ($paramRef->{'led_vu_send'}) {
+		my @command = ('dmx', $paramRef->{'pref_led_vu_cmd'}, $paramRef->{'pref_led_vu_x'});
+		my $request = Slim::Control::Request::executeRequest($client, \@command);
+		#my $validQuery = $test_request->isValidQuery();
+	}
 
 	if ($client->displayWidth) {
 		# the Settings super class can't handle anything but scalar values

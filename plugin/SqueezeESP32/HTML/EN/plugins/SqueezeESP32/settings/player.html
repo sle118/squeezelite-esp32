@@ -35,6 +35,13 @@
 			<input type="text" class="stdedit" name="pref_artwork_y" id="artwork_y" value="[% pref_artwork.y %]" size="2">
 		[% END %]
 
+		[% WRAPPER setting title="PLUGIN_SQUEEZEESP32_LED_VU" desc="PLUGIN_SQUEEZEESP32_LED_VU_DESC" %]
+			<input type="submit" name="led_vu_send" class="stdclick" value="[% "PLUGIN_SQUEEZEESP32_LED_VU_SEND" | string %]">&nbsp;
+			[% "PLUGIN_SQUEEZEESP32_LED_VU_X" | string %]&nbsp
+			<input type="text" class="stdedit" name="pref_led_vu_x" id="led_vu_x" value="0" size="2">
+			[% "PLUGIN_SQUEEZEESP32_LED_VU_CMD" | string %]&nbsp
+			<input type="text" class="stdedit" name="pref_led_vu_cmd" id="led_vu_cmd" value="80,0,0,0,80,0,0,0,80" size="50">
+		[% END %]
 		<hr>
 	[% END %]
 

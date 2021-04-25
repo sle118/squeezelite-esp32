@@ -55,7 +55,8 @@ sub initPlugin {
 
 	# register a command to set the EQ - without saving the values! Send params as single comma separated list of values
 	Slim::Control::Request::addDispatch(['squeezeesp32', 'seteq', '_eq'], [1, 0, 0, \&setEQ]);
-
+	Slim::Control::Request::addDispatch([ 'dmx', '_data', '_xoff'], [1, 0, 0, \&sendDMX]);
+	
 	# Note for some forgetful know-it-all: we need to wrap the callback to make it unique. Otherwise subscriptions would overwrite each other.
 	Slim::Control::Request::subscribe( sub { onNotification(@_) }, [ ['newmetadata'] ] );
 	Slim::Control::Request::subscribe( sub { onNotification(@_) }, [ ['playlist'], ['open', 'newsong'] ]);
@@ -102,5 +103,32 @@ sub setEQ {
 
 	$client->send_equalizer(\@eqParams);
 }
+
+sub sendDMX {
+	my $request = shift;
+
+	# check this is the correct command.
+	if ($request->isNotCommand([['dmx']])) {
+		$request->setStatusBadDispatch();
+		return;
+	}
+
+	# get our parameters
+	my $client   = $request->client();
+	
+	my $count = 0;
+	my $outData;
+	my @values = split(',', $request->getParam('_data') || '');
+	foreach my $val (@values) {
+		$outData .= pack ( 'C', $val);
+		$count++;
+	}
+	$count /= 3;
+
+	my $data = pack('nn', $request->getParam('_xoff') || 0, $count ) . $outData;
+	
+	$client->sendFrame( dmxt => \$data );
+}
+
 
 1;
