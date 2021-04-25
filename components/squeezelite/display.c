@@ -4,6 +4,8 @@
  *  This software is released under the MIT License.
  *  https://opensource.org/licenses/MIT
  *
+ *  ToDo: this version needs a display for the led_vu 
+ *    displays.  Would need to rework for led_vu only
  */
 
 #include <ctype.h>
@@ -106,6 +108,12 @@ struct visu_packet {
 			} channels[2];
 		} classical_vu;	
 	};	
+};
+
+struct dmx_packet {
+	char  opcode[4];
+	u16_t x;
+	u16_t length;
 };
 
 struct ANIC_header {
@@ -223,6 +231,7 @@ static void grfs_handler(u8_t *data, int len);
 static void grfg_handler(u8_t *data, int len);
 static void grfa_handler(u8_t *data, int len);
 static void visu_handler(u8_t *data, int len);
+static void dmx_handler(u8_t *data, int len);
 static void displayer_task(void* arg);
 
 /* scrolling undocumented information
@@ -442,6 +451,8 @@ static bool handler(u8_t *data, int len){
 		grfa_handler(data, len);		
 	} else if (!strncmp((char*) data, "visu", 4)) {
 		visu_handler(data, len);
+	} else if (!strncmp((char*) data, "dmxt", 4)) {
+		dmx_handler(data, len);
 	} else {
 		res = false;
 	}
@@ -994,6 +1005,17 @@ static void visu_update(void) {
 		led_vu_clear();
 	} else if (visu.n == 2) {
 		led_vu_display(visu.bars[0].current * LED_VU_SCALE / visu.max, visu.bars[1].current * LED_VU_SCALE / visu.max, !visu.style);
+	} else if (visu.n == 19) { // taudio specific (stip length 19, reverse direction)
+		uint8_t* led_data = malloc(visu.n+1);
+		uint8_t* p = (uint8_t*) led_data;
+		p+= visu.n -1;
+		for (int i = 0; i < visu.n; i++) {
+			*p = visu.bars[i].current * LED_VU_SCALE / visu.max;
+			p--;
+		}
+		led_vu_spectrum(led_data, 0, visu.max);
+
+		free(led_data);
 	} else {
 		led_vu_spin_dial(visu.bars[1].current * LED_VU_SCALE / visu.max, visu.bars[(visu.n/2)+1].current * LED_VU_SCALE / visu.max, visu.style);
 	}
@@ -1153,6 +1175,24 @@ static void visu_handler( u8_t *data, int len) {
 
 		led_vu_clear();
 	}	
+	
+	xSemaphoreGive(displayer.mutex);
+}
+
+/****************************************************************************************
+ * Dmx style packet handler
+ * ToDo: make packet match dmx protocol format
+ */
+static void dmx_handler( u8_t *data, int len) {
+	struct dmx_packet *pkt = (struct dmx_packet*) data;
+	uint16_t offset = htons(pkt->x);
+	uint16_t length = htons(pkt->length);
+
+	LOG_INFO("dmx packet len:%u offset:%u", length, offset);
+	
+	xSemaphoreTake(displayer.mutex, portMAX_DELAY);
+
+	led_vu_data(data + sizeof(struct dmx_packet), offset, length);
 	
 	xSemaphoreGive(displayer.mutex);
 }	
