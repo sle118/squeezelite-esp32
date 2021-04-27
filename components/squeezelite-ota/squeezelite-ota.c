@@ -455,9 +455,9 @@ void ota_task_cleanup(const char * message, ...){
 		sendMessaging(MESSAGING_ERROR,message, args);
 	    va_end(args);
 		
-		led_vu_color_red();
+	    led_vu_color_red();
 	} else {
-		led_vu_color_green();
+	    led_vu_color_green();
 	}
 	FREE_RESET(ota_status->ota_write_data);
 	FREE_RESET(ota_status->bin_data);
