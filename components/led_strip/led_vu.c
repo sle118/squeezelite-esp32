@@ -43,9 +43,9 @@ static struct led_strip_t  led_strip_config = {
 };
 
 static struct {
-	int gpio;
-	int length;
-	uint8_t bright;
+    int gpio;
+    int length;
+    uint8_t bright;
     int vu_length;
     int vu_start_l;
     int vu_start_r;
