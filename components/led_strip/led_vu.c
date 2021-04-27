@@ -30,9 +30,6 @@ static const char *TAG = "led_vu";
 #define LED_VU_STACK_SIZE 	(3*1024)
 #define LED_VU_RMT_INTR_NUM 20U
 
-#define LED_VU_DEFAULT_REFRESH 75U /* in milliseconds */ 
-#define LED_VU_DEFAULT_BRIGHT  20U /* out of 255 */
-
 #define LED_VU_PEAK_HOLD 6U
 
 #define max(a,b) (((a) > (b)) ? (a) : (b))
@@ -67,7 +64,6 @@ static int led_addr(int pos ) {
  */
 void led_vu_init()
 {
-	
     char* p;
     char* config = config_alloc_get_str("led_vu_config", NULL, "N/A");
 
@@ -82,8 +78,6 @@ void led_vu_init()
     }
     if ((p = strcasestr(config, "bright")) != NULL) {
         strip.bright = atoi(strchr(p, '=') + 1);
-    } else {
-        strip.bright = LED_VU_DEFAULT_BRIGHT;
     }
     // check for valid configuration
     if (!drivername || !strip.gpio) {
@@ -110,7 +104,7 @@ void led_vu_init()
     if (led_init_ok) {
         led_vu = &led_strip_config;
         ESP_LOGI(TAG, "led_vu using gpio:%d length:%d bright:%d", strip.gpio, strip.length, strip.bright);
-} else {
+    } else {
         ESP_LOGE(TAG, "led_vu init failed");
         goto done;
     }

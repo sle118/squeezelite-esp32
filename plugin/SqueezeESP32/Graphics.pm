@@ -245,7 +245,7 @@ my @extra = (
 		# extra parameters (bars)
 		params => [$VISUALIZER_SPECTRUM_ANALYZER_ESP32, $width_low, int ($width/$spectrum->{full}->{band}), $spectrum->{scale}] },	
 		# mode E10
-		{ desc => ['VISUALIZER_SPECTRUM_ANALYZER', 'TAUDIO'],
+		{ desc => ['VISUALIZER_SPECTRUM_ANALYZER', 'PLUGIN_SQUEEZEESP32_TAUDIO'],
 		bar => 1, secs => -1,  width => $width,
 		# extra parameters (19 bars for led vu)
 		params => [$VISUALIZER_SPECTRUM_ANALYZER_ESP32, $width_low, 19, $spectrum->{scale}] },	

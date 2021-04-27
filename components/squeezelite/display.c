@@ -1000,24 +1000,26 @@ static void visu_update(void) {
 	}	
 
 	// update led_vu
-	//   based on bar quantity as ESP32 visu.mode and visu.style is complex 
-	if (visu.n < 2) {
-		led_vu_clear();
-	} else if (visu.n == 2) {
-		led_vu_display(visu.bars[0].current * LED_VU_SCALE / visu.max, visu.bars[1].current * LED_VU_SCALE / visu.max, !visu.style);
-	} else if (visu.n == 19) { // taudio specific (stip length 19, reverse direction)
-		uint8_t* led_data = malloc(visu.n+1);
-		uint8_t* p = (uint8_t*) led_data;
-		p+= visu.n -1;
-		for (int i = 0; i < visu.n; i++) {
-			*p = visu.bars[i].current * LED_VU_SCALE / visu.max;
-			p--;
-		}
-		led_vu_spectrum(led_data, 0, visu.max);
+	if (led_vu) { 
+		// based on bar quantity as ESP32 visu.mode and visu.style is complex
+		if (visu.n < 2) {
+			led_vu_clear();
+		} else if (visu.n == 2) {
+			led_vu_display(visu.bars[0].current * LED_VU_SCALE / visu.max, visu.bars[1].current * LED_VU_SCALE / visu.max, !visu.style);
+		} else if (visu.n == 19) { // taudio specific (stip length 19, reverse direction)
+			uint8_t* led_data = malloc(visu.n+1);
+			uint8_t* p = (uint8_t*) led_data;
+			p+= visu.n -1;
+			for (int i = 0; i < visu.n; i++) {
+				*p = visu.bars[i].current * LED_VU_SCALE / visu.max;
+				p--;
+			}
+			led_vu_spectrum(led_data, 0, visu.max);
 
-		free(led_data);
-	} else {
-		led_vu_spin_dial(visu.bars[1].current * LED_VU_SCALE / visu.max, visu.bars[(visu.n/2)+1].current * LED_VU_SCALE / visu.max, visu.style);
+			free(led_data);
+		} else {
+			led_vu_spin_dial(visu.bars[1].current * LED_VU_SCALE / visu.max, visu.bars[(visu.n/2)+1].current * LED_VU_SCALE / visu.max, visu.style);
+		}
 	}
 }
 
@@ -1255,7 +1257,7 @@ static void displayer_task(void *args) {
 		// update visu if active
 		if (visu.mode && visu.wake <= 0) {
 			visu_update();
-			visu.wake = 65; // decreaced refresh for ledvu.  possibly use visu.speed
+			visu.wake = 100; // ToDo: can decreaced refresh for ledvu effects.  possibly use visu.speed or additional parameter
 		}
 		
 		// need to make sure we own display

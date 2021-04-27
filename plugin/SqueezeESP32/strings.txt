@@ -100,7 +100,8 @@ PLUGIN_SQUEEZEESP32_LED_VU
 
 PLUGIN_SQUEEZEESP32_LED_VU_DESC
 	EN	Sends custom RGB data to the LED Strip
-	EN	<br>Enter the offset value, and then RGB values.  Use the Set button the tranmit 
+	EN	<br>Enter the offset value, and then R,G,B values (comma delimited).  Repeat RGB for multiple LED sequences.
+	EN	<br>Use the Set button the tranmit 
 
 PLUGIN_SQUEEZEESP32_LED_VU_SEND
 	EN	Set
@@ -119,5 +120,5 @@ PLUGIN_SQUEEZEESP32_EQUALIZER_SAVE
 	DE	Bitte speichern Sie die Equalizer Einstellungen, falls das Gerät diese dauerhaft verwenden soll. Ansonsten werden sie beim nächsten Start zurückgesetzt.
 	EN	Don't forget to save the Equalizer settings if you want them to stick. Otherwise they'll be reset next time you restart the device.
 	
-TAUDIO
+PLUGIN_SQUEEZEESP32_TAUDIO
 	EN	TAudio
