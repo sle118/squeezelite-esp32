@@ -21,6 +21,17 @@ PLUGIN_SQUEEZEESP32_PLAYERSETTINGS
 	DE	ESP32 Einstellungen
 	EN	ESP32 settings
 
+PLUGIN_SQUEEZEESP32_FIRMWARE
+	EN	Firmware
+
+PLUGIN_SQUEEZEESP32_FIRMWARE_AVAILABLE
+	DE	Es steht eine neue Firmware Version v%s zur Verfügung (aktuell installiert: v%s).
+	EN	A new firmware version v%s is available (currently installed: v%s).
+
+PLUGIN_SQUEEZEESP32_CUSTOM_FIRMWARE_AVAILABLE
+	DE	Es steht eine benutzerdefinierte Firmware Version zur Verfügung.
+	EN	A custom firmware image is available for installation.
+
 PLUGIN_SQUEEZEESP32_WIDTH
 	DE	Displaybreite
 	EN	Screen width
@@ -99,9 +110,9 @@ PLUGIN_SQUEEZEESP32_LED_VU
 	EN	LED Strip
 
 PLUGIN_SQUEEZEESP32_LED_VU_DESC
-	EN	Sends custom RGB data to the LED Strip
-	EN	<br>Enter the offset value, and then R,G,B values (comma delimited).  Repeat RGB for multiple LED sequences.
-	EN	<br>Use the Set button the tranmit 
+	EN	Sends custom RGB data to the LED Strip.
+	EN	<br>Enter R,G,B values (comma delimited).  Repeat RGB for multiple LED sequences.  Use the Offset to specifiy the first LED of the sequence.
+	EN	<br>Use the Set button the transmit. 
 
 PLUGIN_SQUEEZEESP32_LED_VU_SEND
 	EN	Set
@@ -119,6 +130,6 @@ PLUGIN_SQUEEZEESP32_EQUALIZER
 PLUGIN_SQUEEZEESP32_EQUALIZER_SAVE
 	DE	Bitte speichern Sie die Equalizer Einstellungen, falls das Gerät diese dauerhaft verwenden soll. Ansonsten werden sie beim nächsten Start zurückgesetzt.
 	EN	Don't forget to save the Equalizer settings if you want them to stick. Otherwise they'll be reset next time you restart the device.
-	
+
 PLUGIN_SQUEEZEESP32_TAUDIO
 	EN	TAudio
