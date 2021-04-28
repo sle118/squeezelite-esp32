@@ -34,7 +34,7 @@ static const char *TAG = "led_vu";
 
 #define max(a,b) (((a) > (b)) ? (a) : (b))
 
-static struct led_strip_t* led_vu = NULL;
+struct led_strip_t* led_vu = NULL;
 static struct led_strip_t  led_strip_config = {
     .rgb_led_type      = RGB_LED_TYPE_WS2812,
     .rmt_channel       = RMT_CHANNEL_1,

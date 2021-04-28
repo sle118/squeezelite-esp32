@@ -17,7 +17,7 @@
 #define led_vu_color_blue()    led_vu_color_all(0, 0, 255)
 #define led_vu_color_yellow()    led_vu_color_all(128, 128, 0)
 
-static struct led_strip_t* led_vu;
+extern struct led_strip_t* led_vu;
 
 void led_vu_progress_bar(int pct);
 void led_vu_display(int vu_l, int vu_r, bool comet);
