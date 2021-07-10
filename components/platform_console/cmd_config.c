@@ -25,6 +25,7 @@ const char * desc_spdif= "SPDIF Options";
 const char * desc_audio= "General Audio Options";
 const char * desc_bt_source= "Bluetooth Audio Output Options";
 const char * desc_rotary= "Rotary Control";
+const char * desc_ledvu= "Led Strip Options";
 
 
 #define CODECS_BASE "flac|pcm|mp3|ogg"
@@ -99,6 +100,15 @@ static struct {
 	struct arg_end * end;
 } rotary_args;
 //config_rotary_get
+
+static struct {
+	struct arg_str * type;
+	struct arg_int * length;
+	struct arg_int * gpio;
+	struct arg_lit * clear;
+	struct arg_end * end;
+} ledvu_args;
+
 static struct{
 		struct arg_str *sink_name;
 		struct arg_str *pin_code;
@@ -552,6 +562,52 @@ static int do_rotary_cmd(int argc, char **argv){
 	return (nerrors==0 && err==ESP_OK)?0:1;
 }
 
+static int do_ledvu_cmd(int argc, char **argv){
+	ledvu_struct_t ledvu={  .type = "WS2812", .gpio = -1, .length = 0};
+	esp_err_t err=ESP_OK;
+	int nerrors = arg_parse(argc, argv,(void **)&ledvu_args);
+	if (ledvu_args.clear->count) {
+		cmd_send_messaging(argv[0],MESSAGING_WARNING,"ledvu config cleared\n");
+		config_set_value(NVS_TYPE_STR, "led_vu_config", "");
+		return 0;
+	}
+
+	char *buf = NULL;
+	size_t buf_size = 0;
+	FILE *f = open_memstream(&buf, &buf_size);
+	if (f == NULL) {
+		cmd_send_messaging(argv[0],MESSAGING_ERROR,"Unable to open memory stream.\n");
+		return 1;
+	}
+	if(nerrors >0){
+		arg_print_errors(f,ledvu_args.end,desc_ledvu);
+		return 1;
+	}
+
+	nerrors+=is_output_gpio(ledvu_args.gpio, f, &ledvu.gpio, true);
+	
+	if(ledvu_args.length->count==0 || ledvu_args.length->ival[0]<1 || ledvu_args.length->ival[0]>255){
+		fprintf(f,"error: strip length must be greater than 0 and no more than 255\n");
+		nerrors++;
+	}
+	else {
+		ledvu.length = ledvu_args.length->count>0?ledvu_args.length->ival[0]:0;
+	}
+	
+	if(!nerrors ){
+		fprintf(f,"Storing ledvu parameters.\n");
+		nerrors+=(config_ledvu_set(&ledvu )!=ESP_OK);
+	}
+	if(!nerrors ){
+		fprintf(f,"Done.\n");
+	}
+	fflush (f);
+	cmd_send_messaging(argv[0],nerrors>0?MESSAGING_ERROR:MESSAGING_INFO,"%s", buf);
+	fclose(f);
+	FREE_AND_NULL(buf);
+	return (nerrors==0 && err==ESP_OK)?0:1;
+}
+
 static int do_i2s_cmd(int argc, char **argv)
 {
 	i2s_platform_config_t i2s_dac_pin = {
@@ -711,6 +767,23 @@ cJSON * rotary_cb(){
 	}
 	return values;
 }
+cJSON * ledvu_cb(){
+	cJSON * values = cJSON_CreateObject();
+	const ledvu_struct_t *ledvu= config_ledvu_get();
+	
+	if(GPIO_IS_VALID_GPIO(ledvu->gpio) && ledvu->gpio>=0 && ledvu->length > 0){
+		cJSON_AddNumberToObject(values,"gpio",ledvu->gpio);
+		cJSON_AddNumberToObject(values,"length",ledvu->length);
+	}
+	if(strlen(ledvu->type)>0){
+		cJSON_AddStringToObject(values,"type",ledvu->type);
+	}
+	else {
+		cJSON_AddStringToObject(values,"type","WS2812");
+	}
+	return values;
+}
+
 cJSON * audio_cb(){
 	cJSON * values = cJSON_CreateObject();
 	char * 	p = config_alloc_get_default(NVS_TYPE_STR, "jack_mutes_amp", "n", 0);
@@ -924,6 +997,24 @@ static void register_rotary_config(void){
     ESP_ERROR_CHECK(esp_console_cmd_register(&cmd));
 }
 
+static void register_ledvu_config(void){
+	ledvu_args.type = arg_str1(NULL,"type","<none>|WS2812","Led type (supports one rgb strip to display built in effects and allow remote control through 'dmx' messaging)");
+	ledvu_args.length = arg_int1(NULL,"length","<1..255>","Strip length (1-255 supported)");
+	ledvu_args.gpio = arg_int1(NULL,"gpio","gpio","Data pin");
+	ledvu_args.clear = arg_lit0(NULL, "clear", "Clear configuration");
+	ledvu_args.end = arg_end(4);
+
+	const esp_console_cmd_t cmd = {
+        .command = CFG_TYPE_HW("ledvu"),
+        .help = desc_ledvu,
+        .hint = NULL,
+        .func = &do_ledvu_cmd,
+        .argtable = &ledvu_args
+    };
+	cmd_to_json_with_cb(&cmd,&ledvu_cb);
+    ESP_ERROR_CHECK(esp_console_cmd_register(&cmd));
+}
+
 static void register_audio_config(void){
 	audio_args.jack_behavior = arg_str0("j", "jack_behavior","Headphones|Subwoofer","On supported DAC, determines the audio jack behavior. Selecting headphones will cause the external amp to be muted on insert, while selecting Subwoofer will keep the amp active all the time.");
     audio_args.end = arg_end(6);
@@ -1008,5 +1099,6 @@ void register_config_cmd(void){
 		register_spdif_config();
 	}
 	register_rotary_config();
+	register_ledvu_config();
 }
 

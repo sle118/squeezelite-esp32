@@ -106,6 +106,41 @@ PLUGIN_SQUEEZEESP32_ARTWORK_X
 PLUGIN_SQUEEZEESP32_ARTWORK_Y
 	EN	Y
 
+PLUGIN_SQUEEZEESP32_LED_CONFIG
+	EN	Led RGB Strip
+
+PLUGIN_SQUEEZEESP32_LED_CONFIG_DESC
+	EN	Length of the Led strip reported by the player
+
+PLUGIN_SQUEEZEESP32_LED_VISUALIZER
+	EN	Led Visualizer
+
+PLUGIN_SQUEEZEESP32_LED_VISUALIZER_DESC
+	EN	Select Led Visualizer from the built in effects
+
+PLUGIN_SQUEEZEESP32_LED_BRIGHTNESS
+	EN	Led Brghtness
+
+PLUGIN_SQUEEZEESP32_LED_BRIGHTNESS_DESC
+	EN	Sets the brightness of the Led Visualizer effects
+
+PLUGIN_SQUEEZEESP32_LED_DATA
+	EN	Led Test
+
+PLUGIN_SQUEEZEESP32_LED_DATA_DESC
+	EN	Sends custom RGB data to the Led Strip.
+	EN	<br>Enter R,G,B values (comma delimited).  Repeat RGB for multiple Led sequences.  Use the Offset to specifiy the first LED of the sequence.
+	EN	<br>Use the Set button the transmit. 
+
+PLUGIN_SQUEEZEESP32_LED_DATA_SEND
+	EN	Set
+
+PLUGIN_SQUEEZEESP32_LED_DATA_X
+	EN	Offset
+
+PLUGIN_SQUEEZEESP32_LED_DATA_CMD
+	EN	Command
+	
 PLUGIN_SQUEEZEESP32_EQUALIZER
 	DE	Parametrischer Equalizer
 	EN	Parametric equalizer
@@ -113,3 +148,6 @@ PLUGIN_SQUEEZEESP32_EQUALIZER
 PLUGIN_SQUEEZEESP32_EQUALIZER_SAVE
 	DE	Bitte speichern Sie die Equalizer Einstellungen, falls das Gerät diese dauerhaft verwenden soll. Ansonsten werden sie beim nächsten Start zurückgesetzt.
 	EN	Don't forget to save the Equalizer settings if you want them to stick. Otherwise they'll be reset next time you restart the device.
+
+PLUGIN_SQUEEZEESP32_WAVEFORM
+	EN	Waveform Visualizer

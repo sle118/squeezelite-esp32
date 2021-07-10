@@ -16,6 +16,7 @@
 #include "gds_text.h"
 #include "gds_draw.h"
 #include "gds_image.h"
+#include "led_vu.h"
 
 #pragma pack(push, 1)
 
@@ -107,13 +108,20 @@ struct visu_packet {
 	};	
 };
 
+struct ledv_packet {
+	char  opcode[4];
+	u8_t which;
+	u8_t style;
+	u8_t bright;
+};
+
 struct ANIC_header {
 	char  opcode[4];
 	u32_t length;
 	u8_t mode;
 };
 
-struct dmxt_packet {
+struct ledd_packet {
 	char  opcode[4];
 	u16_t x;
 	u16_t length;
@@ -205,7 +213,7 @@ static EXT_RAM_ATTR struct {
 
 static EXT_RAM_ATTR struct {
 	int mode;
-	int max;
+	int n, style, max;
 	u16_t config;
 	struct bar_s bars[MAX_BARS] ;
 } led_visu;
@@ -241,11 +249,10 @@ static void grfs_handler(u8_t *data, int len);
 static void grfg_handler(u8_t *data, int len);
 static void grfa_handler(u8_t *data, int len);
 static void visu_handler(u8_t *data, int len);
-static void dmxt_handler(u8_t *data, int len);
+static void ledv_handler(u8_t *data, int len);
+static void ledd_handler(u8_t *data, int len);
 static void displayer_task(void* arg);
 
-// PLACEHOLDER
-void *led_display = 0x1000;
 
 /* scrolling undocumented information
 	grfs	
@@ -341,8 +348,7 @@ bool sb_displayer_init(void) {
 	}	
 	
 	if (led_display) {
-		// PLACEHOLDER to init config
-		led_visu.mode = VISU_VUMETER;
+		led_visu.config = led_vu_string_length();
 	}
 	
 	// inform LMS of our screen/led dimensions
@@ -420,10 +426,11 @@ static void sendSETD(u16_t width, u16_t height, u16_t led_config) {
 	pkt_header.id = 0xfe; // id 0xfe is width S:P:Squeezebox2
 	pkt_header.length = htonl(sizeof(pkt_header) +  6 - 8);
 		
-	LOG_INFO("sending dimension %ux%u", width, height);	
+	LOG_INFO("sending dimension display:%ux%u led_config:%u", width, height, led_config);	
 
 	width = htons(width);
 	height = htons(height);
+	led_config = htons(led_config);
 		
 	LOCK_P;
 	send_packet((uint8_t *) &pkt_header, sizeof(pkt_header));
@@ -473,8 +480,10 @@ static bool handler(u8_t *data, int len){
 		grfa_handler(data, len);		
 	} else if (!strncmp((char*) data, "visu", 4)) {
 		visu_handler(data, len);
-	} else if (!strncmp((char*) data, "dmxt", 4)) {
-		dmxt_handler(data, len);		
+	} else if (!strncmp((char*) data, "ledv", 4)) {
+		ledv_handler(data, len);
+	} else if (!strncmp((char*) data, "ledd", 4)) {
+		ledd_handler(data, len);		
 	} else {
 		res = false;
 	}
@@ -1049,23 +1058,40 @@ static void displayer_update(void) {
 	}	
 	
 	// actualize led_vu
-	if (led_visu.mode) {
-		// PLACEHOLDER to handle led_display. you need potentially scaling of spectrum (X and Y) 
-		// and scaling of levels (Y) and then call the 
+	if (led_display && led_visu.mode) {
+		// scale to correct rgb brightness
+		if (led_visu.mode == VISU_VUMETER) vu_scale(led_visu.bars, led_visu.max, meters.levels);
+		else spectrum_scale(led_visu.n, led_visu.bars, led_visu.max, meters.samples);
+ 
+		// run built in visualizer effects
+		if (led_visu.mode == VISU_VUMETER) {
+			led_vu_display(led_visu.bars[0].current, led_visu.bars[1].current, led_visu.max, led_visu.style);
+		} else if (led_visu.mode == VISU_SPECTRUM) { 
+			uint8_t* led_data = malloc(led_visu.n);
+			uint8_t* p = (uint8_t*) led_data;
+			for (int i = 0; i < led_visu.n; i++) {
+				*p = led_visu.bars[i].current;
+				p++;
+			}
+			led_vu_spectrum(led_data, led_visu.max, led_visu.n, led_visu.style);
+			free(led_data);
+		} else if (led_visu.mode == VISU_WAVEFORM) {
+			led_vu_spin_dial(led_visu.bars[1].current, led_visu.bars[(led_visu.n/2)+1].current * 50 / led_visu.max , led_visu.style);
+		} 
 	}
 }
 
 /****************************************************************************************
  * Calculate spectrum spread
  */
-static void spectrum_limits(int min, int n, int pos) {
+static void spectrum_limits(struct bar_s *bars, int min, int n, int pos, float spectrum_scale) {
 	if (n / 2) {
-		int step = ((DISPLAY_BW - min) * visu.spectrum_scale)  / (n/2);
-		visu.bars[pos].limit = min + step;
-		for (int i = 1; i < n/2; i++) visu.bars[pos+i].limit = visu.bars[pos+i-1].limit + step;
-		spectrum_limits(visu.bars[pos + n/2 - 1].limit, n - n/2, pos + n/2);
+		int step = ((DISPLAY_BW - min) * spectrum_scale)  / (n/2);
+		bars[pos].limit = min + step;
+		for (int i = 1; i < n/2; i++) bars[pos+i].limit = bars[pos+i-1].limit + step;
+		spectrum_limits(bars, bars[pos + n/2 - 1].limit, n - n/2, pos + n/2, spectrum_scale);
 	} else {
-		visu.bars[pos].limit = DISPLAY_BW;
+		bars[pos].limit = DISPLAY_BW;
 	}	
 }
 
@@ -1078,7 +1104,7 @@ static void visu_fit(int bars, int width, int height) {
 		visu.n = bars ? bars : MAX_BARS;
 		visu.max = height - 1;
 		if (visu.spectrum_scale <= 0 || visu.spectrum_scale > 0.5) visu.spectrum_scale = 0.5;
-		spectrum_limits(0, visu.n, 0);
+		spectrum_limits(visu.bars, 0, visu.n, 0, visu.spectrum_scale);
 	} else {
 		visu.n = 2;
 		visu.max = (visu.style ? VU_COUNT : height) - 1;
@@ -1211,11 +1237,50 @@ static void visu_handler( u8_t *data, int len) {
 }	
 
 /****************************************************************************************
- * Dmx style packet handler
+ * Led_visu packet handler
+ */
+static void ledv_handler( u8_t *data, int len) {
+	struct ledv_packet *pkt = (struct ledv_packet*) data;
+
+	LOG_DEBUG("led_visu %u with parameters", pkt->which);
+		
+	xSemaphoreTake(displayer.mutex, portMAX_DELAY);
+	led_visu.mode = pkt->which;
+	led_visu.style = pkt->style;
+	led_visu.max = pkt->bright;
+
+		led_vu_clear();
+		if (led_visu.mode) {
+		if (led_visu.mode == VISU_SPECTRUM) {
+			led_visu.n = (led_visu.config < MAX_BARS) ? led_visu.config : MAX_BARS;
+			spectrum_limits(led_visu.bars, 0, led_visu.n, 0, 0.25);
+		} else if (led_visu.mode == VISU_WAVEFORM) {
+			led_visu.n = 6;
+			spectrum_limits(led_visu.bars, 0, led_visu.n, 0, 0.25);
+		} 
+		
+		displayer.wake = 1; // wake up 
+		
+		// reset bars maximum
+		for (int i = led_visu.n; --i >= 0;) led_visu.bars[i].max = 0;
+		
+		LOG_INFO("LED Visualizer mode %u with bars:%u max:%u style:%d", led_visu.mode, led_visu.n, led_visu.max, led_visu.style);
+	} else {
+		LOG_INFO("Stopping led visualizer");
+	}	
+	
+	xSemaphoreGive(displayer.mutex);
+	
+	// resume displayer task
+	vTaskResume(displayer.task);
+}	
+
+/****************************************************************************************
+ * Led_data dmx style packet handler
  * ToDo: make packet match dmx protocol format
  */
-static void dmxt_handler( u8_t *data, int len) {
-	struct dmxt_packet *pkt = (struct dmxt_packet*) data;
+static void ledd_handler( u8_t *data, int len) {
+	struct ledd_packet *pkt = (struct ledd_packet*) data;
 	uint16_t offset = htons(pkt->x);
 	uint16_t length = htons(pkt->length);
 
@@ -1223,8 +1288,9 @@ static void dmxt_handler( u8_t *data, int len) {
 
 	xSemaphoreTake(displayer.mutex, portMAX_DELAY);
 
-	// PLACEHOLDER
-	//led_vu_data(data + sizeof(struct dmxt_packet), offset, length);
+	led_vu_data(data + sizeof(struct ledd_packet), offset, length);
+	
+	displayer.wake = 1000; // wait a little while
 
 	xSemaphoreGive(displayer.mutex);
 }	

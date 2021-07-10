@@ -227,6 +227,30 @@ esp_err_t config_rotary_set(rotary_struct_t * config){
 /****************************************************************************************
  * 
  */
+esp_err_t config_ledvu_set(ledvu_struct_t * config){
+	int buffer_size=512;
+	esp_err_t err=ESP_OK;
+	char * config_buffer=calloc(buffer_size,1);
+	char * config_buffer2=calloc(buffer_size,1);	
+	if(config_buffer && config_buffer2)  {
+		snprintf(config_buffer,buffer_size,"%s,length=%i,gpio=%i",config->type, config->length, config->gpio);
+		log_send_messaging(MESSAGING_INFO,"Updating ledvu configuration to %s",config_buffer);
+		err = config_set_value(NVS_TYPE_STR, "led_vu_config", config_buffer);
+		if(err!=ESP_OK){
+			log_send_messaging(MESSAGING_ERROR,"Error: %s",esp_err_to_name(err));
+		}
+	} 
+	else {
+		err = ESP_ERR_NO_MEM;
+	}
+	FREE_AND_NULL(config_buffer);
+	FREE_AND_NULL(config_buffer2);	
+	return err;	
+}
+
+/****************************************************************************************
+ * 
+ */
 esp_err_t config_display_set(const display_config_t * config){
 	int buffer_size=512;
 	esp_err_t err=ESP_OK;
@@ -582,6 +606,24 @@ const rotary_struct_t * config_rotary_get() {
 }
 
 /****************************************************************************************
+ * 
+ */
+const ledvu_struct_t * config_ledvu_get() {
+
+	static ledvu_struct_t ledvu={  .type = "WS2812", .gpio = -1, .length = 0};
+	char *config = config_alloc_get_default(NVS_TYPE_STR, "led_vu_config", NULL, 0);
+	if (config && *config) {
+		char *p;
+	
+		// ToDo:  Add code for future support of alternate led types
+		if ((p = strcasestr(config, "gpio")) != NULL) ledvu.gpio = atoi(strchr(p, '=') + 1);
+		if ((p = strcasestr(config, "length")) != NULL) ledvu.length = atoi(strchr(p, '=') + 1);
+		free(config);
+	}
+	return &ledvu;
+}
+
+/****************************************************************************************
  *
  */
 cJSON * get_gpio_entry(const char * name, const char * prefix, int gpio, bool fixed){
@@ -744,6 +786,17 @@ cJSON * get_Rotary_GPIO(cJSON * list){
 	add_gpio_for_value(llist,"A",rotary->A, "rotary", false);
 	add_gpio_for_value(llist,"B",rotary->B, "rotary", false);
 	add_gpio_for_value(llist,"SW",rotary->SW, "rotary", false);
+	return llist;
+}
+
+/****************************************************************************************
+ *
+ */
+cJSON * get_ledvu_GPIO(cJSON * list){
+	cJSON * llist = list?list:cJSON_CreateArray();
+
+	const ledvu_struct_t *ledvu= config_ledvu_get();
+	add_gpio_for_value(llist,"gpio",ledvu->gpio, "led_vu", false);
 	return llist;
 }
 
@@ -961,6 +1014,7 @@ cJSON * get_gpio_list(bool refresh) {
 	gpio_list=get_SPI_GPIO(gpio_list);
 	gpio_list=get_I2C_GPIO(gpio_list);
 	gpio_list=get_DAC_GPIO(gpio_list);
+	gpio_list=get_ledvu_GPIO(gpio_list);
 	gpio_list=get_psram_gpio_list(gpio_list);
 	return gpio_list;
 }

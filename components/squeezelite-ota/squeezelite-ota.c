@@ -37,6 +37,7 @@
 #include "gds.h"
 #include "gds_text.h"
 #include "gds_draw.h"
+#include "led_vu.h"
 #include "platform_esp32.h"
 #include "lwip/sockets.h"
 
@@ -156,24 +157,26 @@ static progress_t * loc_displayer_get_progress_dft(){
 }
 static void loc_displayer_progressbar(uint8_t pct){
 	static progress_t * progress_coordinates;
-	if(!display){
-		return;
-	}
-	if(!progress_coordinates) progress_coordinates = loc_displayer_get_progress_dft();
-	int filler_x=progress_coordinates->filler.x1+(int)((float)progress_coordinates->filler.width*(float)pct/(float)100);
+	if(display) {
+		if(!progress_coordinates) progress_coordinates = loc_displayer_get_progress_dft();
+		int filler_x=progress_coordinates->filler.x1+(int)((float)progress_coordinates->filler.width*(float)pct/(float)100);
 
-	ESP_LOGD(TAG,"Drawing %d,%d,%d,%d",progress_coordinates->border.x1,progress_coordinates->border.y1,progress_coordinates->border.x2,progress_coordinates->border.y2);
-	GDS_DrawBox(display,progress_coordinates->border.x1,progress_coordinates->border.y1,progress_coordinates->border.x2,progress_coordinates->border.y2,GDS_COLOR_WHITE,false);
-	ESP_LOGD(TAG,"Drawing %d,%d,%d,%d",progress_coordinates->filler.x1,progress_coordinates->filler.y1,filler_x,progress_coordinates->filler.y2);
-	if(filler_x > progress_coordinates->filler.x1){
-		GDS_DrawBox(display,progress_coordinates->filler.x1,progress_coordinates->filler.y1,filler_x,progress_coordinates->filler.y2,GDS_COLOR_WHITE,true);
+		ESP_LOGD(TAG,"Drawing %d,%d,%d,%d",progress_coordinates->border.x1,progress_coordinates->border.y1,progress_coordinates->border.x2,progress_coordinates->border.y2);
+		GDS_DrawBox(display,progress_coordinates->border.x1,progress_coordinates->border.y1,progress_coordinates->border.x2,progress_coordinates->border.y2,GDS_COLOR_WHITE,false);
+		ESP_LOGD(TAG,"Drawing %d,%d,%d,%d",progress_coordinates->filler.x1,progress_coordinates->filler.y1,filler_x,progress_coordinates->filler.y2);
+		if(filler_x > progress_coordinates->filler.x1){
+			GDS_DrawBox(display,progress_coordinates->filler.x1,progress_coordinates->filler.y1,filler_x,progress_coordinates->filler.y2,GDS_COLOR_WHITE,true);
+		}
+		else {
+			// Clear the inner box
+			GDS_DrawBox(display,progress_coordinates->filler.x1,progress_coordinates->filler.y1,progress_coordinates->filler.x2,progress_coordinates->filler.y2,GDS_COLOR_BLACK,true);
+		}
+		ESP_LOGD(TAG,"Updating Display");
+		GDS_Update(display);
 	}
-	else {
-		// Clear the inner box
-		GDS_DrawBox(display,progress_coordinates->filler.x1,progress_coordinates->filler.y1,progress_coordinates->filler.x2,progress_coordinates->filler.y2,GDS_COLOR_BLACK,true);
+	if (led_display) {
+		led_vu_progress_bar(pct, LED_VU_BRIGHT);
 	}
-	ESP_LOGD(TAG,"Updating Display");
-	GDS_Update(display);
 }
 void sendMessaging(messaging_types type,const char * fmt, ...){
     va_list args;
@@ -451,6 +454,10 @@ void ota_task_cleanup(const char * message, ...){
 	    va_start(args, message);
 		sendMessaging(MESSAGING_ERROR,message, args);
 	    va_end(args);
+		
+	    if (led_display) led_vu_color_red(LED_VU_BRIGHT);
+	} else {
+	    if (led_display) led_vu_color_green(LED_VU_BRIGHT);
 	}
 	FREE_RESET(ota_status->ota_write_data);
 	FREE_RESET(ota_status->bin_data);
