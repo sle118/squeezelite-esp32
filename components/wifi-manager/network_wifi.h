@@ -1,38 +1,22 @@
 #pragma once
 #include "network_manager.h"
+#include "Configurator.h"
 #ifdef __cplusplus
 extern "C" {
 
 #endif
 esp_netif_t * network_wifi_start();
 void destroy_network_wifi(); 
-/**
- * @brief saves the current STA wifi config to flash ram storage.
- */
-esp_err_t network_wifi_save_sta_config();
-
-
-/**
- * @brief fetch a previously STA wifi config in the flash ram storage.
- * @return true if a previously saved config was found, false otherwise.
- */
-bool network_wifi_load_wifi_sta_config();
-
 
 /**
  * @brief Registers handler for wifi and ip events
  */
 void network_wifi_register_handlers();
 
-/**
- * @brief Generates the list of access points after a wifi scan.
- * @note This is not thread-safe and should be called only if network_status_lock_json_buffer call is successful.
- */
-void network_wifi_generate_access_points_json(cJSON ** ap_list);
 
 /**
  * @brief Clear the list of access points.
- * @note This is not thread-safe and should be called only if network_status_lock_json_buffer call is successful.
+ * @note This is not thread-safe and should be called only if network_status_lock_structure call is successful.
  */
 void network_wifi_clear_access_points_json();
 
@@ -46,7 +30,6 @@ esp_err_t network_wifi_load_restore(queue_message *msg);
 esp_err_t network_wifi_order_connect(queue_message *msg);
 esp_err_t network_wifi_disconnected(queue_message *msg);
 esp_err_t network_wifi_start_ap(queue_message *msg);
-bool network_wifi_get_config_for_ssid(wifi_config_t* config, const char * ssid);
 esp_err_t network_wifi_handle_event(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
 bool is_wifi_up();
 wifi_config_t* network_wifi_set_wifi_sta_config(const char * ssid, const char * password) ;
@@ -67,9 +50,9 @@ esp_err_t network_wifi_erase_known_ap();
 esp_err_t network_wifi_set_sta_mode();
 size_t network_wifi_get_known_count();
 size_t network_wifi_get_known_count_in_range();
-esp_err_t network_wifi_built_known_ap_list();
 esp_err_t network_wifi_connect_next_in_range();
-const wifi_sta_config_t* network_wifi_load_active_config();
+void network_wifi_esp_sta_to_sta(wifi_ap_record_t* scan_res, sys_WifiSTAEntry* sta_entry);
+sys_WifiAuthTypeEnum network_wifi_get_auth_type(const wifi_auth_mode_t mode) ;
 #ifdef __cplusplus
 }
 #endif

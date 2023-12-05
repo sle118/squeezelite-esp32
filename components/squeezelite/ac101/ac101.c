@@ -32,7 +32,7 @@
 #include <driver/i2s.h>
 #include "adac.h"
 #include "ac101.h"
-
+#include "Configurator.h"
 static const char TAG[] = "AC101";
 
 #define SPKOUT_EN ((1 << 9) | (1 << 11) | (1 << 7) | (1 << 5))
@@ -54,7 +54,7 @@ static void headset(bool active);
 static bool volume(unsigned left, unsigned right);
 static void power(adac_power_e mode);
 
-const struct adac_s dac_ac101 = { "AC101", init, adac_deinit, power, speaker, headset, volume };
+const struct adac_s dac_ac101 = { sys_DACModelEnum_AC101, init, adac_deinit, power, speaker, headset, volume };
 
 static void ac101_start(ac_module_t mode);
 static void ac101_stop(void);

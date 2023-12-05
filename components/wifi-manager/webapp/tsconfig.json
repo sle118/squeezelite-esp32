@@ -1,9 +1,7 @@
 {
   "compilerOptions": {
     "baseUrl": "./",
-    "paths": { 
-      "@/*": [  "src/*"],
-      "@node_modules/*" : ["./node_modules/*"]},
+
     "outDir": "./dist/",
     "noImplicitAny": true,
     "target": "es6",
@@ -11,11 +9,15 @@
     "composite": true,
 //    "jsx": "react",
     "allowJs": true,
+    // "checkJs": true,
     "allowSyntheticDefaultImports" : true,
     "esModuleInterop" : true
 
   },
+  "include": [
+    "src/**/*" // Adjust the path to include your source files
+  ],
   "exclude": [
-    "./node_modules"
+    "node_modules"
   ]
 }

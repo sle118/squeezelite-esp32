@@ -4,7 +4,6 @@
 #include "esp_wifi.h"
 #include "esp_wifi_types.h"
 #include "squeezelite-ota.h"
-#include "cJSON.h"
 #include "esp_eth.h"
 #include "freertos/event_groups.h"
 #include "hsm.h"
@@ -250,17 +249,6 @@ void network_reboot_ota(char * url);
  * UPDATE_FAILED_ATTEMPT_AND_RESTORE - Web UI expects this when attempting to connect to a new access point fails and previous connection is restored
  * UPDATE_ETHERNET_CONNECTED = 5
  */
-typedef enum update_reason_code_t {
-	UPDATE_CONNECTION_OK = 0, // expected when 
-	UPDATE_FAILED_ATTEMPT = 1,
-	UPDATE_USER_DISCONNECT = 2,
-	UPDATE_LOST_CONNECTION = 3,
-	UPDATE_FAILED_ATTEMPT_AND_RESTORE = 4,
-	UPDATE_ETHERNET_CONNECTED = 5
-
-}update_reason_code_t;
-
-
 
 
 
@@ -278,24 +266,12 @@ void network_destroy();
 void  filter_unique( wifi_ap_record_t * aplist, uint16_t * ap_num);
 
 
-char* network_status_alloc_get_ap_list_json();
-cJSON * network_manager_clear_ap_list_json(cJSON **old);
-
-
 
 /**
  * @brief A standard wifi event handler as recommended by Espressif
  */
 esp_err_t network_manager_event_handler(void *ctx, system_event_t *event);
 
-
-
-/**
- * @brief Clears the connection status json.
- * @note This is not thread-safe and should be called only if network_status_lock_json_buffer call is successful.
- */
-cJSON * network_status_clear_ip_info_json(cJSON **old);
-cJSON * network_status_get_new_json(cJSON **old);
 
 
 

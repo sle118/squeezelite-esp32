@@ -3,14 +3,13 @@
 #include <ctype.h>
 #include <stdlib.h>
 
-#include "nvs.h"
 #include "esp_netif.h"
 #include "esp_log.h"
 #include "esp_console.h"
 #include "esp_pthread.h"
 #include "esp_system.h"
 #include "freertos/timers.h"
-#include "platform_config.h"
+#include "Configurator.h"
 #include "raop.h"
 #include "audio_controls.h"
 #include "display.h"
@@ -168,7 +167,8 @@ static void raop_sink_start(nm_state_t state_id, int sub_state) {
 	esp_netif_t* netif;
 	esp_netif_ip_info_t ipInfo = { }; 
 	uint8_t mac[6];	
-    char* sink_name = (char*) config_alloc_get_default(NVS_TYPE_STR, "airplay_name", CONFIG_AIRPLAY_NAME, 0);
+    char* sink_name = strlen(platform->names.airplay)>0?platform->names.airplay:platform->names.device;
+	
 
     netif = network_get_active_interface();
 	esp_netif_get_ip_info(netif, &ipInfo);
@@ -177,7 +177,6 @@ static void raop_sink_start(nm_state_t state_id, int sub_state) {
 
 	LOG_INFO( "starting Airplay for ip %s with servicename %s", inet_ntoa(ipInfo.ip.addr), sink_name);
 	raop = raop_create(ipInfo.ip.addr, sink_name, mac, 0, cmd_handler, raop_cbs.data);
-	free(sink_name);
 }
 
 /****************************************************************************************

@@ -20,6 +20,7 @@
 #include "adac.h"
 #include "stdio.h"
 #include "math.h"
+#include "Configurator.h"
 #define CS4265_PULL_UP (0x4F )
 #define CS4265_PULL_DOWN (0x4E )
 
@@ -36,7 +37,7 @@ static bool volume(unsigned left, unsigned right);
 static void power(adac_power_e mode);
 static esp_err_t cs4265_update_bit(uint8_t reg_no,uint8_t mask,uint8_t val );
 static esp_err_t set_clock();
-const struct adac_s dac_cs4265 = { "CS4265", init, adac_deinit, power, speaker, headset, volume };
+const struct adac_s dac_cs4265 = { sys_DACModelEnum_CS4265, init, adac_deinit, power, speaker, headset, volume };
 
 struct cs4265_cmd_s {
 	uint8_t reg;

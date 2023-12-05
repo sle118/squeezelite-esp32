@@ -29,7 +29,7 @@ static void headset(bool active);
 static bool volume(unsigned left, unsigned right);
 static void power(adac_power_e mode);
 
-const struct adac_s dac_tas57xx = { "TAS57xx", init, adac_deinit, power, speaker, headset, volume };
+const struct adac_s dac_tas57xx = { sys_DACModelEnum_TAS57xx, init, adac_deinit, power, speaker, headset, volume };
 
 struct tas57xx_cmd_s {
 	uint8_t reg;

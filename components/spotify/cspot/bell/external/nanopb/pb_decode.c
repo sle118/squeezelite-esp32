@@ -16,10 +16,162 @@
 #include "pb.h"
 #include "pb_decode.h"
 #include "pb_common.h"
-
+#include <stdio.h>
 /**************************************
  * Declarations internal to this file *
  **************************************/
+// Function to write debug headers
+const char* pb_ltype_description(uint8_t type) {
+    uint8_t mask = PB_LTYPE(type);
+    switch (mask) {
+        case PB_LTYPE_BOOL: return  "BOOL";
+        case PB_LTYPE_VARINT: return  "VARINT";
+        case PB_LTYPE_UVARINT: return  "UVARINT";
+        case PB_LTYPE_SVARINT: return  "SVARINT";
+        case PB_LTYPE_FIXED32: return  "FIXED32";
+        case PB_LTYPE_FIXED64: return  "FIXED64";
+        case PB_LTYPE_BYTES: return  "BYTES";
+        case PB_LTYPE_STRING: return  "STRING";
+        case PB_LTYPE_SUBMESSAGE: return  "SUBMESSAGE";
+        case PB_LTYPE_SUBMSG_W_CB: return  "SUBMSG_W_CB";
+        case PB_LTYPE_EXTENSION: return  "EXTENSION";
+        case PB_LTYPE_FIXED_LENGTH_BYTES: return  "FXD_LENBYTES";
+        
+    }
+    return "UNKNOWN";
+}
+const char* pb_htype_description(uint8_t type) {
+
+    uint8_t mask = PB_HTYPE(type);
+    switch (mask) {
+        case PB_HTYPE_REQUIRED: return  "REQUIRED";
+        case PB_HTYPE_OPTIONAL: return  "OPTIONAL/SINGULAR";
+        case PB_HTYPE_REPEATED: return  "REPEATED/ARRAY";
+        case PB_HTYPE_ONEOF: return  "ONEOF/MASK";
+    }
+    return "UNKNOWN";
+}
+const char* pb_atype_description(uint8_t type) {
+    uint8_t mask = PB_ATYPE(type);
+    switch (mask) {
+        case PB_ATYPE_STATIC: return  "STATIC";
+        case PB_ATYPE_POINTER: return  "POINTER";
+        case PB_ATYPE_CALLBACK: return  "CALLBACK";
+    }
+    return "UNKNOWN";
+}
+#define HEAD_FORMAT \
+        "| %-5s"\
+        "| %-30s"\
+        "| %-30s"\
+        "| %-5s"\
+        "| %-5s"\
+        "| %-10s"\
+        "| %-10s"\
+        "| %-10s"\
+        "| %-10s"\
+        "| %-10s"\
+        "| %-10s"\
+        "| %-10s"\
+        "| %-10s"\
+        "| %-10s"\
+        "| %-20s"\
+        "| %-20s"\
+        "| %-20s"\
+        "| %-10s|\n"
+void dump_pb_separator(char fill){
+    char buf[BUFSIZ] = { 0 };
+    int widths[] = {5, 30, 30, 5, 5, 10, 10, 10, 10, 10, 10, 10, 10, 10, 20, 20, 20, 10,0};
+    for(int i=0;widths[i]>0;i++){
+        memset(buf, 0x00, sizeof(buf));
+        printf("+ %s", (char*)memset(buf, fill, widths[i]));
+    }
+    printf("+\n");
+}
+void write_debug_header() {
+    dump_pb_separator('-');
+    printf(HEAD_FORMAT, "REC", "Message", "Function", "Line", "Field", "Required", "Largest",
+         "Submessage","Index", "Field Info", "Required", "Tag", "Data", "Array", "Data", "Rep",
+        "Alloc", "TypNum");
+    printf(HEAD_FORMAT, "", "", "", "", "Count", "Count", "Tag","Index", "", "Index", "Index",  "",
+        "Size", "Size", "Type", "Type", "Type", "");
+    dump_pb_separator('-');
+}
+
+// Function to dump field information
+void dump_pb_field(const pb_field_iter_t* iter, const char* msg, const char* func, int line) {
+    const pb_msgdesc_t* desc = iter->descriptor;
+    if (!desc) {
+        printf("DESCRIPTOR MISSING!!\n");
+    }
+      
+    printf("| %-5s"
+           "| %-30s"
+           "| %-30s"
+           "| %-5d"
+           "| %-5s"
+           "| %-10s"
+           "| %-10s"
+           "| %-10d"
+           "| %-10d"
+           "| %-10d"
+           "| %-10d"
+           "| %-10d"
+           "| %-10d"
+           "| %-10d"
+           "| %-20s"
+           "| %-20s"
+           "| %-20s"
+           "| %-10zu|\n",
+        "FLD", msg, func, line, 
+        "","","",
+        iter->submessage_index,iter->index, iter->field_info_index, iter->required_field_index, 
+        iter->tag, iter->data_size, iter->array_size, 
+        pb_ltype_description(iter->type), pb_htype_description(iter->type), pb_atype_description(iter->type), 
+        iter->type);
+}
+void dump_pb_head(const pb_msgdesc_t* desc, const char* msg, const char* func, int line) {
+    if (!desc) {
+        printf("DESCRIPTOR MISSING!!\n");
+    }
+    printf("| %-5s"
+           "| %-30s"
+           "| %-30s"
+           "| %-5d"
+           "| %-5d"
+           "| %-10d"
+           "| %-10d"
+           "| %-10s"
+           "| %-10s"
+           "| %-10s"
+           "| %-10s"
+           "| %-10s"
+           "| %-10s"
+           "| %-10s"
+           "| %-20s"
+           "| %-20s"
+           "| %-20s"
+           "| %-10s|\n",
+        "HD", msg, func, line, 
+        desc->field_count, desc->required_field_count, desc->largest_tag,
+        "","", "", "", 
+        "", "", "", 
+        "", "", "", 
+        "");
+}
+
+// Macros for convenience
+#ifdef DUMP_PB_ENABLE
+#define DUMP_PB_FIELD(iter,msg) dump_pb_field(iter,msg, __FUNCTION__, __LINE__)
+#define DUMP_PB_HEAD(iter,msg) dump_pb_head(iter,msg, __FUNCTION__, __LINE__)
+#define DUMP_PB_MARK(msg) printf("MRK\t%-30s\t%-20s\t%-5d\n",msg, __FUNCTION__, __LINE__)
+#define WRITE_DEBUG_HEADER write_debug_header()
+#else
+#define DUMP_PB_FIELD(iter,msg)
+#define DUMP_PB_HEAD(iter,msg) 
+#define DUMP_PB_MARK(msg) 
+#define WRITE_DEBUG_HEADER()
+#endif
 
 static bool checkreturn buf_read(pb_istream_t *stream, pb_byte_t *buf, size_t count);
 static bool checkreturn pb_decode_varint32_eof(pb_istream_t *stream, uint32_t *dest, bool *eof);
@@ -169,7 +321,7 @@ static bool checkreturn pb_decode_varint32_eof(pb_istream_t *stream, uint32_t *d
 {
     pb_byte_t byte;
     uint32_t result;
-    
+
     if (!pb_readbyte(stream, &byte))
     {
         if (stream->bytes_left == 0)
@@ -390,9 +542,11 @@ bool checkreturn pb_close_string_substream(pb_istream_t *stream, pb_istream_t *s
 
 static bool checkreturn decode_basic_field(pb_istream_t *stream, pb_wire_type_t wire_type, pb_field_iter_t *field)
 {
+    DUMP_PB_FIELD(field,"Decoding basic field");
     switch (PB_LTYPE(field->type))
     {
         case PB_LTYPE_BOOL:
+
             if (wire_type != PB_WT_VARINT && wire_type != PB_WT_PACKED)
                 PB_RETURN_ERROR(stream, "wrong wire type");
 
@@ -401,6 +555,7 @@ static bool checkreturn decode_basic_field(pb_istream_t *stream, pb_wire_type_t 
         case PB_LTYPE_VARINT:
         case PB_LTYPE_UVARINT:
         case PB_LTYPE_SVARINT:
+
             if (wire_type != PB_WT_VARINT && wire_type != PB_WT_PACKED)
                 PB_RETURN_ERROR(stream, "wrong wire type");
 
@@ -443,6 +598,7 @@ static bool checkreturn decode_basic_field(pb_istream_t *stream, pb_wire_type_t 
 
         case PB_LTYPE_SUBMESSAGE:
         case PB_LTYPE_SUBMSG_W_CB:
+
             if (wire_type != PB_WT_STRING)
                 PB_RETURN_ERROR(stream, "wrong wire type");
 
@@ -461,6 +617,7 @@ static bool checkreturn decode_basic_field(pb_istream_t *stream, pb_wire_type_t 
 
 static bool checkreturn decode_static_field(pb_istream_t *stream, pb_wire_type_t wire_type, pb_field_iter_t *field)
 {
+    DUMP_PB_FIELD(field,"Decoding static field");
     switch (PB_HTYPE(field->type))
     {
         case PB_HTYPE_REQUIRED:
@@ -602,6 +759,7 @@ static bool checkreturn allocate_field(pb_istream_t *stream, void *pData, size_t
 /* Clear a newly allocated item in case it contains a pointer, or is a submessage. */
 static void initialize_pointer_field(void *pItem, pb_field_iter_t *field)
 {
+
     if (PB_LTYPE(field->type) == PB_LTYPE_STRING ||
         PB_LTYPE(field->type) == PB_LTYPE_BYTES)
     {
@@ -618,6 +776,7 @@ static void initialize_pointer_field(void *pItem, pb_field_iter_t *field)
 
 static bool checkreturn decode_pointer_field(pb_istream_t *stream, pb_wire_type_t wire_type, pb_field_iter_t *field)
 {
+    DUMP_PB_FIELD(field,"Decoding Pointer field");
 #ifndef PB_ENABLE_MALLOC
     PB_UNUSED(wire_type);
     PB_UNUSED(field);
@@ -746,6 +905,8 @@ static bool checkreturn decode_pointer_field(pb_istream_t *stream, pb_wire_type_
 
 static bool checkreturn decode_callback_field(pb_istream_t *stream, pb_wire_type_t wire_type, pb_field_iter_t *field)
 {
+
+    DUMP_PB_FIELD(field,"Decoding callback field");
     if (!field->descriptor->field_callback)
         return pb_skip_field(stream, wire_type);
 
@@ -789,6 +950,7 @@ static bool checkreturn decode_callback_field(pb_istream_t *stream, pb_wire_type
 
 static bool checkreturn decode_field(pb_istream_t *stream, pb_wire_type_t wire_type, pb_field_iter_t *field)
 {
+    DUMP_PB_FIELD(field,"decode  field");
 #ifdef PB_ENABLE_MALLOC
     /* When decoding an oneof field, check if there is old data that must be
      * released first. */
@@ -798,7 +960,6 @@ static bool checkreturn decode_field(pb_istream_t *stream, pb_wire_type_t wire_t
             return false;
     }
 #endif
-
     switch (PB_ATYPE(field->type))
     {
         case PB_ATYPE_STATIC:
@@ -862,12 +1023,13 @@ static bool pb_field_set_to_default(pb_field_iter_t *field)
 {
     pb_type_t type;
     type = field->type;
-
     if (PB_LTYPE(type) == PB_LTYPE_EXTENSION)
     {
         pb_extension_t *ext = *(pb_extension_t* const *)field->pData;
+        DUMP_PB_FIELD(field,"Extension START");
         while (ext != NULL)
         {
+            // DUMP_PB_FIELD(ext,"Process extension");
             pb_field_iter_t ext_iter;
             if (pb_field_iter_begin_extension(&ext_iter, ext))
             {
@@ -877,12 +1039,14 @@ static bool pb_field_set_to_default(pb_field_iter_t *field)
             }
             ext = ext->next;
         }
+        DUMP_PB_FIELD(field,"Extension END");
     }
     else if (PB_ATYPE(type) == PB_ATYPE_STATIC)
     {
         bool init_data = true;
         if (PB_HTYPE(type) == PB_HTYPE_OPTIONAL && field->pSize != NULL)
         {
+            DUMP_PB_FIELD(field,"has_field = false");
             /* Set has_field to false. Still initialize the optional field
              * itself also. */
             *(bool*)field->pSize = false;
@@ -890,6 +1054,7 @@ static bool pb_field_set_to_default(pb_field_iter_t *field)
         else if (PB_HTYPE(type) == PB_HTYPE_REPEATED ||
                  PB_HTYPE(type) == PB_HTYPE_ONEOF)
         {
+            DUMP_PB_FIELD(field,"set count=0/which field=0");
             /* REPEATED: Set array count to 0, no need to initialize contents.
                ONEOF: Set which_field to 0. */
             *(pb_size_t*)field->pSize = 0;
@@ -903,6 +1068,10 @@ static bool pb_field_set_to_default(pb_field_iter_t *field)
                  field->submsg_desc->field_callback != NULL ||
                  field->submsg_desc->submsg_info[0] != NULL))
             {
+                const char * why = field->submsg_desc->default_value?"default value. Iterating":
+                                   field->submsg_desc->field_callback?"Callback. Iterating":
+                                   field->submsg_desc->submsg_info[0]?"Sub message. Iterating":"";
+                DUMP_PB_FIELD(field,why);
                 /* Initialize submessage to defaults.
                  * Only needed if it has default values
                  * or callback/submessage fields. */
@@ -912,9 +1081,14 @@ static bool pb_field_set_to_default(pb_field_iter_t *field)
                     if (!pb_message_set_to_defaults(&submsg_iter))
                         return false;
                 }
+                 why = field->submsg_desc->default_value?"END default value. Iterating":
+                                   field->submsg_desc->field_callback?"END Callback. Iterating":
+                                   field->submsg_desc->submsg_info[0]?"END Sub message. Iterating":"";
+                DUMP_PB_FIELD(field,why);
             }
             else
             {
+                DUMP_PB_FIELD(field,"Zero init");
                 /* Initialize to zeros */
                 memset(field->pData, 0, (size_t)field->data_size);
             }
@@ -922,6 +1096,7 @@ static bool pb_field_set_to_default(pb_field_iter_t *field)
     }
     else if (PB_ATYPE(type) == PB_ATYPE_POINTER)
     {
+        DUMP_PB_FIELD(field,"Init pointer to NULL");
         /* Initialize the pointer to NULL. */
         *(void**)field->pField = NULL;
 
@@ -929,11 +1104,13 @@ static bool pb_field_set_to_default(pb_field_iter_t *field)
         if (PB_HTYPE(type) == PB_HTYPE_REPEATED ||
             PB_HTYPE(type) == PB_HTYPE_ONEOF)
         {
+            DUMP_PB_FIELD(field,"Set size = 0");
             *(pb_size_t*)field->pSize = 0;
         }
     }
     else if (PB_ATYPE(type) == PB_ATYPE_CALLBACK)
     {
+        DUMP_PB_FIELD(field,"Don't overwrite callback");
         /* Don't overwrite callback */
     }
 
@@ -949,6 +1126,7 @@ static bool pb_message_set_to_defaults(pb_field_iter_t *iter)
 
     if (iter->descriptor->default_value)
     {
+        DUMP_PB_FIELD(iter,"Read default stream");
         defstream = pb_istream_from_buffer(iter->descriptor->default_value, (size_t)-1);
         if (!pb_decode_tag(&defstream, &wire_type, &tag, &eof))
             return false;
@@ -961,7 +1139,9 @@ static bool pb_message_set_to_defaults(pb_field_iter_t *iter)
 
         if (tag != 0 && iter->tag == tag)
         {
+
             /* We have a default value for this field in the defstream */
+            DUMP_PB_FIELD(iter,"default stream has default value");
             if (!decode_field(&defstream, wire_type, iter))
                 return false;
             if (!pb_decode_tag(&defstream, &wire_type, &tag, &eof))
@@ -995,14 +1175,17 @@ static bool checkreturn pb_decode_inner(pb_istream_t *stream, const pb_msgdesc_t
     pb_fields_seen_t fields_seen = {{0, 0}};
     const uint32_t allbits = ~(uint32_t)0;
     pb_field_iter_t iter;
-
+    DUMP_PB_HEAD(fields,"Decode INNER");
     if (pb_field_iter_begin(&iter, fields, dest_struct))
     {
         if ((flags & PB_DECODE_NOINIT) == 0)
         {
+            DUMP_PB_FIELD(&iter,"Begin message");
             if (!pb_message_set_to_defaults(&iter))
                 PB_RETURN_ERROR(stream, "failed to set defaults");
+            DUMP_PB_FIELD(&iter,"END message");
         }
+    
     }
 
     while (stream->bytes_left)
@@ -1033,6 +1216,8 @@ static bool checkreturn pb_decode_inner(pb_istream_t *stream, const pb_msgdesc_t
 
         if (!pb_field_iter_find(&iter, tag) || PB_LTYPE(iter.type) == PB_LTYPE_EXTENSION)
         {
+            DUMP_PB_MARK("Processing extension");
+
             /* No match found, check if it matches an extension. */
             if (extension_range_start == 0)
             {
@@ -1067,12 +1252,14 @@ static bool checkreturn pb_decode_inner(pb_istream_t *stream, const pb_msgdesc_t
                 return false;
             continue;
         }
-
+        DUMP_PB_FIELD(&iter, "Found field TAG");
         /* If a repeated fixed count field was found, get size from
          * 'fixed_count_field' as there is no counter contained in the struct.
          */
         if (PB_HTYPE(iter.type) == PB_HTYPE_REPEATED && iter.pSize == &iter.array_size)
         {
+
+            
             if (fixed_count_field != iter.index) {
                 /* If the new fixed count field does not match the previous one,
                  * check that the previous one is NULL or that it finished
@@ -1095,6 +1282,7 @@ static bool checkreturn pb_decode_inner(pb_istream_t *stream, const pb_msgdesc_t
         if (PB_HTYPE(iter.type) == PB_HTYPE_REQUIRED
             && iter.required_field_index < PB_MAX_REQUIRED_FIELDS)
         {
+            DUMP_PB_FIELD("Mark field as seen",&iter);
             uint32_t tmp = ((uint32_t)1 << (iter.required_field_index & 31));
             fields_seen.bitfield[iter.required_field_index >> 5] |= tmp;
         }
@@ -1113,7 +1301,6 @@ static bool checkreturn pb_decode_inner(pb_istream_t *stream, const pb_msgdesc_t
     /* Check that all required fields were present. */
     {
         pb_size_t req_field_count = iter.descriptor->required_field_count;
-
         if (req_field_count > 0)
         {
             pb_size_t i;
@@ -1146,7 +1333,7 @@ static bool checkreturn pb_decode_inner(pb_istream_t *stream, const pb_msgdesc_t
 bool checkreturn pb_decode_ex(pb_istream_t *stream, const pb_msgdesc_t *fields, void *dest_struct, unsigned int flags)
 {
     bool status;
-
+    DUMP_PB_HEAD(fields,"ext decode");
     if ((flags & PB_DECODE_DELIMITED) == 0)
     {
       status = pb_decode_inner(stream, fields, dest_struct, flags);
@@ -1174,7 +1361,7 @@ bool checkreturn pb_decode_ex(pb_istream_t *stream, const pb_msgdesc_t *fields, 
 bool checkreturn pb_decode(pb_istream_t *stream, const pb_msgdesc_t *fields, void *dest_struct)
 {
     bool status;
-
+    WRITE_DEBUG_HEADER();
     status = pb_decode_inner(stream, fields, dest_struct, 0);
 
 #ifdef PB_ENABLE_MALLOC
@@ -1190,6 +1377,7 @@ bool checkreturn pb_decode(pb_istream_t *stream, const pb_msgdesc_t *fields, voi
  * release it before overwriting with a different one. */
 static bool pb_release_union_field(pb_istream_t *stream, pb_field_iter_t *field)
 {
+    DUMP_PB_FIELD(field,"Decode  UNION field");
     pb_field_iter_t old_field = *field;
     pb_size_t old_tag = *(pb_size_t*)field->pSize; /* Previous which_ value */
     pb_size_t new_tag = field->tag; /* New which_ value */
@@ -1297,7 +1485,7 @@ static void pb_release_single_field(pb_field_iter_t *field)
             }
         }
         
-        if (PB_HTYPE(type) == PB_HTYPE_REPEATED)
+            if (PB_HTYPE(type) == PB_HTYPE_REPEATED)
         {
             /* We are going to release the array, so set the size to 0 */
             *(pb_size_t*)field->pSize = 0;
@@ -1521,6 +1709,7 @@ static bool checkreturn pb_dec_bytes(pb_istream_t *stream, const pb_field_iter_t
 
 static bool checkreturn pb_dec_string(pb_istream_t *stream, const pb_field_iter_t *field)
 {
+    DUMP_PB_FIELD(field,"String");
     uint32_t size;
     size_t alloc_size;
     pb_byte_t *dest = (pb_byte_t*)field->pData;
@@ -1602,6 +1791,7 @@ static bool checkreturn pb_dec_submessage(pb_istream_t *stream, const pb_field_i
     /* Now decode the submessage contents */
     if (status && !submsg_consumed)
     {
+
         unsigned int flags = 0;
 
         /* Static required/optional fields are already initialized by top-level
@@ -1609,6 +1799,7 @@ static bool checkreturn pb_dec_submessage(pb_istream_t *stream, const pb_field_i
         if (PB_ATYPE(field->type) == PB_ATYPE_STATIC &&
             PB_HTYPE(field->type) != PB_HTYPE_REPEATED)
         {
+
             flags = PB_DECODE_NOINIT;
         }
 

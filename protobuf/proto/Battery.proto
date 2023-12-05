@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package sys;
+import "nanopb.proto";
+option (nanopb_fileopt).enum_to_string = true;
+enum BatteryChannelEnum {
+    UNSPECIFIED_CH = 0;
+    CH0 = 1;
+    CH1 = 2;
+    CH2 = 3;
+    CH3 = 4;
+    CH4 = 5;
+    CH5 = 6;
+    CH6 = 7;
+    CH7 = 8;
+  }
+  
+  enum BatteryAttenEnum {
+    UNSPECIFIED_ATT = 0;
+    ATT_0 = 1;
+    ATT_1 = 2;
+    ATT_2 = 3;
+    ATT_3 = 4;
+  }
+  message Battery {
+    option (nanopb_msgopt).msgid  = 1003;
+    BatteryChannelEnum channel = 1;
+    float scale = 2;
+    int32 cells = 3 [(nanopb).int_size = IS_8];
+    BatteryAttenEnum atten = 4;
+  }

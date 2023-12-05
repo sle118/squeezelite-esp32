@@ -1,0 +1,21 @@
+{
+    "name": "ESP-IDF Development",
+    "image": "espressif/idf:v4.4.6",
+    "workspaceFolder": "/project",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/project,type=bind",
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "terminal.integrated.shell.linux": "/bin/bash"
+            },
+            "extensions": [
+                "ms-vscode.cpptools",
+                "usernamehw.errorlens",
+                "espressif.esp-idf-extension"  // ESP-IDF extension
+            ]
+        }
+    },
+    "runArgs": [
+        "--privileged" // If needed for accessing certain hardware resources
+    ]
+}

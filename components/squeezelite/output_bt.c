@@ -14,10 +14,11 @@
 #include "squeezelite.h"
 #include "equalizer.h"
 #include "perf_trace.h"
-#include "platform_config.h"
 #include "services.h"
 #include "led.h"
-
+#include "Configurator.h"
+extern log_level log_level_from_sys_level(sys_DebugLevelEnum level);
+static sys_Squeezelite * config = NULL;
 extern struct outputstate output;
 extern struct buffer *outputbuf;
 extern struct buffer *streambuf;
@@ -32,7 +33,7 @@ extern u8_t *silencebuf;
 
 #define STATS_REPORT_DELAY_MS 15000
 
-extern void hal_bluetooth_init(const char * options);
+extern void hal_bluetooth_init();
 extern void hal_bluetooth_stop(void);
 extern u8_t config_spdif_gpio;
 
@@ -74,11 +75,10 @@ static uint32_t bt_idle_callback(void) {
 /****************************************************************************************
  * Init BT sink
  */    
-void output_init_bt(log_level level, char *device, unsigned output_buf_size, char *params, unsigned rates[], unsigned rate_delay, unsigned idle) {
-	loglevel = level;
-    
-    // idle counter
-    bt_idle_since = pdTICKS_TO_MS(xTaskGetTickCount());
+void output_init_bt() {
+	config = &platform->services.squeezelite;
+	loglevel = log_level_from_sys_level(config->log.output);
+	bt_idle_since = pdTICKS_TO_MS(xTaskGetTickCount());
     services_sleep_setsleeper(bt_idle_callback);
     
     // even BT has a right to use led :-)
@@ -86,11 +86,11 @@ void output_init_bt(log_level level, char *device, unsigned output_buf_size, cha
 
 	running = true;    
 	output.write_cb = &_write_frames;
-	hal_bluetooth_init(device);
-	char *p = config_alloc_get_default(NVS_TYPE_STR, "stats", "n", 0);
-	stats = p && (*p == '1' || *p == 'Y' || *p == 'y');
-	free(p);
+	hal_bluetooth_init();
+	stats = platform->services.statistics;
+
     equalizer_set_samplerate(output.current_sample_rate);
+
 }
 
 /****************************************************************************************

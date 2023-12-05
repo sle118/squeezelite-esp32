@@ -29,14 +29,14 @@ static const struct GDS_FontDef *GuessFont( struct GDS_Device *Device, int FontT
 	case GDS_FONT_DEFAULT:	
 		return Device->Font;		
 	case GDS_FONT_LINE_1:	
-		return &Font_line_1;
+		return Font_line_1;
 	case GDS_FONT_LINE_2:	
-		return &Font_line_2;
+		return Font_line_2;
 	case GDS_FONT_MEDIUM:			
 		//return &Font_droid_sans_fallback_15x17;	
 	case GDS_FONT_SMALL:	
 	default:
-		return &Font_droid_sans_fallback_11x13;	
+		return Font_droid_sans_fallback_11x13;	
 #ifdef USE_LARGE_FONTS
 	case GDS_FONT_LARGE:	
 		return &Font_droid_sans_fallback_24x28;
@@ -48,7 +48,7 @@ static const struct GDS_FontDef *GuessFont( struct GDS_Device *Device, int FontT
 	case GDS_FONT_SEGMENT:			
 		ESP_LOGW(TAG, "large fonts disabled");
 		//return &Font_droid_sans_fallback_15x17;
-		return &Font_droid_sans_fallback_11x13;	
+		return Font_droid_sans_fallback_11x13;	
 #endif	
 	}
 }

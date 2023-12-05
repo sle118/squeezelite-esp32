@@ -14,7 +14,6 @@ Copyright (c) 2017-2021 Sebastien L
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
 #include "esp_wifi.h"
-#include <esp_event.h>
 #include "nvs_flash.h"
 #include "esp_log.h"
 #include "driver/gpio.h"
@@ -47,7 +46,6 @@ extern "C" {
 esp_err_t root_get_handler(httpd_req_t *req);
 esp_err_t resource_filehandler(httpd_req_t *req);
 
-esp_err_t ap_get_handler(httpd_req_t *req);
 esp_err_t config_get_handler(httpd_req_t *req);
 esp_err_t config_post_handler(httpd_req_t *req);
 esp_err_t connect_post_handler(httpd_req_t *req);
@@ -63,7 +61,8 @@ esp_err_t console_cmd_post_handler(httpd_req_t *req);
 esp_err_t ap_scan_handler(httpd_req_t *req);
 esp_err_t redirect_ev_handler(httpd_req_t *req);
 esp_err_t redirect_200_ev_handler(httpd_req_t *req);
-
+esp_err_t configurator_post_handler(httpd_req_t *req);
+esp_err_t configurator_get_handler(httpd_req_t *req);
 
 esp_err_t err_handler(httpd_req_t *req, httpd_err_code_t error);
 #define SCRATCH_BUFSIZE (10240)

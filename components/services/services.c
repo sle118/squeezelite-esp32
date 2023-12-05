@@ -12,11 +12,10 @@
 #include "esp_log.h"
 #include "esp_sleep.h"
 #include "driver/rtc_io.h"
-#include "driver/gpio.h"
 #include "driver/ledc.h"
 #include "driver/i2c.h"
 #include "driver/rmt.h"
-#include "platform_config.h"
+#include "Configurator.h"
 #include "gpio_exp.h"
 #include "battery.h"
 #include "led.h"
@@ -43,7 +42,7 @@ pwm_system_t pwm_system = {
 		.base_channel = LEDC_CHANNEL_0,
 		.max = (1 << LEDC_TIMER_13_BIT),
 };
-
+static sys_SleepService * sleep_config;
 static EXT_RAM_ATTR struct {
     uint64_t wake_gpio, wake_level;
     uint64_t rtc_gpio, rtc_level;
@@ -58,46 +57,23 @@ static EXT_RAM_ATTR struct {
 
 static const char *TAG = "services";
 
-/****************************************************************************************
- *
- */
-void set_chip_power_gpio(int gpio, char *value) {
-	bool parsed = true;
-
-	// we only parse on-chip GPIOs
-	if (gpio >= GPIO_NUM_MAX) return;
-
-	if (!strcasecmp(value, "vcc") ) {
-		gpio_pad_select_gpio(gpio);
-		gpio_set_direction(gpio, GPIO_MODE_OUTPUT);
-		gpio_set_level(gpio, 1);
-	} else if (!strcasecmp(value, "gnd")) {
-		gpio_pad_select_gpio(gpio);
-		gpio_set_direction(gpio, GPIO_MODE_OUTPUT);
-		gpio_set_level(gpio, 0);
-	} else parsed = false;
-
-	if (parsed) ESP_LOGI(TAG, "set GPIO %u to %s", gpio, value);
+void set_gpio_level(sys_GPIO*gpio,const char * name, gpio_mode_t mode){
+    gpio_pad_select_gpio(gpio->pin);
+    gpio_set_direction(gpio->pin, mode);
+    gpio_set_level(gpio->pin, gpio->level);    
+    ESP_LOGI(TAG, "set GPIO %u to %s, level %d", gpio->pin,name,  gpio->level);
 }
+void set_chip_power_gpio(sys_Gpios*gpios) {
+    
+    if(gpios->has_power){
+        gpios->power.level = 1;
+        set_gpio_level(&gpios->power,"vcc", GPIO_MODE_OUTPUT);
+    }
+    if(gpios->has_GND){
+        gpios->GND.level = 0;
+        set_gpio_level(&gpios->GND,"gnd", GPIO_MODE_OUTPUT);
+    }
 
-/****************************************************************************************
- *
- */
-void set_exp_power_gpio(int gpio, char *value) {
-	bool parsed = true;
-
-	// we only parse on-chip GPIOs
-	if (gpio < GPIO_NUM_MAX) return;
-
-	if (!strcasecmp(value, "vcc") ) {
-		gpio_exp_set_direction(gpio, GPIO_MODE_OUTPUT, NULL);
-		gpio_exp_set_level(gpio, 1, true, NULL);
-	} else if (!strcasecmp(value, "gnd")) {
-		gpio_exp_set_direction(gpio, GPIO_MODE_OUTPUT, NULL);
-		gpio_exp_set_level(gpio, 0, true, NULL);
-	} else parsed = false;
-
-	if (parsed) ESP_LOGI(TAG, "set expanded GPIO %u to %s", gpio, value);
 }
 
 /****************************************************************************************
@@ -175,76 +151,54 @@ static void sleep_battery(float level, int cells) {
  *
  */
 void services_sleep_init(void) {
-    char *config = config_alloc_get(NVS_TYPE_STR, "sleep_config");
-    char *p;
-
+    ESP_LOGD(TAG,"Initializing sleep services");
+    if(!SYS_SERVICES_SLEEP(sleep_config)){
+     ESP_LOGD(TAG,"No sleep service configured")   ;
+    }
     // get the wake criteria
-    if ((p = strcasestr(config, "wake"))) {
-        char list[32] = "", item[8];
-		sscanf(p, "%*[^=]=%31[^,]", list);
-        p = list - 1;
-        while (p++ && sscanf(p, "%7[^|]", item)) {
-            int level = 0, gpio = atoi(item);
-            if (!rtc_gpio_is_valid_gpio(gpio)) {
-                ESP_LOGE(TAG, "invalid wake GPIO %d (not in RTC domain)", gpio);
-            } else {
-                sleep_context.wake_gpio |= 1LL << gpio;
-            }
-            if (sscanf(item, "%*[^:]:%d", &level)) sleep_context.wake_level |= level << gpio;
-            p = strchr(p, '|');
+    for(int i=0;i<sleep_config->wake_count;i++){
+        if (!rtc_gpio_is_valid_gpio(sleep_config->wake[i].pin)) {
+            ESP_LOGE(TAG, "invalid wake GPIO %d (not in RTC domain)", sleep_config->wake[i].pin);
+        } else {
+            sleep_context.wake_gpio |= 1LL << sleep_config->wake[i].pin;
+            sleep_context.wake_gpio |= 1LL << sleep_config->wake[i].pin;
+            sleep_context.wake_level |= sleep_config->wake[i].level << sleep_config->wake[i].pin;
         }
-
-        // when moving to esp-idf more recent than 4.4.x, multiple gpio wake-up with level specific can be done
-        if (sleep_context.wake_gpio) {
-            ESP_LOGI(TAG, "Sleep wake-up gpio bitmap 0x%llx (active 0x%llx)", sleep_context.wake_gpio, sleep_context.wake_level);
-        }
+    }
+    // when moving to esp-idf more recent than 4.4.x, multiple gpio wake-up with level specific can be done
+    if (sleep_context.wake_gpio) {
+        ESP_LOGI(TAG, "Sleep wake-up gpio bitmap 0x%llx (active 0x%llx)", sleep_context.wake_gpio, sleep_context.wake_level);
     }
 
     // do we want battery safety
-    PARSE_PARAM_FLOAT(config, "batt", '=', sleep_context.battery_level);
+    sleep_context.battery_level = sleep_config->batt;
     if (sleep_context.battery_level != 0.0) {
         sleep_context.battery_chain = battery_handler_svc;
         battery_handler_svc = sleep_battery;
         ESP_LOGI(TAG, "Sleep on battery level of %.2f", sleep_context.battery_level);
     }
-
-
-    // get the rtc-pull criteria
-    if ((p = strcasestr(config, "rtc"))) {
-        char list[32] = "", item[8];
-		sscanf(p, "%*[^=]=%31[^,]", list);
-        p = list - 1;
-        while (p++ && sscanf(p, "%7[^|]", item)) {
-            int level = 0, gpio = atoi(item);
-            if (!rtc_gpio_is_valid_gpio(gpio)) {
-                ESP_LOGE(TAG, "invalid rtc GPIO %d", gpio);
-            } else {
-                sleep_context.rtc_gpio |= 1LL << gpio;
-            }
-            if (sscanf(item, "%*[^:]:%d", &level)) sleep_context.rtc_level |= level << gpio;
-            p = strchr(p, '|');
+    for(int i = 0;i<sleep_config->rtc_count;i++){
+        if (!rtc_gpio_is_valid_gpio(sleep_config->rtc[i].pin)) {
+            ESP_LOGE(TAG, "invalid rtc GPIO %d", sleep_config->rtc[i].pin);
+        } else {
+            sleep_context.rtc_gpio |= 1LL << sleep_config->rtc[i].pin;
+            sleep_context.rtc_level |= sleep_config->rtc[i].level << sleep_config->rtc[i].pin;
         }
-
-        // when moving to esp-idf more recent than 4.4.x, multiple gpio wake-up with level specific can be done
-        if (sleep_context.rtc_gpio) {
-            ESP_LOGI(TAG, "RTC forced gpio bitmap 0x%llx (active 0x%llx)", sleep_context.rtc_gpio, sleep_context.rtc_level);
-        }
+    }
+    // when moving to esp-idf more recent than 4.4.x, multiple gpio wake-up with level specific can be done
+    if (sleep_context.rtc_gpio) {
+        ESP_LOGI(TAG, "RTC forced gpio bitmap 0x%llx (active 0x%llx)", sleep_context.rtc_gpio, sleep_context.rtc_level);
     }
 
     // get the GPIOs that activate sleep (we could check that we have a valid wake)
-    if ((p = strcasestr(config, "sleep"))) {
-        int gpio, level = 0;
-		char sleep[8] = "";
-		sscanf(p, "%*[^=]=%7[^,]", sleep);
-		gpio = atoi(sleep);
-        if ((p = strchr(sleep, ':')) != NULL) level = atoi(p + 1);
-        ESP_LOGI(TAG, "Sleep activation gpio %d (active %d)", gpio, level);
-        button_create(NULL, gpio, level ? BUTTON_HIGH : BUTTON_LOW, true, 0, sleep_gpio_handler, 0, -1);
+    if(sleep_config->has_sleep && sleep_config->sleep.pin >=0 ){
+		ESP_LOGI(TAG, "Sleep activation gpio %d (active %d)", sleep_config->sleep.pin, sleep_config->sleep.level);
+        button_create(NULL, sleep_config->sleep.pin, sleep_config->sleep.level ? BUTTON_HIGH : BUTTON_LOW, true, 0, sleep_gpio_handler, 0, -1);
     }
 
     // do we want delay sleep
-    PARSE_PARAM(config, "delay", '=', sleep_context.delay);
-    sleep_context.delay *= 60*1000;
+    
+    sleep_context.delay = sleep_config->delay*60*1000;
 
     // now check why we woke-up
     esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
@@ -259,8 +213,11 @@ void services_sleep_init(void) {
         // we might be woken up by infrared in which case we want a short sleep
         if (infrared_gpio() >= 0 && ((1LL << infrared_gpio()) & wake_gpio)) {
             sleep_context.spurious = 1;
-            PARSE_PARAM(config, "spurious", '=', sleep_context.spurious);
+            if(sleep_config->spurious>0){
+                sleep_context.spurious = sleep_config->spurious;
+            }
             sleep_context.spurious *= 60*1000;
+            
             ESP_LOGI(TAG, "spurious wake-up detection during %d sec", sleep_context.spurious / 1000);
         }
     }
@@ -353,7 +310,7 @@ void services_sleep_setsleeper(uint32_t (*sleeper)(void)) {
 void services_init(void) {
 	messaging_service_init();
 	gpio_install_isr_service(0);
-
+    // todo: untangle i2c stuff
 #ifdef CONFIG_I2C_LOCKED
 	if (i2c_system_port == 0) {
 		i2c_system_port = 1;
@@ -362,7 +319,7 @@ void services_init(void) {
 #endif
 
 	// set potential power GPIO on chip first in case expanders are power using these
-	parse_set_GPIO(set_chip_power_gpio);
+	set_chip_power_gpio(&platform->gpios);
 
 	// shared I2C bus
 	const i2c_config_t * i2c_config = config_i2c_get(&i2c_system_port);
@@ -394,11 +351,43 @@ void services_init(void) {
 	}
 
 	// create GPIO expanders
-	const gpio_exp_config_t* gpio_exp_config;
-	for (int count = 0; (gpio_exp_config = config_gpio_exp_get(count)); count++) gpio_exp_create(gpio_exp_config);
-
-	// now set potential power GPIO on expander
-	parse_set_GPIO(set_exp_power_gpio);
+	gpio_exp_config_t gpio_exp_config;
+    if(platform->has_dev && platform->dev.gpio_exp_count>0){
+        for(int count = 0;count<platform->dev.gpio_exp_count;count++){
+            sys_GPIOExp * exp = &platform->dev.gpio_exp[count];
+            gpio_exp_config.base =  exp->base;
+            gpio_exp_config.count = exp->count;
+            gpio_exp_config.phy.addr = exp->addr;
+            if(exp->has_intr){
+                gpio_exp_config.intr = exp->intr.pin;
+            }
+            else {
+                ESP_LOGW(TAG,"Expander doesn't have intr pin");
+            }
+            if(exp->which_ExpType == sys_GPIOExp_spi_tag){
+                gpio_exp_config.phy.cs_pin= exp->ExpType.spi.cs.pin;
+                gpio_exp_config.phy.host = exp->ExpType.spi.host == sys_HostEnum_UNSPECIFIED_HOST ?sys_HostEnum_Host0:exp->ExpType.spi.host -1;
+                gpio_exp_config.phy.speed = exp->ExpType.spi.speed>0?exp->ExpType.spi.speed:0;
+            }
+            else {
+                gpio_exp_config.phy.port = exp->ExpType.i2c.port == sys_PortEnum_UNSPECIFIED_SYSTPORT?sys_PortEnum_SYSTEM:exp->ExpType.i2c.port -1;
+            }
+            strncpy(gpio_exp_config.model,sys_GPIOExpModelEnum_name(exp->model),sizeof(gpio_exp_config.model)-1);
+            gpio_exp_create(&gpio_exp_config);
+        }
+	}
+    if(platform->has_gpios ){
+        // if(platform->gpios.has_GND){
+        //     platform->gpios.GND.level = 0;
+        //     set_gpio_level(&platform->gpios.GND,"GND", GPIO_MODE_OUTPUT);
+        // }
+        // if(platform->gpios.has_Vcc){
+        //     platform->gpios.Vcc.level = 1;
+        //     set_gpio_level(&platform->gpios.Vcc,"VCC", GPIO_MODE_OUTPUT);
+        // }
+        set_chip_power_gpio(&platform->gpios);
+    }
+    
 
 	// system-wide PWM timer configuration
 	ledc_timer_config_t pwm_timer = {

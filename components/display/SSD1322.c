@@ -191,8 +191,8 @@ static const struct GDS_Device SSD1322 = {
 	.Mode = GDS_GRAYSCALE, .Depth = 4,
 };	
 
-struct GDS_Device* SSD1322_Detect(char *Driver, struct GDS_Device* Device) {
-	if (!strcasestr(Driver, "SSD1322")) return NULL;
+struct GDS_Device* SSD1322_Detect(sys_Display * Driver, struct GDS_Device* Device) {
+	if(Driver->common.driver != sys_DisplayDriverEnum_SSD1322) return NULL;
 		
 	if (!Device) Device = calloc(1, sizeof(struct GDS_Device));
 	

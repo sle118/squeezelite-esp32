@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+package sys;
+import "GPIO.proto";
+import "Common.proto";
+import "nanopb.proto";
+option (nanopb_fileopt).enum_to_string = true;
+
+message DispOffsets {
+  option (nanopb_msgopt).msgid  = 10020;
+  int32 height =1  [(nanopb).int_size = IS_16];
+  int32 width =2  [(nanopb).int_size = IS_16];
+}
+
+enum DisplayDriverEnum {
+  UNSPECIFIED_DRIVER = 0;
+  SSD1306 = 1;
+  SSD1322 = 2;
+  SSD1326 = 3;
+  SSD1327 = 4;
+  SH1106 = 5;
+  SSD1675 = 6;
+  ST7735 = 7;
+  ST7789 = 8;
+  ILI9341 = 9;
+  ILI9341_24 = 10;
+  SSD1351 = 11;
+}
+
+
+message I2CDisplay {
+  option (nanopb_msgopt).msgid  = 10021;
+  int32 address = 1  [(nanopb).int_size = IS_8];
+}
+
+message SPIDisplay {
+  option (nanopb_msgopt).msgid  = 10022;
+  GPIO cs = 1;
+  int32 speed = 4  ;
+}
+
+
+message DispCommon {
+  option (nanopb_msgopt).msgid  = 10023;
+  int32 width = 1  [(nanopb).int_size = IS_16];
+  int32 height = 2 [(nanopb).int_size = IS_16];
+  bool HFlip = 3;
+  bool VFlip = 4;
+  DisplayDriverEnum driver = 5;
+  int32 bitDepth = 6  [(nanopb).int_size = IS_8];  // Defaults to Depth1 in your application logic
+  GPIO back = 7;
+  GPIO reset = 8;
+  GPIO ready = 9;
+  DispOffsets offsets = 10;
+  bool rotate = 11;
+  bool invert = 12;
+  bool colow_swap = 13;
+}
+
+message Display {
+  option (nanopb_msgopt).msgid  = 10024;
+  DeviceTypeEnum type = 1;
+  DispCommon common = 2;
+  oneof dispType {
+    I2CDisplay i2c = 3;
+    SPIDisplay spi = 4;
+  }  
+}

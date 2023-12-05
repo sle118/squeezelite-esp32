@@ -38,7 +38,8 @@ Copyright (c) 2017-2021 Sebastien L
 #include "mdns.h"
 #include "messaging.h"
 
-#include "platform_config.h"
+// #include "Configurator.h"
+#pragma message("fixme: look for TODO below")
 #include "tools.h"
 #include "trace.h"
 
@@ -46,6 +47,7 @@ Copyright (c) 2017-2021 Sebastien L
 #include "esp_err.h"
 #include "http_server_handlers.h"
 #include "network_manager.h"
+#include "Configurator.h"
 
 QueueHandle_t network_queue;
 BaseType_t network_task_handle;
@@ -405,14 +407,14 @@ void network_execute_cb(state_machine_t* const state_machine, const char * calle
 }
 
 bool network_is_wifi_prioritized() {
-    eth_config_t eth_config;
-    config_eth_init(&eth_config);
-    // char* prioritize = (char*)config_alloc_get_default(NVS_TYPE_STR, "prio_wifi", "N", 0);
-    // bool result = strcasecmp("N", prioritize);
+    sys_EthCommon * common = NULL;
     bool result = s_wifi_prioritized;
+    bool valid_model = SYS_ETH_COMMON(common) && common->model == sys_EthModelEnum_UNSPECIFIED_ETHMODEL;
     if(result){
-        result = network_wifi_get_known_count()>0 || !eth_config.valid;
-        ESP_LOGD(TAG,"Wifi is prioritized with %d known access points.%s %s",network_wifi_get_known_count(),eth_config.valid?" And a valid ethernet adapter":"",result?"Wifi prioritized":"Ethernet prioritized");
+        result = network_wifi_get_known_count()>0 || !valid_model;
+        ESP_LOGD(TAG,"Wifi is prioritized with %d known access points.%s %s",
+            network_wifi_get_known_count(),
+            valid_model?" And a valid ethernet adapter":"",result?"Wifi prioritized":"Ethernet prioritized");
     }
     return result;
 }
@@ -421,10 +423,6 @@ void network_prioritize_wifi(bool activate) {
     if(s_wifi_prioritized == activate) return;
     s_wifi_prioritized = activate;
     ESP_LOGI(TAG,"Wifi is %s prioritized",activate?"":"not");
-    // if (network_is_wifi_prioritized() != activate) {
-    //     ESP_LOGW(TAG, "Wifi will %s be prioritized on next boot", activate ? "" : "NOT");
-    //     config_set_value(NVS_TYPE_STR, "prio_wifi", activate ? "Y" : "N");
-    // }
 }
 
 
@@ -727,16 +725,15 @@ void network_ip_event_handler(void* arg, esp_event_base_t event_base, int32_t ev
 void network_set_hostname(esp_netif_t* interface) {
     esp_err_t err;
     ESP_LOGD(TAG, "Retrieving host name from nvs");
-    char* host_name = (char*)config_alloc_get(NVS_TYPE_STR, "host_name");
-    if (host_name == NULL) {
+    if (!platform->has_names || strlen(platform->names.device) == 0 ) {
         ESP_LOGE(TAG, "Could not retrieve host name from nvs");
     } else {
-        ESP_LOGD(TAG, "Setting host name to : %s", host_name);
-        if ((err = esp_netif_set_hostname(interface, host_name)) != ESP_OK) {
+        ESP_LOGD(TAG, "Setting host name to : %s", platform->names.device);
+        if ((err = esp_netif_set_hostname(interface, platform->names.device)) != ESP_OK) {
             ESP_LOGE(TAG, "Unable to set host name. Error: %s", esp_err_to_name(err));
         }
-        free(host_name);
     }
+
 }
 #define LOCAL_MAC_SIZE 20
 char* network_manager_alloc_get_mac_string(uint8_t mac[6]) {

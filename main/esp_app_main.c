@@ -17,24 +17,21 @@
 #include "driver/gpio.h"
 #include "driver/spi_master.h"
 #include "freertos/task.h"
-#include "esp_system.h"
 #include "esp_spi_flash.h"
 #include "esp_wifi.h"
 #include <esp_event.h>
-#include "nvs_flash.h"
 #include "esp_log.h"
 #include "freertos/event_groups.h"
 #include "mdns.h"
 #include "lwip/api.h"
 #include "lwip/err.h"
 #include "lwip/netdb.h"
-#include "nvs_utilities.h"
 #include "trace.h"
 #include "network_manager.h"
 #include "squeezelite-ota.h"
 #include <math.h>
 #include "audio_controls.h"
-#include "platform_config.h"
+#include "Configurator.h"
 #include "telnet.h"
 #include "messaging.h"
 #include "gds.h"
@@ -61,7 +58,6 @@ const int CONNECTED_BIT = BIT0;
 #define LOCAL_MAC_SIZE 20
 static const char TAG[] = "esp_app_main";
 #define DEFAULT_HOST_NAME "squeezelite"
-char * fwurl = NULL;
 RTC_NOINIT_ATTR uint32_t RebootCounter ;
 RTC_NOINIT_ATTR uint32_t RecoveryRebootCounter ;
 RTC_NOINIT_ATTR uint16_t ColdBootIndicatorFlag;
@@ -71,68 +67,7 @@ bool cold_boot=true;
 extern const char _ctype_[];
 const char* __ctype_ptr__ = _ctype_;
 #endif
-typedef struct {
-    const char *key;
-    const char *value;
-} DefaultStringVal;
-typedef struct {
-    const char *key;
-    unsigned int uint_value;
-    bool is_signed;
-} DefaultNumVal;
 
-const DefaultNumVal defaultNumVals[] = {
-    {"ota_erase_blk", OTA_FLASH_ERASE_BLOCK, 0},
-    {"ota_stack", OTA_STACK_SIZE, 0},
-    {"ota_prio", OTA_TASK_PRIOTITY, 1}
-};
-const DefaultStringVal defaultStringVals[] = {
-    {"equalizer", ""},
-    {"loudness", "0"},
-    {"actrls_config", ""},
-    {"lms_ctrls_raw", "n"},
-    {"rotary_config", CONFIG_ROTARY_ENCODER},
-    {"display_config", CONFIG_DISPLAY_CONFIG},
-    {"eth_config", CONFIG_ETH_CONFIG},
-    {"i2c_config", CONFIG_I2C_CONFIG},
-    {"spi_config", CONFIG_SPI_CONFIG},
-    {"set_GPIO", CONFIG_SET_GPIO},
-    {"sleep_config", ""},
-    {"led_brightness", ""},
-    {"spdif_config", ""},
-    {"dac_config", ""},
-    {"dac_controlset", ""},
-    {"jack_mutes_amp", "n"},
-    {"gpio_exp_config", CONFIG_GPIO_EXP_CONFIG},
-    {"bat_config", ""},
-    {"metadata_config", ""},
-    {"telnet_enable", ""},
-    {"telnet_buffer", "40000"},
-    {"telnet_block", "500"},
-    {"stats", "n"},
-    {"rel_api", CONFIG_RELEASE_API},
-    {"pollmx", "600"},
-    {"pollmin", "15"},
-    {"ethtmout", "8"},
-    {"dhcp_tmout", "8"},
-    {"target", CONFIG_TARGET},
-    {"led_vu_config", ""},
-#ifdef CONFIG_BT_SINK
-    {"bt_sink_pin", STR(CONFIG_BT_SINK_PIN)},
-    {"bt_sink_volume", "127"},
-    // Note: register_default_with_mac("bt_name", CONFIG_BT_NAME); is a special case
-    {"enable_bt_sink", STR(CONFIG_BT_SINK)},
-    {"a2dp_dev_name", CONFIG_A2DP_DEV_NAME},
-    {"a2dp_ctmt", STR(CONFIG_A2DP_CONNECT_TIMEOUT_MS)},
-    {"a2dp_ctrld", STR(CONFIG_A2DP_CONTROL_DELAY_MS)},
-    {"a2dp_sink_name", CONFIG_A2DP_SINK_NAME},
-	{"autoexec", "1"},
-#ifdef CONFIG_AIRPLAY_SINK
-	{"airplay_port", CONFIG_AIRPLAY_PORT},
-	{"enable_airplay", STR(CONFIG_AIRPLAY_SINK)}
-#endif
-#endif	
-};
 static bool bNetworkConnected=false;
 
 // as an exception _init function don't need include
@@ -141,8 +76,10 @@ extern void services_sleep_init(void);
 extern void	display_init(char *welcome);
 extern void led_vu_init(void);
 extern void target_init(char *target);
+extern void start_squeezelite();
 const char * str_or_unknown(const char * str) { return (str?str:unknown_string_placeholder); }
 const char * str_or_null(const char * str) { return (str?str:null_string_placeholder); }
+
 bool is_recovery_running;
 bool is_network_connected(){
 	return bNetworkConnected;
@@ -154,7 +91,7 @@ void cb_connection_got_ip(nm_state_t new_state, int sub_state){
 	network_get_ip_info(&ipInfo);
 	if (ip.addr && ipInfo.ip.addr != ip.addr) {
 		ESP_LOGW(TAG, "IP change, need to reboot");
-		if(!wait_for_commit()){
+		if(!configurator_waitcommit()){
 			ESP_LOGW(TAG,"Unable to commit configuration. ");
 		}
 		esp_restart();
@@ -203,17 +140,6 @@ bool wait_for_wifi(){
     return connected;
 }
 
-char * process_ota_url(){
-    ESP_LOGI(TAG,"Checking for update url");
-    char * fwurl=config_alloc_get(NVS_TYPE_STR, "fwurl");
-	if(fwurl!=NULL)
-	{
-		ESP_LOGD(TAG,"Deleting nvs entry for Firmware URL %s", fwurl);
-		config_delete_key("fwurl");
-	}
-	return fwurl;
-}
-
 esp_log_level_t  get_log_level_from_char(char * level){
 	if(!strcasecmp(level, "NONE"    )) { return ESP_LOG_NONE  ;}
 	if(!strcasecmp(level, "ERROR"   )) { return ESP_LOG_ERROR ;}
@@ -228,96 +154,6 @@ void set_log_level(char * tag, char * level){
 	esp_log_level_set(tag, get_log_level_from_char(level));
 }
 
-#define DEFAULT_NAME_WITH_MAC(var,defval) char var[strlen(defval)+sizeof(macStr)]; strcpy(var,defval); strcat(var,macStr)
-void register_default_string_val(const char * key, const char * value){
-	char * existing =(char *)config_alloc_get(NVS_TYPE_STR,key );
-	ESP_LOGD(TAG,"Register default called with:  %s= %s",key,value );
-	if(!existing) {
-		ESP_LOGI(TAG,"Registering default value for key %s, value %s", key, value );
-		config_set_default(NVS_TYPE_STR, key, value, 0);
-	}
-	else {
-		ESP_LOGD(TAG,"Value found for %s: %s",key,existing );
-	}
-	FREE_AND_NULL(existing);
-}
-void register_single_default_num_val(const DefaultNumVal *entry) {
-    char number_buffer[101] = {};
-    if (entry->is_signed) {
-        snprintf(number_buffer, sizeof(number_buffer) - 1, "%d", entry->uint_value);
-    } else {
-        snprintf(number_buffer, sizeof(number_buffer) - 1, "%u", entry->uint_value);
-    }
-    register_default_string_val(entry->key, number_buffer);
-}
-char * alloc_get_string_with_mac(const char * val) {
-    uint8_t mac[6];
-    char macStr[LOCAL_MAC_SIZE + 1];
-    char* fullvalue = NULL;
-    esp_read_mac((uint8_t*)&mac, ESP_MAC_WIFI_STA);
-    snprintf(macStr, LOCAL_MAC_SIZE - 1, "-%x%x%x", mac[3], mac[4], mac[5]);
-	fullvalue = malloc_init_external(strlen(val)+sizeof(macStr)+1);
-	if(fullvalue){
-		strcpy(fullvalue, val);
-		strcat(fullvalue, macStr);
-	}
-	else {
-		ESP_LOGE(TAG,"malloc failed for value %s", val);
-	}
-	return fullvalue;	
-	
-}
-void register_default_with_mac(const char* key,  char* defval) {
-    char * fullvalue=alloc_get_string_with_mac(defval);
-	if(fullvalue){
-		register_default_string_val(key,fullvalue);
-		FREE_AND_NULL(fullvalue);
-	}
-	else {
-		ESP_LOGE(TAG,"malloc failed for value %s", key);
-	}
-}
-
-void register_default_nvs(){
-#ifdef CONFIG_CSPOT_SINK
-	register_default_string_val("enable_cspot", STR(CONFIG_CSPOT_SINK));
-	cJSON * cspot_config=config_alloc_get_cjson("cspot_config");
-	if(!cspot_config){
-		char * name = alloc_get_string_with_mac(DEFAULT_HOST_NAME);
-		if(name){
-			cjson_update_string(&cspot_config,"deviceName",name);
-			cjson_update_number(&cspot_config,"bitrate",160);
-			// the call below saves the config and frees the json pointer
-			config_set_cjson_str_and_free("cspot_config",cspot_config);
-			FREE_AND_NULL(name);
-		}
-		else {
-			register_default_string_val("cspot_config", "");
-		}
-		
-	}	
-
-#endif
-	
-#ifdef CONFIG_AIRPLAY_SINK
-	register_default_with_mac("airplay_name", CONFIG_AIRPLAY_NAME);
-#endif
-#ifdef CONFIG_BT_SINK
-	register_default_with_mac("bt_name", CONFIG_BT_NAME);
-#endif
-	register_default_with_mac("host_name", DEFAULT_HOST_NAME);
-	register_default_with_mac("ap_ssid", CONFIG_DEFAULT_AP_SSID);
-	register_default_with_mac("autoexec1",CONFIG_DEFAULT_COMMAND_LINE " -n " DEFAULT_HOST_NAME);	
-    for (int i = 0; i < sizeof(defaultStringVals) / sizeof(DefaultStringVal); ++i) {
-        register_default_string_val(defaultStringVals[i].key, defaultStringVals[i].value);
-    }
-	for (int i = 0; i < sizeof(defaultNumVals) / sizeof(DefaultNumVal); ++i) {
-        register_single_default_num_val(&defaultNumVals[i]);
-    }
-
-	wait_for_commit();
-	ESP_LOGD(TAG,"Done setting default values in nvs.");
-}
 
 uint32_t halSTORAGE_RebootCounterRead(void) { return RebootCounter ; }
 uint32_t halSTORAGE_RebootCounterUpdate(int32_t xValue) { 
@@ -351,7 +187,10 @@ void app_main()
 	const esp_partition_t *running = esp_ota_get_running_partition();
 	is_recovery_running = (running->subtype == ESP_PARTITION_SUBTYPE_APP_FACTORY);
 	xReason = esp_reset_reason();
-	ESP_LOGI(TAG,"Reset reason is: %u", xReason);
+	ESP_LOGI(TAG,"Reset reason is: %u. Running from partition %s type %s ", 	
+			xReason, 
+			running->label, 
+			running->subtype == ESP_PARTITION_SUBTYPE_APP_FACTORY?"Factory":"Application");
 	if(!is_recovery_running )  {
 		/* unscheduled restart (HW, Watchdog or similar) thus increment dynamic
 	 	* counter then log current boot statistics as a warning */
@@ -370,8 +209,10 @@ void app_main()
 		ESP_LOGI(TAG,"Recovery Reboot counter=%u\n", Counter) ;
 			if (RecoveryRebootCounter == 5) {
 			ESP_LOGW(TAG,"System rebooted too many times. This could be an indication that configuration is corrupted. Erasing config.");
-			erase_settings_partition();
+			// TODO: Add support for the commented code
+			// erase_settings_partition();
 			// reboot one more time
+			#pragma message("Add support for erasing the configuration")
 			guided_factory();
 			
 		}		
@@ -381,10 +222,12 @@ void app_main()
 	}
 
 
-	char * fwurl = NULL;
 	MEMTRACE_PRINT_DELTA();
 	ESP_LOGI(TAG,"Starting app_main");
-	initialize_nvs();
+	init_spiffs();
+	listFiles("/");
+	ESP_LOGI(TAG,"Setting up config subsystem.");
+	configurator_load();	
 	MEMTRACE_PRINT_DELTA();
 #if defined(CONFIG_WITH_METRICS)
 	ESP_LOGI(TAG,"Setting up metrics.");
@@ -394,15 +237,10 @@ void app_main()
 	ESP_LOGI(TAG,"Setting up telnet.");
 	init_telnet(); // align on 32 bits boundaries
 	MEMTRACE_PRINT_DELTA();
-	ESP_LOGI(TAG,"Setting up config subsystem.");
-	config_init();
-	MEMTRACE_PRINT_DELTA();
 	ESP_LOGD(TAG,"Creating event group for wifi");
 	network_event_group = xEventGroupCreate();
 	ESP_LOGD(TAG,"Clearing CONNECTED_BIT from wifi group");
 	xEventGroupClearBits(network_event_group, CONNECTED_BIT);
-	ESP_LOGI(TAG,"Registering default values");
-	register_default_nvs();
 	MEMTRACE_PRINT_DELTA();
 	ESP_LOGI(TAG,"Configuring services");
 	services_init();
@@ -410,18 +248,16 @@ void app_main()
 	ESP_LOGI(TAG,"Initializing display");
 	display_init("SqueezeESP32");
 	MEMTRACE_PRINT_DELTA();
-	char *target = config_alloc_get_str("target", CONFIG_TARGET, NULL);
-	if (target) {
-		target_init(target);
-		free(target);
+	if(strlen(platform->target)>0){
+		target_init(platform->target);
 	}
 	ESP_LOGI(TAG,"Initializing led_vu");
 	led_vu_init();
-
 	if(is_recovery_running) {
+		ESP_LOGI(TAG,"Turning on display");
 		if (display) {
 			GDS_ClearExt(display, true);
-			GDS_SetFont(display, &Font_line_2 );
+			GDS_SetFont(display, Font_line_2 );
 			GDS_TextPos(display, GDS_FONT_DEFAULT, GDS_TEXT_CENTERED, GDS_TEXT_CLEAR | GDS_TEXT_UPDATE, "RECOVERY");
 		}
 		if(led_display) {
@@ -431,30 +267,21 @@ void app_main()
 	#if defined(CONFIG_WITH_METRICS)
 	metrics_event_boot(is_recovery_running?"recovery":"ota");
 	#endif
-	
-	ESP_LOGD(TAG,"Getting firmware OTA URL (if any)");
-	fwurl = process_ota_url();
-
-	ESP_LOGD(TAG,"Getting value for WM bypass, nvs 'bypass_wm'");
-	char * bypass_wm = config_alloc_get_default(NVS_TYPE_STR, "bypass_wm", "0", 0);
-	if(bypass_wm==NULL)
-	{
-		ESP_LOGE(TAG, "Unable to retrieve the Wifi Manager bypass flag");
-		bypass_network_manager = false;
-	}
-	else {
-		bypass_network_manager=(strcmp(bypass_wm,"1")==0 ||strcasecmp(bypass_wm,"y")==0);
-	}
 
 	if(!is_recovery_running){
-		ESP_LOGD(TAG,"Getting audio control mapping ");
-		char *actrls_config = config_alloc_get_default(NVS_TYPE_STR, "actrls_config", "", 0);
-		if (actrls_init(actrls_config) == ESP_OK) {
-			ESP_LOGD(TAG,"Initializing audio control buttons type %s", actrls_config);	
-		} else {
-			ESP_LOGD(TAG,"No audio control buttons");
-		}
-		if (actrls_config) free(actrls_config);
+		#pragma message("Add audio controls support")
+		// ESP_LOGD(TAG,"Getting audio control mapping ");
+		// if(platform->has_dev && platform->dev.buttons_count >0){
+		// 	ESP_LOGD(TAG,"Initializing audio control buttons");	
+		// }
+		// char *actrls_config = config_alloc_get_default(NVS_TYPE_STR, "actrls_config", "", 0);
+		// if (actrls_init(actrls_config) == ESP_OK) {
+		
+		// } else {
+		// 	ESP_LOGD(TAG,"No audio control buttons");
+		// }
+		// if (actrls_config) free(actrls_config);
+		// TODO: Add support for the commented code
 	}
 
 	/* start the wifi manager */
@@ -479,26 +306,33 @@ void app_main()
 		network_register_state_callback(NETWORK_WIFI_ACTIVE_STATE,WIFI_INITIALIZING_STATE, "handle_network_up", &handle_network_up);
 		MEMTRACE_PRINT_DELTA();	
 	}
+	if(!is_recovery_running){
+		MEMTRACE_PRINT_DELTA_MESSAGE("Launching Squeezelite");
+		start_squeezelite();
+		MEMTRACE_PRINT_DELTA_MESSAGE("Squeezelite Started");		
+	}	
 	MEMTRACE_PRINT_DELTA_MESSAGE("Starting Console");
 	console_start();
 	MEMTRACE_PRINT_DELTA_MESSAGE("Console started");
-	if(fwurl && strlen(fwurl)>0){
+
+	if(sys_state && sys_state->ota_url && strlen(sys_state->ota_url)){
+		ESP_LOGD(TAG,"Found OTA URL %s",sys_state->ota_url);
 		if(is_recovery_running){
 			while(!bNetworkConnected){
 				wait_for_wifi();
 				taskYIELD();
 			}
-			ESP_LOGI(TAG,"Updating firmware from link: %s",fwurl);
+			ESP_LOGI(TAG,"Updating firmware from link: %s",sys_state->ota_url);
 			#if defined(CONFIG_WITH_METRICS)
 			metrics_event("fw_update");
 			#endif
-			start_ota(fwurl, NULL, 0);
+			start_ota(sys_state->ota_url, NULL, 0);
 		}
 		else {
 			ESP_LOGE(TAG,"Restarted to application partition. We're not going to perform OTA!");
-		}
-		free(fwurl);
+		}		
 	}
+
     services_sleep_init();
 	messaging_post_message(MESSAGING_INFO,MESSAGING_CLASS_SYSTEM,"System started");
 }

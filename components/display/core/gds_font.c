@@ -14,7 +14,67 @@
 #include "gds_font.h"
 #include "gds_draw.h"
 #include "gds_err.h"
+#include "esp_spiffs.h"
+#include "esp_log.h"
+#include "esp_heap_caps.h"
+#include "tools.h"
+static const char * TAG = "gds_font";
+struct GDS_FontDef * Font_droid_sans_fallback_11x13 = NULL;
+struct GDS_FontDef * Font_line_1 = NULL;
+struct GDS_FontDef * Font_line_2 = NULL;
 
+// struct GDS_FontDef * Font_droid_sans_fallback_15x17 = NULL;
+// struct GDS_FontDef * Font_droid_sans_fallback_24x28 = NULL;
+// struct GDS_FontDef * Font_droid_sans_mono_7x13 = NULL;
+// struct GDS_FontDef * Font_droid_sans_mono_13x24 = NULL;
+// struct GDS_FontDef * Font_droid_sans_mono_16x31 = NULL;
+// struct GDS_FontDef * Font_liberation_mono_9x15 = NULL;
+// struct GDS_FontDef * Font_liberation_mono_13x21 = NULL;
+// struct GDS_FontDef * Font_liberation_mono_17x30 = NULL;
+// struct GDS_FontDef * Font_Tarable7Seg_16x32 = NULL;
+// struct GDS_FontDef * Font_Tarable7Seg_32x64 = NULL;
+
+
+static bool LoadFont(struct GDS_FontDef ** fontPtr, const char * fileName){
+    if(!fontPtr){
+        ESP_LOGE(TAG, "Invalid pointer for LoadFont");
+        return false;
+    }
+
+    // Allocate DMA-capable memory for the font
+    struct GDS_FontDef* loadedFont = load_file_dma(NULL,"fonts",fileName);
+
+    // Check if allocation succeeded
+    if (loadedFont == NULL) {
+        ESP_LOGE(TAG, "Failed to load font");
+        return false;
+    }
+    // Update the pointer
+    *fontPtr = loadedFont;
+
+    ESP_LOGI(TAG, "Successfully loaded font: %s", fileName);
+    return true;
+}
+bool gds_init_fonts() {
+    bool success = true;
+
+    // Load the Font_droid_sans_fallback_11x13
+    if (!LoadFont(&Font_droid_sans_fallback_11x13, "droid_sans_fb_11x13.bin")) {
+        success = false;
+    }
+
+    // Load the Font_line_1
+    if (!LoadFont(&Font_line_1, "line_1.bin")) {
+        success = false;
+    }
+
+    // Load the Font_line_2
+    if (!LoadFont(&Font_line_2, "line_2.bin")) {
+        success = false;
+    }
+
+    return success;
+}
 static int RoundUpFontHeight( const struct GDS_FontDef* Font ) {
     int Height = Font->Height;
 
@@ -26,7 +86,7 @@ static int RoundUpFontHeight( const struct GDS_FontDef* Font ) {
 }
 
 static const uint8_t* GetCharPtr( const struct GDS_FontDef* Font, char Character ) {
-    return &Font->FontData[ ( Character - Font->StartChar ) * ( ( Font->Width * ( RoundUpFontHeight( Font ) / 8 ) ) + 1 ) ];
+    return &Font->FontData[( Character - Font->StartChar ) * ( ( Font->Width * ( RoundUpFontHeight( Font ) / 8 ) ) + 1 )];
 }
 
 void GDS_FontDrawChar( struct GDS_Device* Device, char Character, int x, int y, int Color ) {
@@ -130,9 +190,7 @@ int GDS_FontGetCharWidth( struct GDS_Device* Display, char Character ) {
 
     if ( Character >= Display->Font->StartChar && Character <= Display->Font->EndChar ) {
         CharPtr = GetCharPtr( Display->Font, Character );
-
         Width = ( Display->Font->Monospace == true ) ? Display->Font->Width : *CharPtr;
-
         if ( Display->FontForceMonospace == true ) {
             Width = Display->Font->Width;
         }
@@ -168,7 +226,6 @@ int GDS_FontMeasureString( struct GDS_Device* Display, const char* Text ) {
             Width+= GDS_FontGetCharWidth( Display, *Text );
         }
     }
-
     return Width;
 }
 

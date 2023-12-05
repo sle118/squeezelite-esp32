@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+import "google/protobuf/descriptor.proto";
+import "nanopb.proto";
+
+// Extend the field options
+message CustomOptions {
+    bool init_from_mac = 50001;  // Unique identifier for the option
+    string const_prefix = 50002 [(nanopb).type = FT_POINTER]; // Unique identifier for the option
+    bool read_only = 50003;
+    oneof default_value {
+        string v_string = 50050 [(nanopb).type = FT_POINTER];
+        uint32 v_uint32 = 50051;
+        int32 v_int32 = 50052;
+        uint64 v_uint64 = 50053;
+        int64 v_int64 = 50054;
+        double v_double = 50055;
+        float v_float = 50056;
+        bool v_bool = 50057;
+        string v_enum = 50058 [(nanopb).type = FT_POINTER];
+        bytes v_bytes = 50059 [(nanopb).type = FT_POINTER];
+    }
+    
+    string global_name = 50005 [(nanopb).type = FT_POINTER];
+}
+
+
+extend google.protobuf.FileOptions {
+    optional CustomOptions cust_file = 2010;
+}
+
+
+extend google.protobuf.MessageOptions  {
+    optional CustomOptions cust_msg = 2010;
+}
+
+extend google.protobuf.EnumOptions {
+    optional CustomOptions cust_enum = 2010;
+}
+
+extend google.protobuf.FieldOptions {
+    optional CustomOptions cust_field = 2010;
+}

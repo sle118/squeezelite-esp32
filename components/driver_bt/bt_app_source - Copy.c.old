@@ -16,7 +16,8 @@
 #include "esp_wifi.h"
 #include "freertos/timers.h"
 #include "argtable3/argtable3.h"
-#include "platform_config.h"
+// #include "Configurator.h"
+#pragma message("fixme: search for TODO below")
 #include "messaging.h"
 #include "cJSON.h"
 #include "tools.h"

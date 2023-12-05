@@ -319,21 +319,21 @@ static const struct GDS_Device ILI9341_X = {
 	.Mode = GDS_RGB565, .Depth = 16,
 };		
 
-struct GDS_Device* ILI9341_Detect(char *Driver, struct GDS_Device* Device) {
+struct GDS_Device* ILI9341_Detect(sys_Display * Driver, struct GDS_Device* Device) {
 	uint8_t Model;
 	int Depth=16;		// 16bit colordepth
 	
-	if (strcasestr(Driver, "ILI9341")) Model = ILI9341;
-	else if (strcasestr(Driver, "ILI9341_24")) Model = ILI9341_24;	//for future use...
+	if(Driver->common.driver == sys_DisplayDriverEnum_ILI9341) Model = ILI9341;
+	else if(Driver->common.driver == sys_DisplayDriverEnum_ILI9341_24) Model = ILI9341_24;
 	else return NULL;
-		
+	
 	if (!Device) Device = calloc(1, sizeof(struct GDS_Device));
 		
 	*Device = ILI9341_X;	
-	sscanf(Driver, "%*[^:]:%u", &Depth);		// NVS-Parameter driver=ILI9341[:16|18]
+	Depth = Driver->common.bitDepth != 0?Driver->common.bitDepth:Depth;
 	struct PrivateSpace* Private = (struct PrivateSpace*) Device->Private;
 	Private->Model = Model;
-		ESP_LOGI(TAG, "ILI9341_Detect 391 Driver= %s   Depth=%d", Driver, Depth);
+	ESP_LOGI(TAG, "ILI9341_Detect 391 Driver= %s   Depth=%d", Model==ILI9341?"ILI9341":"ILI9341_24", Depth);
 
 	if (Depth == 18) {
 		Device->Mode = GDS_RGB888;

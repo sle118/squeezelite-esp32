@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package sys;
+import "nanopb.proto";
+option (nanopb_fileopt).enum_to_string = true;
+
+enum DeviceTypeEnum {
+  UNSPECIFIED_TYPE = 0;
+  DEVTYPE_SPI = 1;
+  DEVTYPE_I2C = 2;
+  DEVTYPE__RMII = 3;
+}
+
+enum PortEnum {
+  UNSPECIFIED_SYSTPORT = 0;
+  SYSTEM = 1;
+  DAC_PORT = 2;
+}
+
+enum HostEnum {
+  UNSPECIFIED_HOST = 0;
+  Host0 = 1;
+  Host1 = 2;
+}

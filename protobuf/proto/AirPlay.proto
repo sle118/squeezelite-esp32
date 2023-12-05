@@ -1,0 +1,8 @@
+syntax = "proto3";
+import "nanopb.proto";
+package sys;
+message AirPlay {
+    option (nanopb_msgopt).msgid  = 1001;
+    bool enabled = 1;
+    uint32 port = 2 [(nanopb).int_size = IS_8];
+}

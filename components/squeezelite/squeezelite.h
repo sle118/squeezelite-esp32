@@ -755,7 +755,7 @@ void _pa_open(void);
 #if EMBEDDED
 void set_volume(unsigned left, unsigned right);
 bool test_open(const char *device, unsigned rates[], bool userdef_rates);
-void output_init_embedded(log_level level, char *device, unsigned output_buf_size, char *params, unsigned rates[], unsigned rate_delay, unsigned idle);
+void output_init_embedded();
 void output_close_embedded(void);
 #else 
 // output_stdout.c

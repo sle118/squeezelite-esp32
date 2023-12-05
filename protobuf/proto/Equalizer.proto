@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package sys;
+
+import "nanopb.proto";
+
+message Equalizer {
+  repeated float gains = 1 [(nanopb).max_count = 10];    
+  float loudness = 2;
+}

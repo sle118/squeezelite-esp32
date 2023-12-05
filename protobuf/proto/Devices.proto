@@ -1,0 +1,69 @@
+syntax = "proto3";
+
+package sys;
+import "GPIO.proto";
+import "Common.proto";
+import "I2CBus.proto";
+import "DAC.proto";
+import "Display.proto";
+import "Buttons.proto";
+import "Battery.proto";
+import "Ethernet.proto";
+import "nanopb.proto";
+message SPDIF {
+  option (nanopb_msgopt).msgid  = 10015;
+    GPIO dc = 1;
+    GPIO data = 2;
+    GPIO clk = 3;
+  }
+  
+  
+  message SPIBus {
+    option (nanopb_msgopt).msgid  = 10016;
+    GPIO mosi = 1;
+    GPIO miso = 2;
+    GPIO clk = 3;
+    GPIO dc = 4;
+    HostEnum host = 5;  // Defaults to Host1 in your application logic
+  }
+  enum LEDStripType {
+    LS_UNKNOWN = 0;
+    LS_WS2812 = 1;
+    //unsupported
+    LS_SK6812 = 2; 
+    //unsupported
+    LS_APA106 = 3;
+  }
+  
+  
+  message LEDStrip {
+    option (nanopb_msgopt).msgid  = 10018;
+    GPIO gpio = 1;
+    int32 length = 2  [(nanopb).int_size = IS_16];
+    LEDStripType strip_type = 3;
+  }
+  enum InfraredType {
+    IR_UNKNOWN =  0;
+    IR_RC5 = 1;
+    IR_NEC = 2;
+  }
+  message Infrared {
+    InfraredType type = 1;
+    GPIO gpio = 2;
+  }
+   
+  message Dev {
+    option (nanopb_msgopt).msgid  = 10019;
+     SPIBus  spi = 1;
+     I2CBus  i2c = 2;
+     DAC dac = 3;
+     SPDIF spdif = 4;
+     Display display = 5;
+     repeated GPIOExp  gpio_exp = 6 [(nanopb).type = FT_POINTER]; //[(nanopb).max_count= 4];
+     LEDStrip  led_strip = 7;
+     Rotary  rotary = 8;
+     repeated Button buttons = 9 [(nanopb).type = FT_POINTER]; //[(nanopb).max_count= 15];
+     Eth  eth = 10;
+     Battery  battery = 11;
+     Infrared ir = 12;
+  }

@@ -13,7 +13,7 @@
 #include "esp_log.h"
 #include "string.h"
 #include "stdio.h"
-#include "platform_config.h"
+#include "Configurator.h"
 #include "messaging.h"
 #include "accessors.h"
 #include "adac.h"
@@ -24,7 +24,9 @@
 #include "metrics.h"
 #endif
 #include "cmd_system.h"
+#include "network_manager.h"
 const char * desc_squeezelite ="Squeezelite Options";
+const char * desc_wifi ="Wifi Operations";
 const char * desc_dac= "DAC Options";
 const char * desc_cspotc= "Spotify (cSpot) Options";
 const char * desc_preset= "Preset Options";
@@ -122,7 +124,13 @@ static struct {
 	struct arg_lit * clear;
 	struct arg_end * end;
 } ledvu_args;
+static struct{
+		struct arg_str *ap_name;
+		struct arg_str *password;
+		struct arg_lit *conn;
 
+		struct arg_end *end;
+} wifi_ap_args;
 static struct{
 		struct arg_str *sink_name;
 		struct arg_str *pin_code;
@@ -344,28 +352,30 @@ static int do_bt_source_cmd(int argc, char **argv){
 	}
 
 	if(bt_source_args.sink_name->count >0){
-		err = config_set_value(NVS_TYPE_STR, "a2dp_sink_name", bt_source_args.sink_name->sval[0]);
-		if(err!=ESP_OK){
-            nerrors++;
-            fprintf(f,"Error setting Bluetooth audio device name %s. %s\n",bt_source_args.sink_name->sval[0], esp_err_to_name(err));
-        }
-        else {
-            fprintf(f,"Bluetooth audio device name changed to %s\n",bt_source_args.sink_name->sval[0]);
-        }        
-		char * squeezelite_cmd = config_alloc_get_default(NVS_TYPE_STR, "autoexec1", NULL, 0);
-		if( squeezelite_cmd && strstr(squeezelite_cmd," -o ") ){
-			char * new_cmd = strip_bt_name(squeezelite_cmd);
-			if(strcmp(new_cmd,squeezelite_cmd)!=0){
-				fprintf(f,"Replacing old squeezelite command [%s] with [%s].\n",squeezelite_cmd,new_cmd);
-				config_set_value(NVS_TYPE_STR, "autoexec1", new_cmd);
-				if(err!=ESP_OK){
-					nerrors++;
-					fprintf(f,"Error updating squeezelite command line options . %s\n", esp_err_to_name(err));
-				}			
-			}
-			free(squeezelite_cmd);
-			free(new_cmd);
-		}
+		// err = config_set_value(NVS_TYPE_STR, "a2dp_sink_name", bt_source_args.sink_name->sval[0]);
+		// if(err!=ESP_OK){
+        //     nerrors++;
+        //     fprintf(f,"Error setting Bluetooth audio device name %s. %s\n",bt_source_args.sink_name->sval[0], esp_err_to_name(err));
+        // }
+        // else {
+        //     fprintf(f,"Bluetooth audio device name changed to %s\n",bt_source_args.sink_name->sval[0]);
+        // }        
+		
+		// char * squeezelite_cmd = config_alloc_get_default(NVS_TYPE_STR, "autoexec1", NULL, 0);
+		// if( squeezelite_cmd && strstr(squeezelite_cmd," -o ") ){
+		// 	char * new_cmd = strip_bt_name(squeezelite_cmd);
+		// 	if(strcmp(new_cmd,squeezelite_cmd)!=0){
+		// 		fprintf(f,"Replacing old squeezelite command [%s] with [%s].\n",squeezelite_cmd,new_cmd);
+		// 		config_set_value(NVS_TYPE_STR, "autoexec1", new_cmd);
+		// 		if(err!=ESP_OK){
+		// 			nerrors++;
+		// 			fprintf(f,"Error updating squeezelite command line options . %s\n", esp_err_to_name(err));
+		// 		}			
+		// 	}
+		// 	free(squeezelite_cmd);
+		// 	free(new_cmd);
+		// }
+		// TODO: Add support for the commented code
 
 	}
 	if(bt_source_args.pin_code->count >0){
@@ -381,14 +391,15 @@ static int do_bt_source_cmd(int argc, char **argv){
             fprintf(f,"Pin code %s invalid. Should be numbers only with length between 4 and 16 characters. \n",bt_source_args.pin_code->sval[0]);
 		}
 		else {
-			err = config_set_value(NVS_TYPE_STR, "a2dp_spin", bt_source_args.pin_code->sval[0]);
-			if(err!=ESP_OK){
-				nerrors++;
-				fprintf(f,"Error setting Bluetooth source pin to %s. %s\n",bt_source_args.pin_code->sval[0], esp_err_to_name(err));
-			}
-			else {
-				fprintf(f,"Bluetooth source pin changed to %s\n",bt_source_args.pin_code->sval[0]);
-			}        
+			// err = config_set_value(NVS_TYPE_STR, "a2dp_spin", bt_source_args.pin_code->sval[0]);
+			// if(err!=ESP_OK){
+			// 	nerrors++;
+			// 	fprintf(f,"Error setting Bluetooth source pin to %s. %s\n",bt_source_args.pin_code->sval[0], esp_err_to_name(err));
+			// }
+			// else {
+			// 	fprintf(f,"Bluetooth source pin changed to %s\n",bt_source_args.pin_code->sval[0]);
+			// }        
+			// TODO: Add support for the commented code
 		}
 	}	
 	// if(bt_source_args.connect_timeout_delay->count >0){
@@ -438,6 +449,18 @@ static int do_bt_source_cmd(int argc, char **argv){
 	return (nerrors==0 && err==ESP_OK)?0:1;
 
 }
+static void do_wifi_ops(int argc, char **argv){
+	esp_err_t err=ESP_OK;
+	int nerrors = arg_parse(argc, argv,(void **)&wifi_ap_args);
+	if(nerrors >0){
+		return 1;
+	}	
+	if(wifi_ap_args.conn->count >0){
+		network_async_connect(wifi_ap_args.ap_name->sval[0],wifi_ap_args.password->sval[0]);
+	}
+
+	
+}
 static int do_audio_cmd(int argc, char **argv){
 	esp_err_t err=ESP_OK;
 	int nerrors = arg_parse(argc, argv,(void **)&audio_args);
@@ -465,7 +488,8 @@ static int do_audio_cmd(int argc, char **argv){
         // it's not necessary to store loudness in NVS as set_loudness does it, but it does not hurt
 		else {
 			itoa(loudness_val,p,10);
-			err = config_set_value(NVS_TYPE_STR, "loudness", p);
+			// err = config_set_value(NVS_TYPE_STR, "loudness", p);
+			// TODO: Add support for the commented code
 		}
         if(err!=ESP_OK){
             nerrors++;
@@ -479,16 +503,17 @@ static int do_audio_cmd(int argc, char **argv){
 
     if(audio_args.jack_behavior->count>0){
         err = ESP_OK; // suppress any error code that might have happened in a previous step
-        if(strcasecmp(audio_args.jack_behavior->sval[0],"Headphones")==0){
-            err = config_set_value(NVS_TYPE_STR, "jack_mutes_amp", "y");
-        }
-        else if(strcasecmp(audio_args.jack_behavior->sval[0],"Subwoofer")==0){
-            err = config_set_value(NVS_TYPE_STR, "jack_mutes_amp", "n");
-        }
-        else {
-            nerrors++;
-            fprintf(f,"Unknown Audio Jack Behavior %s.\n",audio_args.jack_behavior->sval[0]);
-        }
+		// TODO: Add support for the commented code
+        // if(strcasecmp(audio_args.jack_behavior->sval[0],"Headphones")==0){
+        //     err = config_set_value(NVS_TYPE_STR, "jack_mutes_amp", "y");
+        // }
+        // else if(strcasecmp(audio_args.jack_behavior->sval[0],"Subwoofer")==0){
+        //     err = config_set_value(NVS_TYPE_STR, "jack_mutes_amp", "n");
+        // }
+        // else {
+        //     nerrors++;
+        //     fprintf(f,"Unknown Audio Jack Behavior %s.\n",audio_args.jack_behavior->sval[0]);
+        // }
 
         if(err!=ESP_OK){
             nerrors++;
@@ -508,115 +533,118 @@ static int do_audio_cmd(int argc, char **argv){
 	FREE_AND_NULL(buf);
 	return (nerrors==0 && err==ESP_OK)?0:1;
 }
-static int do_spdif_cmd(int argc, char **argv){
-		i2s_platform_config_t i2s_dac_pin = {
-		.i2c_addr = -1,
-		.sda= -1,
-		.scl = -1,
-		.mute_gpio = -1,
-		.mute_level = -1
-	};
-	if(is_spdif_config_locked()){
-		cmd_send_messaging(argv[0],MESSAGING_ERROR,"SPDIF Configuration is locked on this platform\n");
-		return 1;
-	}
-	esp_err_t err=ESP_OK;
-	int nerrors = arg_parse(argc, argv,(void **)&spdif_args);
-	if (spdif_args.clear->count) {
-		cmd_send_messaging(argv[0],MESSAGING_WARNING,"SPDIF config cleared\n");
-		config_set_value(NVS_TYPE_STR, "spdif_config", "");
-		return 0;
-	}
+// static int do_spdif_cmd(int argc, char **argv){
+// 		i2s_platform_config_t i2s_dac_pin = {
+// 		.i2c_addr = -1,
+// 		.sda= -1,
+// 		.scl = -1,
+// 		.mute_gpio = -1,
+// 		.mute_level = -1
+// 	};
+// 	// if(is_spdif_config_locked()){
+// 	// 	cmd_send_messaging(argv[0],MESSAGING_ERROR,"SPDIF Configuration is locked on this platform\n");
+// 	// 	return 1;
+// 	// }
+// 	// esp_err_t err=ESP_OK;
+// 	// int nerrors = arg_parse(argc, argv,(void **)&spdif_args);
+// 	// if (spdif_args.clear->count) {
+// 	// 	cmd_send_messaging(argv[0],MESSAGING_WARNING,"SPDIF config cleared\n");
+// 	// 	// config_set_value(NVS_TYPE_STR, "spdif_config", "");
+// 	// 			// TODO: Add support for the commented code
+// 	// 	return 0;
+// 	// }
 
-	char *buf = NULL;
-	size_t buf_size = 0;
-	FILE *f = system_open_memstream(argv[0],&buf, &buf_size);
-	if (f == NULL) {
-		return 1;
-	}
-	if(nerrors >0){
-		arg_print_errors(f,spdif_args.end,desc_dac);
-		fclose(f);
-		return 1;
-	}
-	nerrors+=is_output_gpio(spdif_args.clock, f, &i2s_dac_pin.pin.bck_io_num, true);
-	nerrors+=is_output_gpio(spdif_args.wordselect, f, &i2s_dac_pin.pin.ws_io_num, true);
-	nerrors+=is_output_gpio(spdif_args.data, f, &i2s_dac_pin.pin.data_out_num, true);
-	if(!nerrors ){
-		fprintf(f,"Storing SPDIF parameters.\n");
-		nerrors+=(config_spdif_set(&i2s_dac_pin )!=ESP_OK);
-	}
-	if(!nerrors ){
-		fprintf(f,"Done.\n");
-	}
-	fflush (f);
-	cmd_send_messaging(argv[0],nerrors>0?MESSAGING_ERROR:MESSAGING_INFO,"%s", buf);
-	fclose(f);
-	FREE_AND_NULL(buf);
-	return (nerrors==0 && err==ESP_OK)?0:1;
-}
+// 	// char *buf = NULL;
+// 	// size_t buf_size = 0;
+// 	// FILE *f = system_open_memstream(argv[0],&buf, &buf_size);
+// 	// if (f == NULL) {
+// 	// 	return 1;
+// 	// }
+// 	// if(nerrors >0){
+// 	// 	arg_print_errors(f,spdif_args.end,desc_dac);
+// 	// 	fclose(f);
+// 	// 	return 1;
+// 	// }
+// 	// nerrors+=is_output_gpio(spdif_args.clock, f, &i2s_dac_pin.pin.bck_io_num, true);
+// 	// nerrors+=is_output_gpio(spdif_args.wordselect, f, &i2s_dac_pin.pin.ws_io_num, true);
+// 	// nerrors+=is_output_gpio(spdif_args.data, f, &i2s_dac_pin.pin.data_out_num, true);
+// 	// if(!nerrors ){
+// 	// 	fprintf(f,"Storing SPDIF parameters.\n");
+// 	// 	nerrors+=(config_spdif_set(&i2s_dac_pin )!=ESP_OK);
+// 	// }
+// 	// if(!nerrors ){
+// 	// 	fprintf(f,"Done.\n");
+// 	// }
+// 	// fflush (f);
+// 	// cmd_send_messaging(argv[0],nerrors>0?MESSAGING_ERROR:MESSAGING_INFO,"%s", buf);
+// 	// fclose(f);
+// 	// FREE_AND_NULL(buf);
+// 	// return (nerrors==0 && err==ESP_OK)?0:1;
+// 	return 0;
+// }
 
-static int do_rotary_cmd(int argc, char **argv){
-	rotary_struct_t rotary={  .A = -1, .B = -1, .SW = -1, .longpress = 0, .knobonly=0,.volume_lock=false};
-	esp_err_t err=ESP_OK;
-	int nerrors = arg_parse(argc, argv,(void **)&rotary_args);
-	if (rotary_args.clear->count) {
-		cmd_send_messaging(argv[0],MESSAGING_WARNING,"rotary config cleared\n");
-		config_set_value(NVS_TYPE_STR, "rotary_config", "");
-		return 0;
-	}
+// static int do_rotary_cmd(int argc, char **argv){
+// 	rotary_struct_t rotary={  .A = -1, .B = -1, .SW = -1, .longpress = 0, .knobonly=0,.volume_lock=false};
+// 	esp_err_t err=ESP_OK;
+// 	int nerrors = arg_parse(argc, argv,(void **)&rotary_args);
+// 	if (rotary_args.clear->count) {
+// 		cmd_send_messaging(argv[0],MESSAGING_WARNING,"rotary config cleared\n");
+// 		// config_set_value(NVS_TYPE_STR, "rotary_config", "");
+// 				// TODO: Add support for the commented code
+// 		return 0;
+// 	}
 
-	char *buf = NULL;
-	size_t buf_size = 0;
-	FILE *f = system_open_memstream(argv[0],&buf, &buf_size);
-	if (f == NULL) {
-		return 1;
-	}
-	if(nerrors >0){
-		arg_print_errors(f,rotary_args.end,desc_rotary);
-		fclose(f);
-		return 1;
-	}
-	nerrors+=is_gpio(rotary_args.A, f, &rotary.A, true,false);
-	nerrors+=is_gpio(rotary_args.B, f, &rotary.B, true,false);
-	nerrors+=is_gpio(rotary_args.SW, f, &rotary.SW,false,false);
+// 	char *buf = NULL;
+// 	size_t buf_size = 0;
+// 	FILE *f = system_open_memstream(argv[0],&buf, &buf_size);
+// 	if (f == NULL) {
+// 		return 1;
+// 	}
+// 	if(nerrors >0){
+// 		arg_print_errors(f,rotary_args.end,desc_rotary);
+// 		fclose(f);
+// 		return 1;
+// 	}
+// 	nerrors+=is_gpio(rotary_args.A, f, &rotary.A, true,false);
+// 	nerrors+=is_gpio(rotary_args.B, f, &rotary.B, true,false);
+// 	nerrors+=is_gpio(rotary_args.SW, f, &rotary.SW,false,false);
 
 
-	if(rotary_args.knobonly->count>0 && (rotary_args.volume_lock->count>0 || rotary_args.longpress->count>0)){
-		fprintf(f,"error: Cannot use volume lock or longpress option when knob only option selected\n");
-		nerrors++;
-	}
+// 	if(rotary_args.knobonly->count>0 && (rotary_args.volume_lock->count>0 || rotary_args.longpress->count>0)){
+// 		fprintf(f,"error: Cannot use volume lock or longpress option when knob only option selected\n");
+// 		nerrors++;
+// 	}
 
-	if(rotary_args.timer->count>0 && rotary_args.timer->ival[0]<0){
-		fprintf(f,"error: knob only timer should be greater than or equal to zero.\n");
-		nerrors++;
-	}
-	else {
-		rotary.timer = rotary_args.timer->count>0?rotary_args.timer->ival[0]:0;
-	}
-	rotary.knobonly = rotary_args.knobonly->count>0;
-	rotary.volume_lock= rotary_args.volume_lock->count>0;
-	rotary.longpress = rotary_args.longpress->count>0;
-	if(!nerrors ){
-		fprintf(f,"Storing rotary parameters.\n");
-		nerrors+=(config_rotary_set(&rotary )!=ESP_OK);
-	}
-	if(!nerrors ){
-		fprintf(f,"Storing raw mode parameter.\n");
-		nerrors+=(config_set_value(NVS_TYPE_STR, "lms_ctrls_raw", rotary_args.raw_mode->count>0?"Y":"N")!=ESP_OK);
-		if(nerrors>0){
-			fprintf(f,"error: Unable to store raw mode parameter.\n");
-		}
-	}	
-	if(!nerrors ){
-		fprintf(f,"Done.\n");
-	}
-	fflush (f);
-	cmd_send_messaging(argv[0],nerrors>0?MESSAGING_ERROR:MESSAGING_INFO,"%s", buf);
-	fclose(f);
-	FREE_AND_NULL(buf);
-	return (nerrors==0 && err==ESP_OK)?0:1;
-}
+// 	if(rotary_args.timer->count>0 && rotary_args.timer->ival[0]<0){
+// 		fprintf(f,"error: knob only timer should be greater than or equal to zero.\n");
+// 		nerrors++;
+// 	}
+// 	else {
+// 		rotary.timer = rotary_args.timer->count>0?rotary_args.timer->ival[0]:0;
+// 	}
+// 	rotary.knobonly = rotary_args.knobonly->count>0;
+// 	rotary.volume_lock= rotary_args.volume_lock->count>0;
+// 	rotary.longpress = rotary_args.longpress->count>0;
+// 	if(!nerrors ){
+// 		fprintf(f,"Storing rotary parameters.\n");
+// 		nerrors+=(config_rotary_set(&rotary )!=ESP_OK);
+// 	}
+// 	if(!nerrors ){
+// 		fprintf(f,"Storing raw mode parameter.\n");
+// 		// nerrors+=(config_set_value(NVS_TYPE_STR, "lms_ctrls_raw", rotary_args.raw_mode->count>0?"Y":"N")!=ESP_OK);
+// 		if(nerrors>0){
+// 			fprintf(f,"error: Unable to store raw mode parameter.\n");
+// 		}
+// 	}	
+// 	if(!nerrors ){
+// 		fprintf(f,"Done.\n");
+// 	}
+// 	fflush (f);
+// 	cmd_send_messaging(argv[0],nerrors>0?MESSAGING_ERROR:MESSAGING_INFO,"%s", buf);
+// 	fclose(f);
+// 	FREE_AND_NULL(buf);
+// 	return (nerrors==0 && err==ESP_OK)?0:1;
+// }
 static int is_valid_gpio_number(int gpio, const char * name, FILE *f, bool mandatory, struct arg_int * target, bool output){
 	bool invalid = (!GPIO_IS_VALID_GPIO(gpio) ||(output && !GPIO_IS_VALID_OUTPUT_GPIO(gpio))) ;
 	if(invalid && mandatory && gpio!=-1){
@@ -644,39 +672,40 @@ static int do_cspot_config(int argc, char **argv){
 		return 1;
 	}
 
-	cJSON * cspot_config = config_alloc_get_cjson("cspot_config");
-	if(!cspot_config){
-		nerrors++;
-		fprintf(f,"error: Unable to get default cspot config.\n");
-	}
-	if(cspot_args.deviceName->count>0){
-		cjson_update_string(&cspot_config,cspot_args.deviceName->hdr.longopts,cspot_args.deviceName->sval[0]);
-	}
-	if(cspot_args.bitrate->count>0){
-		cjson_update_number(&cspot_config,cspot_args.bitrate->hdr.longopts,cspot_args.bitrate->ival[0]);
-	}	
-    if(cspot_args.zeroConf->count>0){
-		cjson_update_number(&cspot_config,cspot_args.zeroConf->hdr.longopts,cspot_args.zeroConf->ival[0]);
-	}	
+	// cJSON * cspot_config = config_alloc_get_cjson("cspot_config");
+	// if(!cspot_config){
+	// 	nerrors++;
+	// 	fprintf(f,"error: Unable to get default cspot config.\n");
+	// }
+	// if(cspot_args.deviceName->count>0){
+	// 	cjson_update_string(&cspot_config,cspot_args.deviceName->hdr.longopts,cspot_args.deviceName->sval[0]);
+	// }
+	// if(cspot_args.bitrate->count>0){
+	// 	cjson_update_number(&cspot_config,cspot_args.bitrate->hdr.longopts,cspot_args.bitrate->ival[0]);
+	// }	
+    // if(cspot_args.zeroConf->count>0){
+	// 	cjson_update_number(&cspot_config,cspot_args.zeroConf->hdr.longopts,cspot_args.zeroConf->ival[0]);
+	// }	
 	
-	if(!nerrors ){
-		fprintf(f,"Storing cspot parameters.\n");
-		nerrors+=(config_set_cjson_str_and_free("cspot_config",cspot_config) !=ESP_OK);
-	}
-	if(nerrors==0 ){
-		if(cspot_args.deviceName->count>0){
-			fprintf(f,"Device name changed to %s\n",cspot_args.deviceName->sval[0]);
-		}
-		if(cspot_args.bitrate->count>0){
-			fprintf(f,"Bitrate changed to %u\n",cspot_args.bitrate->ival[0]);
-		}
-        if(cspot_args.zeroConf->count>0){
-			fprintf(f,"ZeroConf changed to %u\n",cspot_args.zeroConf->ival[0]);
-		}
-	}
-	if(!nerrors ){
-		fprintf(f,"Done.\n");
-	}
+	// if(!nerrors ){
+	// 	fprintf(f,"Storing cspot parameters.\n");
+	// 	nerrors+=(config_set_cjson_str_and_free("cspot_config",cspot_config) !=ESP_OK);
+	// }
+	// if(nerrors==0 ){
+	// 	if(cspot_args.deviceName->count>0){
+	// 		fprintf(f,"Device name changed to %s\n",cspot_args.deviceName->sval[0]);
+	// 	}
+	// 	if(cspot_args.bitrate->count>0){
+	// 		fprintf(f,"Bitrate changed to %u\n",cspot_args.bitrate->ival[0]);
+	// 	}
+    //     if(cspot_args.zeroConf->count>0){
+	// 		fprintf(f,"ZeroConf changed to %u\n",cspot_args.zeroConf->ival[0]);
+	// 	}
+	// }
+	// if(!nerrors ){
+	// 	fprintf(f,"Done.\n");
+	// }
+	// TODO: Add support for the commented code
 	fflush (f);
 	cmd_send_messaging(argv[0],nerrors>0?MESSAGING_ERROR:MESSAGING_INFO,"%s", buf);
 	fclose(f);
@@ -685,121 +714,119 @@ static int do_cspot_config(int argc, char **argv){
 }
 #endif
 
-static int do_ledvu_cmd(int argc, char **argv){
-	ledvu_struct_t ledvu={  .type = "WS2812", .gpio = -1, .length = 0};
-	esp_err_t err=ESP_OK;
-	int nerrors = arg_parse(argc, argv,(void **)&ledvu_args);
-	if (ledvu_args.clear->count) {
-		cmd_send_messaging(argv[0],MESSAGING_WARNING,"ledvu config cleared\n");
-		config_set_value(NVS_TYPE_STR, "led_vu_config", "");
-		return 0;
-	}
+// static int do_ledvu_cmd(int argc, char **argv){
+// 	ledvu_struct_t ledvu={  .type = "WS2812", .gpio = -1, .length = 0};
+// 	esp_err_t err=ESP_OK;
+// 	int nerrors = arg_parse(argc, argv,(void **)&ledvu_args);
+// 	if (ledvu_args.clear->count) {
+// 		cmd_send_messaging(argv[0],MESSAGING_WARNING,"ledvu config cleared\n");
+// 		// config_set_value(NVS_TYPE_STR, "led_vu_config", "");
+// 				// TODO: Add support for the commented code
+// 		return 0;
+// 	}
 
-	char *buf = NULL;
-	size_t buf_size = 0;
-	FILE *f = system_open_memstream(argv[0],&buf, &buf_size);
-	if (f == NULL) {
-		return 1;
-	}
-	if(nerrors >0){
-		arg_print_errors(f,ledvu_args.end,desc_ledvu);
-		return 1;
-	}
+// 	char *buf = NULL;
+// 	size_t buf_size = 0;
+// 	FILE *f = system_open_memstream(argv[0],&buf, &buf_size);
+// 	if (f == NULL) {
+// 		return 1;
+// 	}
+// 	if(nerrors >0){
+// 		arg_print_errors(f,ledvu_args.end,desc_ledvu);
+// 		return 1;
+// 	}
 
-	nerrors+=is_output_gpio(ledvu_args.gpio, f, &ledvu.gpio, true);
+// 	nerrors+=is_output_gpio(ledvu_args.gpio, f, &ledvu.gpio, true);
 	
-	if(ledvu_args.length->count==0 || ledvu_args.length->ival[0]<1 || ledvu_args.length->ival[0]>255){
-		fprintf(f,"error: strip length must be greater than 0 and no more than 255\n");
-		nerrors++;
-	}
-	else {
-		ledvu.length = ledvu_args.length->count>0?ledvu_args.length->ival[0]:0;
-	}
+// 	if(ledvu_args.length->count==0 || ledvu_args.length->ival[0]<1 || ledvu_args.length->ival[0]>255){
+// 		fprintf(f,"error: strip length must be greater than 0 and no more than 255\n");
+// 		nerrors++;
+// 	}
+// 	else {
+// 		ledvu.length = ledvu_args.length->count>0?ledvu_args.length->ival[0]:0;
+// 	}
 	
-	if(!nerrors ){
-		fprintf(f,"Storing ledvu parameters.\n");
-		nerrors+=(config_ledvu_set(&ledvu )!=ESP_OK);
-	}
-	if(!nerrors ){
-		fprintf(f,"Done.\n");
-	}
-	fflush (f);
-	cmd_send_messaging(argv[0],nerrors>0?MESSAGING_ERROR:MESSAGING_INFO,"%s", buf);
-	fclose(f);
-	FREE_AND_NULL(buf);
-	return (nerrors==0 && err==ESP_OK)?0:1;
-}
+// 	if(!nerrors ){
+// 		fprintf(f,"Storing ledvu parameters.\n");
+// 		nerrors+=(config_ledvu_set(&ledvu )!=ESP_OK);
+// 	}
+// 	if(!nerrors ){
+// 		fprintf(f,"Done.\n");
+// 	}
+// 	fflush (f);
+// 	cmd_send_messaging(argv[0],nerrors>0?MESSAGING_ERROR:MESSAGING_INFO,"%s", buf);
+// 	fclose(f);
+// 	FREE_AND_NULL(buf);
+// 	return (nerrors==0 && err==ESP_OK)?0:1;
+// }
 
-static int do_i2s_cmd(int argc, char **argv)
-{
-	i2s_platform_config_t i2s_dac_pin = {
-		.i2c_addr = -1,
-		.sda= -1,
-		.scl = -1,
-		.mute_gpio = -1,
-		.mute_level = -1
-	};
-	if(is_dac_config_locked()){
-		cmd_send_messaging(argv[0],MESSAGING_ERROR,"DAC Configuration is locked on this platform\n");
-		return 1;
-	}
+// static int do_i2s_cmd(int argc, char **argv)
+// {
+// 	i2s_platform_config_t i2s_dac_pin = {
+// 		.i2c_addr = -1,
+// 		.sda= -1,
+// 		.scl = -1,
+// 		.mute_gpio = -1,
+// 		.mute_level = -1
+// 	};
 
-	ESP_LOGD(TAG,"Processing i2s command %s with %d parameters",argv[0],argc);
+// 	ESP_LOGD(TAG,"Processing i2s command %s with %d parameters",argv[0],argc);
 
-	esp_err_t err=ESP_OK;
-	int nerrors = arg_parse(argc, argv,(void **)&i2s_args);
-	if (i2s_args.clear->count) {
-		cmd_send_messaging(argv[0],MESSAGING_WARNING,"DAC config cleared\n");
-		config_set_value(NVS_TYPE_STR, "dac_config", "");
-		return 0;
-	}
+// 	esp_err_t err=ESP_OK;
+// 	int nerrors = arg_parse(argc, argv,(void **)&i2s_args);
+// 	// if (i2s_args.clear->count) {
+// 	// 	cmd_send_messaging(argv[0],MESSAGING_WARNING,"DAC config cleared\n");
+// 	// 	// config_set_value(NVS_TYPE_STR, "dac_config", "");
+// 	// 			// TODO: Add support for the commented code
+// 	// 	return 0;
+// 	// }
 
-	char *buf = NULL;
-	size_t buf_size = 0;
-	FILE *f = system_open_memstream(argv[0],&buf, &buf_size);
-	if (f == NULL) {
-		return 1;
-	}
-	if(nerrors >0){
-		ESP_LOGE(TAG,"do_i2s_cmd: %d errors parsing arguments",nerrors);
-		arg_print_errors(f,i2s_args.end,desc_dac);
-	}
-	else {
-		strncpy(i2s_dac_pin.model,i2s_args.model_name->sval[0],sizeof(i2s_dac_pin.model));
-		i2s_dac_pin.model[sizeof(i2s_dac_pin.model) - 1] = '\0';
-		nerrors += is_output_gpio(i2s_args.clock, f, &i2s_dac_pin.pin.bck_io_num, true);
-		nerrors += is_output_gpio(i2s_args.wordselect, f, &i2s_dac_pin.pin.ws_io_num, true);
-		nerrors += is_output_gpio(i2s_args.data, f, &i2s_dac_pin.pin.data_out_num, true);
-		nerrors += is_output_gpio(i2s_args.mute_gpio, f, &i2s_dac_pin.mute_gpio, false);
-		if (i2s_dac_pin.mute_gpio >= 0) {
-			i2s_dac_pin.mute_level = i2s_args.mute_level->count > 0 ? 1 : 0;
-		}
-		if (i2s_args.dac_sda->count > 0 && i2s_args.dac_sda->ival[0] >= 0) {
-			// if SDA specified, then SDA and SCL are both mandatory
-			nerrors += is_output_gpio(i2s_args.dac_sda, f, &i2s_dac_pin.sda, false);
-			nerrors += is_output_gpio(i2s_args.dac_scl, f, &i2s_dac_pin.scl, false);
-		}
-		if (i2s_args.dac_sda->count == 0 && i2s_args.dac_i2c->count > 0) {
-			fprintf(f, "warning: ignoring i2c address, since dac i2c gpios config is incomplete\n");
-		} else if (i2s_args.dac_i2c->count > 0) {
-			i2s_dac_pin.i2c_addr = i2s_args.dac_i2c->ival[0];
-		}
+// 	// char *buf = NULL;
+// 	// size_t buf_size = 0;
+// 	// FILE *f = system_open_memstream(argv[0],&buf, &buf_size);
+// 	// if (f == NULL) {
+// 	// 	return 1;
+// 	// }
+// 	// if(nerrors >0){
+// 	// 	ESP_LOGE(TAG,"do_i2s_cmd: %d errors parsing arguments",nerrors);
+// 	// 	arg_print_errors(f,i2s_args.end,desc_dac);
+// 	// }
+// 	// else {
+// 	// 	strncpy(i2s_dac_pin.model,i2s_args.model_name->sval[0],sizeof(i2s_dac_pin.model));
+// 	// 	i2s_dac_pin.model[sizeof(i2s_dac_pin.model) - 1] = '\0';
+// 	// 	nerrors += is_output_gpio(i2s_args.clock, f, &i2s_dac_pin.pin.bck_io_num, true);
+// 	// 	nerrors += is_output_gpio(i2s_args.wordselect, f, &i2s_dac_pin.pin.ws_io_num, true);
+// 	// 	nerrors += is_output_gpio(i2s_args.data, f, &i2s_dac_pin.pin.data_out_num, true);
+// 	// 	nerrors += is_output_gpio(i2s_args.mute_gpio, f, &i2s_dac_pin.mute_gpio, false);
+// 	// 	if (i2s_dac_pin.mute_gpio >= 0) {
+// 	// 		i2s_dac_pin.mute_level = i2s_args.mute_level->count > 0 ? 1 : 0;
+// 	// 	}
+// 	// 	if (i2s_args.dac_sda->count > 0 && i2s_args.dac_sda->ival[0] >= 0) {
+// 	// 		// if SDA specified, then SDA and SCL are both mandatory
+// 	// 		nerrors += is_output_gpio(i2s_args.dac_sda, f, &i2s_dac_pin.sda, false);
+// 	// 		nerrors += is_output_gpio(i2s_args.dac_scl, f, &i2s_dac_pin.scl, false);
+// 	// 	}
+// 	// 	if (i2s_args.dac_sda->count == 0 && i2s_args.dac_i2c->count > 0) {
+// 	// 		fprintf(f, "warning: ignoring i2c address, since dac i2c gpios config is incomplete\n");
+// 	// 	} else if (i2s_args.dac_i2c->count > 0) {
+// 	// 		i2s_dac_pin.i2c_addr = i2s_args.dac_i2c->ival[0];
+// 	// 	}
 
-		if (!nerrors) {
-			fprintf(f, "Storing i2s parameters.\n");
-			nerrors += (config_i2s_set(&i2s_dac_pin, "dac_config") != ESP_OK);
-		}
-	}
-	if(!nerrors ){
-		fprintf(f,"Done.\n");
-	}
-	fflush (f);
-	cmd_send_messaging(argv[0],nerrors>0?MESSAGING_ERROR:MESSAGING_INFO,"%s", buf);
-	fclose(f);
-	FREE_AND_NULL(buf);
+// 	// 	if (!nerrors) {
+// 	// 		fprintf(f, "Storing i2s parameters.\n");
+// 	// 		nerrors += (config_i2s_set(&i2s_dac_pin, "dac_config") != ESP_OK);
+// 	// 	}
+// 	// }
+// 	// if(!nerrors ){
+// 	// 	fprintf(f,"Done.\n");
+// 	// }
+// 	// fflush (f);
+// 	// cmd_send_messaging(argv[0],nerrors>0?MESSAGING_ERROR:MESSAGING_INFO,"%s", buf);
+// 	// fclose(f);
+// 	// FREE_AND_NULL(buf);
 
-	return (nerrors==0 && err==ESP_OK)?0:1;
-}
+// 	return (nerrors==0 && err==ESP_OK)?0:1;
+// }
 
 cJSON * example_cb(){
 	cJSON * values = cJSON_CreateObject();
@@ -822,17 +849,18 @@ cJSON * example_cb(){
 
 cJSON * known_model_cb(){
 	cJSON * values = cJSON_CreateObject();
-	if(!values){
-		ESP_LOGE(TAG,"known_model_cb: Failed to create JSON object");
-		return NULL;
-	}
-	char * name = config_alloc_get_default(NVS_TYPE_STR,known_model_args.model_config->hdr.longopts,"",0);
-	if(!name){
-		ESP_LOGE(TAG,"Failed to get board model from nvs key %s ",known_model_args.model_config->hdr.longopts);
-	}
-	else {
-		cJSON_AddStringToObject(values,known_model_args.model_config->hdr.longopts,name);
-	}
+	// if(!values){
+	// 	ESP_LOGE(TAG,"known_model_cb: Failed to create JSON object");
+	// 	return NULL;
+	// }
+	// char * name = config_alloc_get_default(NVS_TYPE_STR,known_model_args.model_config->hdr.longopts,"",0);
+	// if(!name){
+	// 	ESP_LOGE(TAG,"Failed to get board model from nvs key %s ",known_model_args.model_config->hdr.longopts);
+	// }
+	// else {
+	// 	cJSON_AddStringToObject(values,known_model_args.model_config->hdr.longopts,name);
+	// }
+	// TODO: Add support for the commented code
 	return values;
 }
 #ifdef CONFIG_CSPOT_SINK
@@ -842,174 +870,170 @@ cJSON * cspot_cb(){
 		ESP_LOGE(TAG,"cspot_cb: Failed to create JSON object");
 		return NULL;
 	}
-	cJSON * cspot_config = config_alloc_get_cjson("cspot_config");
-	if(!cspot_config){
-		ESP_LOGE(TAG,"cspot_cb: Failed to get cspot config");
-		return NULL;
-	}
-	cJSON * cspot_values = cJSON_GetObjectItem(cspot_config,cspot_args.deviceName->hdr.longopts);
-	if(cspot_values){
-		cJSON_AddStringToObject(values,cspot_args.deviceName->hdr.longopts,cJSON_GetStringValue(cspot_values));
-	}
-	cspot_values = cJSON_GetObjectItem(cspot_config,cspot_args.bitrate->hdr.longopts);
-	if(cspot_values){
-		cJSON_AddNumberToObject(values,cspot_args.bitrate->hdr.longopts,cJSON_GetNumberValue(cspot_values));
-	}
-    cspot_values = cJSON_GetObjectItem(cspot_config,cspot_args.zeroConf->hdr.longopts);
-	if(cspot_values){
-		cJSON_AddNumberToObject(values,cspot_args.zeroConf->hdr.longopts,cJSON_GetNumberValue(cspot_values));
-	}
+	// cJSON * cspot_config = config_alloc_get_cjson("cspot_config");
+	// if(!cspot_config){
+	// 	ESP_LOGE(TAG,"cspot_cb: Failed to get cspot config");
+	// 	return NULL;
+	// }
+	// cJSON * cspot_values = cJSON_GetObjectItem(cspot_config,cspot_args.deviceName->hdr.longopts);
+	// if(cspot_values){
+	// 	cJSON_AddStringToObject(values,cspot_args.deviceName->hdr.longopts,cJSON_GetStringValue(cspot_values));
+	// }
+	// cspot_values = cJSON_GetObjectItem(cspot_config,cspot_args.bitrate->hdr.longopts);
+	// if(cspot_values){
+	// 	cJSON_AddNumberToObject(values,cspot_args.bitrate->hdr.longopts,cJSON_GetNumberValue(cspot_values));
+	// }
+    // cspot_values = cJSON_GetObjectItem(cspot_config,cspot_args.zeroConf->hdr.longopts);
+	// if(cspot_values){
+	// 	cJSON_AddNumberToObject(values,cspot_args.zeroConf->hdr.longopts,cJSON_GetNumberValue(cspot_values));
+	// }
 
-	cJSON_Delete(cspot_config);
+	// cJSON_Delete(cspot_config);
+	// TODO: Add support for the commented code
 	return values;
 }
 #endif
-cJSON * i2s_cb(){
-	cJSON * values = cJSON_CreateObject();
+// cJSON * i2s_cb(){
+// 	cJSON * values = cJSON_CreateObject();
 
-	const i2s_platform_config_t * i2s_conf= 	config_dac_get( );
-#if defined(CONFIG_WITH_METRICS)
-	metrics_add_feature("i2s",i2s_conf->pin.data_out_num>=0);
-#endif	
-	if(i2s_conf->pin.bck_io_num>0 ) {
-		cJSON_AddNumberToObject(values,i2s_args.clock->hdr.longopts,i2s_conf->pin.bck_io_num);
-	}
-	if(i2s_conf->pin.ws_io_num>=0 ) {
-		cJSON_AddNumberToObject(values,i2s_args.wordselect->hdr.longopts,i2s_conf->pin.ws_io_num);
-	}
-	if(i2s_conf->pin.data_out_num>=0 ) {
-		cJSON_AddNumberToObject(values,i2s_args.data->hdr.longopts,i2s_conf->pin.data_out_num);
-	}
-	if(i2s_conf->sda>=0 ) {
-		cJSON_AddNumberToObject(values,i2s_args.dac_sda->hdr.longopts,i2s_conf->sda);
-	}
-	if(i2s_conf->scl>=0 ) {
-		cJSON_AddNumberToObject(values,i2s_args.dac_scl->hdr.longopts,i2s_conf->scl);
-	}	
-	if(i2s_conf->i2c_addr>=0 ) {
-		cJSON_AddNumberToObject(values,i2s_args.dac_i2c->hdr.longopts,i2s_conf->i2c_addr);
-	}		
-	if(i2s_conf->mute_gpio>=0 ) {
-		cJSON_AddNumberToObject(values,i2s_args.mute_gpio->hdr.longopts,i2s_conf->mute_gpio);
-	}		
-	if(i2s_conf->mute_level>=0 ) {
-		cJSON_AddBoolToObject(values,i2s_args.mute_level->hdr.longopts,i2s_conf->mute_level>0);
-	}		
-	if(strlen(i2s_conf->model)>0){
-		cJSON_AddStringToObject(values,i2s_args.model_name->hdr.longopts,i2s_conf->model);
-	}
-	else {
-		cJSON_AddStringToObject(values,i2s_args.model_name->hdr.longopts,"I2S");
-	}
+// 	const i2s_platform_config_t * i2s_conf= 	config_dac_get( );
+// #if defined(CONFIG_WITH_METRICS)
+// 	metrics_add_feature("i2s",i2s_conf->pin.data_out_num>=0);
+// #endif	
+// 	if(i2s_conf->pin.bck_io_num>0 ) {
+// 		cJSON_AddNumberToObject(values,i2s_args.clock->hdr.longopts,i2s_conf->pin.bck_io_num);
+// 	}
+// 	if(i2s_conf->pin.ws_io_num>=0 ) {
+// 		cJSON_AddNumberToObject(values,i2s_args.wordselect->hdr.longopts,i2s_conf->pin.ws_io_num);
+// 	}
+// 	if(i2s_conf->pin.data_out_num>=0 ) {
+// 		cJSON_AddNumberToObject(values,i2s_args.data->hdr.longopts,i2s_conf->pin.data_out_num);
+// 	}
+// 	if(i2s_conf->sda>=0 ) {
+// 		cJSON_AddNumberToObject(values,i2s_args.dac_sda->hdr.longopts,i2s_conf->sda);
+// 	}
+// 	if(i2s_conf->scl>=0 ) {
+// 		cJSON_AddNumberToObject(values,i2s_args.dac_scl->hdr.longopts,i2s_conf->scl);
+// 	}	
+// 	if(i2s_conf->i2c_addr>=0 ) {
+// 		cJSON_AddNumberToObject(values,i2s_args.dac_i2c->hdr.longopts,i2s_conf->i2c_addr);
+// 	}		
+// 	if(i2s_conf->mute_gpio>=0 ) {
+// 		cJSON_AddNumberToObject(values,i2s_args.mute_gpio->hdr.longopts,i2s_conf->mute_gpio);
+// 	}		
+// 	if(i2s_conf->mute_level>=0 ) {
+// 		cJSON_AddBoolToObject(values,i2s_args.mute_level->hdr.longopts,i2s_conf->mute_level>0);
+// 	}		
+// 	if(strlen(i2s_conf->model)>0){
+// 		cJSON_AddStringToObject(values,i2s_args.model_name->hdr.longopts,i2s_conf->model);
+// 	}
+// 	else {
+// 		cJSON_AddStringToObject(values,i2s_args.model_name->hdr.longopts,"I2S");
+// 	}
 	
-	return values;
-}
-cJSON * spdif_cb(){
-	cJSON * values = cJSON_CreateObject();
-	const i2s_platform_config_t * spdif_conf= 	config_spdif_get( );
-	if(spdif_conf->pin.data_out_num>=0) {
-#if defined(CONFIG_WITH_METRICS)		
-		metrics_add_feature("spdif","enabled");
-#endif
-	}
-	if(spdif_conf->pin.bck_io_num>0 ) {
-		cJSON_AddNumberToObject(values,"clock",spdif_conf->pin.bck_io_num);
-	}
-	if(spdif_conf->pin.ws_io_num>=0 ) {
-		cJSON_AddNumberToObject(values,"wordselect",spdif_conf->pin.ws_io_num);
-	}
-	if(spdif_conf->pin.data_out_num>=0 ) {
-		cJSON_AddNumberToObject(values,"data",spdif_conf->pin.data_out_num);
-	}
+// 	return values;
+// }
+// cJSON * spdif_cb(){
+// 	cJSON * values = cJSON_CreateObject();
+// 	const i2s_platform_config_t * spdif_conf= 	config_spdif_get( );
+// 	if(spdif_conf->pin.data_out_num>=0) {
+// #if defined(CONFIG_WITH_METRICS)		
+// 		metrics_add_feature("spdif","enabled");
+// #endif
+// 	}
+// 	if(spdif_conf->pin.bck_io_num>0 ) {
+// 		cJSON_AddNumberToObject(values,"clock",spdif_conf->pin.bck_io_num);
+// 	}
+// 	if(spdif_conf->pin.ws_io_num>=0 ) {
+// 		cJSON_AddNumberToObject(values,"wordselect",spdif_conf->pin.ws_io_num);
+// 	}
+// 	if(spdif_conf->pin.data_out_num>=0 ) {
+// 		cJSON_AddNumberToObject(values,"data",spdif_conf->pin.data_out_num);
+// 	}
 		
-	return values;
-}
-cJSON * rotary_cb(){
-	cJSON * values = cJSON_CreateObject();
-	char *p = config_alloc_get_default(NVS_TYPE_STR, "lms_ctrls_raw", "n", 0);
-	bool raw_mode = p && (*p == '1' || *p == 'Y' || *p == 'y');
-	free(p);
-	const rotary_struct_t *rotary= config_rotary_get();
-#if defined(CONFIG_WITH_METRICS)	
-	metrics_add_feature("rotary",GPIO_IS_VALID_GPIO(rotary->A ));
-#endif
-	if(GPIO_IS_VALID_GPIO(rotary->A ) && rotary->A>=0 && GPIO_IS_VALID_GPIO(rotary->B) && rotary->B>=0){
-		cJSON_AddNumberToObject(values,rotary_args.A->hdr.longopts,rotary->A);
-		cJSON_AddNumberToObject(values,rotary_args.B->hdr.longopts,rotary->B);
-		if(GPIO_IS_VALID_GPIO(rotary->SW ) && rotary->SW>=0 ){
-			cJSON_AddNumberToObject(values,rotary_args.SW->hdr.longopts,rotary->SW);
-		}
-		cJSON_AddBoolToObject(values,rotary_args.volume_lock->hdr.longopts,rotary->volume_lock);
-		cJSON_AddBoolToObject(values,rotary_args.longpress->hdr.longopts,rotary->longpress);
-		cJSON_AddBoolToObject(values,rotary_args.knobonly->hdr.longopts,rotary->knobonly);
-		cJSON_AddNumberToObject(values,rotary_args.timer->hdr.longopts,rotary->timer);
-		cJSON_AddNumberToObject(values,rotary_args.raw_mode->hdr.longopts,raw_mode);
-	}
-	return values;
-}
+// 	return values;
+// }
+// cJSON * rotary_cb(){
+// 	cJSON * values = cJSON_CreateObject();
+	// char *p = config_alloc_get_default(NVS_TYPE_STR, "lms_ctrls_raw", "n", 0);
+	// bool raw_mode = p && (*p == '1' || *p == 'Y' || *p == 'y');
+	// free(p);
+// 	const rotary_struct_t *rotary= config_rotary_get();
+// #if defined(CONFIG_WITH_METRICS)	
+// 	metrics_add_feature("rotary",GPIO_IS_VALID_GPIO(rotary->A ));
+// #endif
+// 	if(GPIO_IS_VALID_GPIO(rotary->A ) && rotary->A>=0 && GPIO_IS_VALID_GPIO(rotary->B) && rotary->B>=0){
+// 		cJSON_AddNumberToObject(values,rotary_args.A->hdr.longopts,rotary->A);
+// 		cJSON_AddNumberToObject(values,rotary_args.B->hdr.longopts,rotary->B);
+// 		if(GPIO_IS_VALID_GPIO(rotary->SW ) && rotary->SW>=0 ){
+// 			cJSON_AddNumberToObject(values,rotary_args.SW->hdr.longopts,rotary->SW);
+// 		}
+// 		cJSON_AddBoolToObject(values,rotary_args.volume_lock->hdr.longopts,rotary->volume_lock);
+// 		cJSON_AddBoolToObject(values,rotary_args.longpress->hdr.longopts,rotary->longpress);
+// 		cJSON_AddBoolToObject(values,rotary_args.knobonly->hdr.longopts,rotary->knobonly);
+// 		cJSON_AddNumberToObject(values,rotary_args.timer->hdr.longopts,rotary->timer);
+// 		cJSON_AddNumberToObject(values,rotary_args.raw_mode->hdr.longopts,raw_mode);
+// 	}
+	// TODO: Add support for the commented code
+// 	return values;
+// }
 
-cJSON * ledvu_cb(){
-	cJSON * values = cJSON_CreateObject();
-	const ledvu_struct_t *ledvu= config_ledvu_get();
-	if(GPIO_IS_VALID_GPIO(ledvu->gpio )){
-#if defined(CONFIG_WITH_METRICS)
-		metrics_add_feature("led_vu","enabled");
-#endif
-	}
-	if(GPIO_IS_VALID_GPIO(ledvu->gpio) && ledvu->gpio>=0 && ledvu->length > 0){
-		cJSON_AddNumberToObject(values,"gpio",ledvu->gpio);
-		cJSON_AddNumberToObject(values,"length",ledvu->length);
-	}
-	if(strlen(ledvu->type)>0){
-		cJSON_AddStringToObject(values,"type",ledvu->type);
-	}
-	else {
-		cJSON_AddStringToObject(values,"type","WS2812");
-	}
-	return values;
-}
+// cJSON * ledvu_cb(){
+// 	cJSON * values = cJSON_CreateObject();
+// 	const ledvu_struct_t *ledvu= config_ledvu_get();
+// 	if(GPIO_IS_VALID_GPIO(ledvu->gpio )){
+// #if defined(CONFIG_WITH_METRICS)
+// 		metrics_add_feature("led_vu","enabled");
+// #endif
+// 	}
+// 	if(GPIO_IS_VALID_GPIO(ledvu->gpio) && ledvu->gpio>=0 && ledvu->length > 0){
+// 		cJSON_AddNumberToObject(values,"gpio",ledvu->gpio);
+// 		cJSON_AddNumberToObject(values,"length",ledvu->length);
+// 	}
+// 	if(strlen(ledvu->type)>0){
+// 		cJSON_AddStringToObject(values,"type",ledvu->type);
+// 	}
+// 	else {
+// 		cJSON_AddStringToObject(values,"type","WS2812");
+// 	}
+// 	return values;
+// }
 
 cJSON * audio_cb(){
 	cJSON * values = cJSON_CreateObject();
-	char * 	p = config_alloc_get_default(NVS_TYPE_STR, "jack_mutes_amp", "n", 0);
-    cJSON_AddStringToObject(values,"jack_behavior",(strcmp(p,"1") == 0 ||strcasecmp(p,"y") == 0)?"Headphones":"Subwoofer");
-#if defined(CONFIG_WITH_METRICS)
-	metrics_add_feature("jack_mute",atoi(p)>=0);
-#endif
-    FREE_AND_NULL(p);
-    p = config_alloc_get_default(NVS_TYPE_STR, "loudness", "0", 0);
-#if defined(CONFIG_WITH_METRICS)
-	metrics_add_feature("loudness",atoi(p)>=0);
-#endif
-    cJSON_AddStringToObject(values,"loudness",p);
-    FREE_AND_NULL(p);     
+// 	char * 	p = config_alloc_get_default(NVS_TYPE_STR, "jack_mutes_amp", "n", 0);
+//     cJSON_AddStringToObject(values,"jack_behavior",(strcmp(p,"1") == 0 ||strcasecmp(p,"y") == 0)?"Headphones":"Subwoofer");
+// #if defined(CONFIG_WITH_METRICS)
+// 	metrics_add_feature("jack_mute",atoi(p)>=0);
+// #endif
+//     FREE_AND_NULL(p);
+//     p = config_alloc_get_default(NVS_TYPE_STR, "loudness", "0", 0);
+// #if defined(CONFIG_WITH_METRICS)
+// 	metrics_add_feature("loudness",atoi(p)>=0);
+// #endif
+//     cJSON_AddStringToObject(values,"loudness",p);
+//     FREE_AND_NULL(p);     
+		// TODO: Add support for the commented code
 	return values;
 }
 cJSON * bt_source_cb(){
 	cJSON * values = cJSON_CreateObject();
-	char * 	p = config_alloc_get_default(NVS_TYPE_STR, "a2dp_sink_name", NULL, 0);
-	if(p){
-		cJSON_AddStringToObject(values,"sink_name",p);
-#if defined(CONFIG_WITH_METRICS)
-		metrics_add_feature("btsource",strlen(p)>0);		
-#endif
-	}
-	FREE_AND_NULL(p);    
-	// p = config_alloc_get_default(NVS_TYPE_STR, "a2dp_ctmt", NULL, 0);
-	// if(p){
-	// 	cJSON_AddNumberToObject(values,"connect_timeout_delay",((double)atoi(p)/1000.0));
-	// }
-	// FREE_AND_NULL(p);   
-	p = config_alloc_get_default(NVS_TYPE_STR, "a2dp_spin", "0000", 0);
-	if(p){
-		cJSON_AddStringToObject(values,"pin_code",p);
-	}
-	FREE_AND_NULL(p);   
-	// p = config_alloc_get_default(NVS_TYPE_STR, "a2dp_ctrld", NULL, 0);
-	// if(p){
-	// 	cJSON_AddNumberToObject(values,"control_delay",((double)atoi(p)/1000.0));
-	// }
-	// FREE_AND_NULL(p);   
+	// TODO: Add support for the commented code
+// 	char * 	p = config_alloc_get_default(NVS_TYPE_STR, "a2dp_sink_name", NULL, 0);
+// 	if(p){
+// 		cJSON_AddStringToObject(values,"sink_name",p);
+// #if defined(CONFIG_WITH_METRICS)
+// 		metrics_add_feature("btsource",strlen(p)>0);		
+// #endif
+// 	}
+// 	FREE_AND_NULL(p);    
+
+// 	p = config_alloc_get_default(NVS_TYPE_STR, "a2dp_spin", "0000", 0);
+// 	if(p){
+// 		cJSON_AddStringToObject(values,"pin_code",p);
+// 	}
+// 	FREE_AND_NULL(p);   
+
 	return values;
 }
 
@@ -1058,69 +1082,70 @@ static int do_squeezelite_cmd(int argc, char **argv)
 
 cJSON * squeezelite_cb(){
 	cJSON * values = cJSON_CreateObject();
-	char * nvs_config= config_alloc_get(NVS_TYPE_STR, "autoexec1");
-	char **argv = NULL;
-	char *buf = NULL;
-	size_t buf_size = 0;
-    int nerrors=1;
-	FILE *f = system_open_memstream(argv[0],&buf, &buf_size);
-	if (f == NULL) {
-		return values;
-	}
+// 	char * nvs_config= config_alloc_get(NVS_TYPE_STR, "autoexec1");
+// 	char **argv = NULL;
+// 	char *buf = NULL;
+// 	size_t buf_size = 0;
+//     int nerrors=1;
+// 	FILE *f = system_open_memstream(argv[0],&buf, &buf_size);
+// 	if (f == NULL) {
+// 		return values;
+// 	}
 
-	if(nvs_config && strlen(nvs_config)>0){
-		ESP_LOGD(TAG,"Parsing command %s",nvs_config);
-		argv = (char **) calloc(22, sizeof(char *));
-		if (argv == NULL) {
-			FREE_AND_NULL(nvs_config);
-			fclose(f);
-			return values;
-		}
-		size_t argc = esp_console_split_argv(nvs_config, argv,22);
-		if (argc != 0) {
-			nerrors = arg_parse(argc, argv,(void **)&squeezelite_args);
-			ESP_LOGD(TAG,"Parsing completed");
-		}
-	}
-	if (nerrors == 0) {
-		get_str_parm_json(squeezelite_args.buffers, values);
-		get_str_parm_json(squeezelite_args.codecs, values);
-		get_lit_parm_json(squeezelite_args.header_format, values);
-		get_str_parm_json(squeezelite_args.log_level, values);
+// 	if(nvs_config && strlen(nvs_config)>0){
+// 		ESP_LOGD(TAG,"Parsing command %s",nvs_config);
+// 		argv = (char **) calloc(22, sizeof(char *));
+// 		if (argv == NULL) {
+// 			FREE_AND_NULL(nvs_config);
+// 			fclose(f);
+// 			return values;
+// 		}
+// 		size_t argc = esp_console_split_argv(nvs_config, argv,22);
+// 		if (argc != 0) {
+// 			nerrors = arg_parse(argc, argv,(void **)&squeezelite_args);
+// 			ESP_LOGD(TAG,"Parsing completed");
+// 		}
+// 	}
+// 	if (nerrors == 0) {
+// 		get_str_parm_json(squeezelite_args.buffers, values);
+// 		get_str_parm_json(squeezelite_args.codecs, values);
+// 		get_lit_parm_json(squeezelite_args.header_format, values);
+// 		get_str_parm_json(squeezelite_args.log_level, values);
 		
-		// get_str_parm_json(squeezelite_args.log_level_all, values);
-		// get_str_parm_json(squeezelite_args.log_level_decode, values);
-		// get_str_parm_json(squeezelite_args.log_level_output, values);
-		// get_str_parm_json(squeezelite_args.log_level_slimproto, values);
-		// get_str_parm_json(squeezelite_args.log_level_stream, values);
-		get_str_parm_json(squeezelite_args.mac_addr, values);
-		get_str_parm_json(squeezelite_args.output_device, values);
-#if defined(CONFIG_WITH_METRICS)
-		if(squeezelite_args.output_device->sval[0]!=NULL && strlen(squeezelite_args.output_device->sval[0])>0){
-			metrics_add_feature_variant("output",squeezelite_args.output_device->sval[0]);
-		}
-#endif
-		get_str_parm_json(squeezelite_args.model_name, values);
-		get_str_parm_json(squeezelite_args.name, values);
-		get_int_parm_json(squeezelite_args.rate, values);
-		get_str_parm_json(squeezelite_args.rates, values);
-		get_str_parm_json(squeezelite_args.server, values);
-		get_int_parm_json(squeezelite_args.timeout, values);
-		char * p = cJSON_Print(values);
-		ESP_LOGD(TAG,"%s",p);
-		free(p);
-	}
-	else {
-		arg_print_errors(f, squeezelite_args.end, desc_squeezelite);
-	}
-	fflush (f);
-	if(strlen(buf)>0){
-		log_send_messaging(nerrors?MESSAGING_ERROR:MESSAGING_INFO,"%s", buf);
-	}
-	fclose(f);
-	FREE_AND_NULL(buf);
-	FREE_AND_NULL(nvs_config);
-	FREE_AND_NULL(argv);
+// 		// get_str_parm_json(squeezelite_args.log_level_all, values);
+// 		// get_str_parm_json(squeezelite_args.log_level_decode, values);
+// 		// get_str_parm_json(squeezelite_args.log_level_output, values);
+// 		// get_str_parm_json(squeezelite_args.log_level_slimproto, values);
+// 		// get_str_parm_json(squeezelite_args.log_level_stream, values);
+// 		get_str_parm_json(squeezelite_args.mac_addr, values);
+// 		get_str_parm_json(squeezelite_args.output_device, values);
+// #if defined(CONFIG_WITH_METRICS)
+// 		if(squeezelite_args.output_device->sval[0]!=NULL && strlen(squeezelite_args.output_device->sval[0])>0){
+// 			metrics_add_feature_variant("output",squeezelite_args.output_device->sval[0]);
+// 		}
+// #endif
+// 		get_str_parm_json(squeezelite_args.model_name, values);
+// 		get_str_parm_json(squeezelite_args.name, values);
+// 		get_int_parm_json(squeezelite_args.rate, values);
+// 		get_str_parm_json(squeezelite_args.rates, values);
+// 		get_str_parm_json(squeezelite_args.server, values);
+// 		get_int_parm_json(squeezelite_args.timeout, values);
+// 		char * p = cJSON_Print(values);
+// 		ESP_LOGD(TAG,"%s",p);
+// 		free(p);
+// 	}
+// 	else {
+// 		arg_print_errors(f, squeezelite_args.end, desc_squeezelite);
+// 	}
+// 	fflush (f);
+// 	if(strlen(buf)>0){
+// 		log_send_messaging(nerrors?MESSAGING_ERROR:MESSAGING_INFO,"%s", buf);
+// 	}
+// 	fclose(f);
+// 	FREE_AND_NULL(buf);
+// 	FREE_AND_NULL(nvs_config);
+// 	FREE_AND_NULL(argv);
+// TODO: Add support for the commented code
 	return values;
 }
 static char * get_log_level_options(const char * longname){
@@ -1134,35 +1159,35 @@ static char * get_log_level_options(const char * longname){
 	return options;
 }
 
-// loop through dac_set and concatenate model name separated with |
-static char * get_dac_list(){
-	const char * EXTRA_MODEL_NAMES = "ES8388|I2S";
-	char * dac_list=NULL;
-	size_t total_len=0;
-	for(int i=0;dac_set[i];i++){
-		if(dac_set[i]->model && strlen(dac_set[i]->model)>0){
-			total_len+=strlen(dac_set[i]->model)+1;
-		}
-		else {
-			break;
-		}
-	}
-	total_len+=strlen(EXTRA_MODEL_NAMES);
-	dac_list = malloc_init_external(total_len+1);
-	if(dac_list){
-		for(int i=0;dac_set[i];i++){
-			if(dac_set[i]->model && strlen(dac_set[i]->model)>0){
-				strcat(dac_list,dac_set[i]->model);
-				strcat(dac_list,"|");
-			}
-			else {
-				break;
-			}
-		}
-		strcat(dac_list,EXTRA_MODEL_NAMES);
-	}
-	return dac_list;
-}
+// // loop through dac_set and concatenate model name separated with |
+// static char * get_dac_list(){
+// 	const char * EXTRA_MODEL_NAMES = "ES8388|I2S";
+// 	char * dac_list=NULL;
+// 	size_t total_len=0;
+// 	for(int i=0;dac_set[i];i++){
+// 		if(dac_set[i]->model && strlen(dac_set[i]->model)>0){
+// 			total_len+=strlen(dac_set[i]->model)+1;
+// 		}
+// 		else {
+// 			break;
+// 		}
+// 	}
+// 	total_len+=strlen(EXTRA_MODEL_NAMES);
+// 	dac_list = malloc_init_external(total_len+1);
+// 	if(dac_list){
+// 		for(int i=0;dac_set[i];i++){
+// 			if(dac_set[i]->model && strlen(dac_set[i]->model)>0){
+// 				strcat(dac_list,dac_set[i]->model);
+// 				strcat(dac_list,"|");
+// 			}
+// 			else {
+// 				break;
+// 			}
+// 		}
+// 		strcat(dac_list,EXTRA_MODEL_NAMES);
+// 	}
+// 	return dac_list;
+// }
 void replace_char_in_string(char * str, char find, char replace){
 	for(int i=0;str[i];i++){
 		if(str[i]==find){
@@ -1198,7 +1223,8 @@ static esp_err_t save_known_config(cJSON * known_item, const char * name,FILE * 
 			}
 			
 			fprintf(f,"Storing %s=%s\n",key,value);
-			err = config_set_value(NVS_TYPE_STR,key,value);
+			// err = config_set_value(NVS_TYPE_STR,key,value);
+					// TODO: Add support for the commented code
 			if(err){
 				fprintf(f,"Failed to store config value: %s\n",esp_err_to_name(err));
 				break;
@@ -1216,7 +1242,8 @@ static esp_err_t save_known_config(cJSON * known_item, const char * name,FILE * 
 	
 
 	if(err==ESP_OK){
-		err = config_set_value(NVS_TYPE_STR,"board_model",name);
+		// err = config_set_value(NVS_TYPE_STR,"board_model",name);
+				// TODO: Add support for the commented code
 		if(err!=ESP_OK){
 			fprintf(f,"Failed to save board model %s\n",name);
 		}
@@ -1225,133 +1252,133 @@ static esp_err_t save_known_config(cJSON * known_item, const char * name,FILE * 
 	return err;
 }
 
-static int do_register_known_templates_config(int argc, char **argv){
-	esp_err_t err=ESP_OK;
-	int nerrors = arg_parse(argc, argv,(void **)&known_model_args);
-	char *buf = NULL;
-	size_t buf_size = 0;
-	cJSON * config_name =NULL;
-	FILE *f = system_open_memstream(argv[0],&buf, &buf_size);
-	if (f == NULL) {
-		return 1;
-	}
-	if(nerrors >0){
-		arg_print_errors(f,known_model_args.end,desc_preset);
-	}
-	else {
-		ESP_LOGD(TAG,"arg: %s",STR_OR_BLANK(known_model_args.model_config->sval[0]));
-		char * model_config = strdup_psram(known_model_args.model_config->sval[0]);
-		char * t = model_config;
-		for(const char * p=known_model_args.model_config->sval[0];*p;p++){
-			if(*p=='\\' && *(p+1)=='"'){
-				*t++='"';
-				p++;
-			}
-			else {
-				*t++=*p;
-			}
-		}
-		*t=0;
-		cJSON * known_item = cJSON_Parse(model_config);
-		if(known_item){
-			ESP_LOGD(TAG,"Parsing success");
-			config_name= cJSON_GetObjectItem(known_item,"name");
-			if(!config_name || !cJSON_IsString(config_name) || strlen(config_name->valuestring)==0){
-				fprintf(f,"Failed to find name in config\n");
-				err=ESP_FAIL;
-				nerrors++;
-			}
-			if(nerrors==0){
-				const char * name = cJSON_GetStringValue(config_name);
-				nerrors+=(err = save_known_config(known_item,name,f)!=ESP_OK);
-				if(nerrors==0){
-					const i2s_platform_config_t * i2s_config= config_dac_get();
-					if(i2s_config->scl!=-1 && i2s_config->sda!=-1 && GPIO_IS_VALID_GPIO(i2s_config->scl) && GPIO_IS_VALID_GPIO(i2s_config->sda)){
-						fprintf(f,"Scanning i2c bus for devices\n");
-						cmd_i2ctools_scan_bus(f,i2s_config->sda, i2s_config->scl);
-					}
-				}
-			}
-			cJSON_Delete(known_item);
-		}
-		else {
-			ESP_LOGE(TAG,"Parsing error: %s",cJSON_GetErrorPtr());
-			fprintf(f,"Failed to parse JSON: %s\n",cJSON_GetErrorPtr());
-			err=ESP_FAIL;
-		}
-        if(err!=ESP_OK){
-            nerrors++;
-            fprintf(f,"Error registering known config %s.\n",known_model_args.model_config->sval[0]);
-        }
-        else {
-            fprintf(f,"Registered known config %s.\n",known_model_args.model_config->sval[0]);
-        }        
-    }
+// static int do_register_known_templates_config(int argc, char **argv){
+// 	esp_err_t err=ESP_OK;
+// 	int nerrors = arg_parse(argc, argv,(void **)&known_model_args);
+// 	char *buf = NULL;
+// 	size_t buf_size = 0;
+// 	cJSON * config_name =NULL;
+// 	FILE *f = system_open_memstream(argv[0],&buf, &buf_size);
+// 	if (f == NULL) {
+// 		return 1;
+// 	}
+// 	if(nerrors >0){
+// 		arg_print_errors(f,known_model_args.end,desc_preset);
+// 	}
+// 	else {
+// 		ESP_LOGD(TAG,"arg: %s",STR_OR_BLANK(known_model_args.model_config->sval[0]));
+// 		char * model_config = strdup_psram(known_model_args.model_config->sval[0]);
+// 		char * t = model_config;
+// 		for(const char * p=known_model_args.model_config->sval[0];*p;p++){
+// 			if(*p=='\\' && *(p+1)=='"'){
+// 				*t++='"';
+// 				p++;
+// 			}
+// 			else {
+// 				*t++=*p;
+// 			}
+// 		}
+// 		*t=0;
+// 		cJSON * known_item = cJSON_Parse(model_config);
+// 		if(known_item){
+// 			ESP_LOGD(TAG,"Parsing success");
+// 			config_name= cJSON_GetObjectItem(known_item,"name");
+// 			if(!config_name || !cJSON_IsString(config_name) || strlen(config_name->valuestring)==0){
+// 				fprintf(f,"Failed to find name in config\n");
+// 				err=ESP_FAIL;
+// 				nerrors++;
+// 			}
+// 			if(nerrors==0){
+// 				const char * name = cJSON_GetStringValue(config_name);
+// 				nerrors+=(err = save_known_config(known_item,name,f)!=ESP_OK);
+// 				if(nerrors==0){
+// 					const i2s_platform_config_t * i2s_config= config_dac_get();
+// 					if(i2s_config->scl!=-1 && i2s_config->sda!=-1 && GPIO_IS_VALID_GPIO(i2s_config->scl) && GPIO_IS_VALID_GPIO(i2s_config->sda)){
+// 						fprintf(f,"Scanning i2c bus for devices\n");
+// 						cmd_i2ctools_scan_bus(f,i2s_config->sda, i2s_config->scl);
+// 					}
+// 				}
+// 			}
+// 			cJSON_Delete(known_item);
+// 		}
+// 		else {
+// 			ESP_LOGE(TAG,"Parsing error: %s",cJSON_GetErrorPtr());
+// 			fprintf(f,"Failed to parse JSON: %s\n",cJSON_GetErrorPtr());
+// 			err=ESP_FAIL;
+// 		}
+//         if(err!=ESP_OK){
+//             nerrors++;
+//             fprintf(f,"Error registering known config %s.\n",known_model_args.model_config->sval[0]);
+//         }
+//         else {
+//             fprintf(f,"Registered known config %s.\n",known_model_args.model_config->sval[0]);
+//         }        
+//     }
 	
-	if(!nerrors ){
-		fprintf(f,"Done.\n");
-	}
-	fflush (f);
-	cmd_send_messaging(argv[0],nerrors>0?MESSAGING_ERROR:MESSAGING_INFO,"%s", buf);
-	fclose(f);
-	FREE_AND_NULL(buf);
-	return (nerrors==0 && err==ESP_OK)?0:1;
-}
-static void register_known_templates_config(){
+// 	if(!nerrors ){
+// 		fprintf(f,"Done.\n");
+// 	}
+// 	fflush (f);
+// 	cmd_send_messaging(argv[0],nerrors>0?MESSAGING_ERROR:MESSAGING_INFO,"%s", buf);
+// 	fclose(f);
+// 	FREE_AND_NULL(buf);
+// 	return (nerrors==0 && err==ESP_OK)?0:1;
+// }
+// static void register_known_templates_config(){
 
-	known_model_args.model_config = arg_str1(NULL,"model_config","SqueezeAMP|T-WATCH2020 by LilyGo","Known Board Name.\nFor known boards, several systems parameters will be updated");
-	known_model_args.end = arg_end(1);
-	 const esp_console_cmd_t cmd = {
-        .command = CFG_TYPE_HW("preset"),
-        .help = desc_preset,
-        .hint = NULL,
-        .func = &do_register_known_templates_config,
-        .argtable = &known_model_args
-    };
-    cmd_to_json_with_cb(&cmd,&known_model_cb);
-    ESP_ERROR_CHECK(esp_console_cmd_register(&cmd));
-}
-#ifdef CONFIG_CSPOT_SINK
-static void register_cspot_config(){
-	cspot_args.deviceName = arg_str1(NULL,"deviceName","","Device Name");
-	cspot_args.bitrate = arg_int1(NULL,"bitrate","96|160|320","Streaming Bitrate (kbps)");
-    cspot_args.zeroConf = arg_int1(NULL,"zeroConf","0|1","Force use of ZeroConf");
-//	cspot_args.volume = arg_int1(NULL,"volume","","Spotify Volume");
-	cspot_args.end = arg_end(1);
-	 const esp_console_cmd_t cmd = {
-		.command = CFG_TYPE_SYST("cspot"),
-		.help = desc_cspotc,
-		.hint = NULL,
-		.func = &do_cspot_config,
-		.argtable = &cspot_args
-	};
-	cmd_to_json_with_cb(&cmd,&cspot_cb);
-	ESP_ERROR_CHECK(esp_console_cmd_register(&cmd));
-}
-#endif
-static void register_i2s_config(void){
-	i2s_args.model_name = arg_str0(NULL,"model_name",STR_OR_BLANK(get_dac_list()),"DAC Model Name");
-	i2s_args.clear = arg_lit0(NULL, "clear", "Clear configuration");
-    i2s_args.clock = arg_int0(NULL,"clock","<n>","Clock GPIO. e.g. 33");
-    i2s_args.wordselect = arg_int0(NULL,"wordselect","<n>","Word Select GPIO. e.g. 25");
-    i2s_args.data = arg_int0(NULL,"data","<n>","Data GPIO. e.g. 32");
-    i2s_args.mute_gpio = arg_int0(NULL,"mute_gpio", "<n>", "Mute GPIO. e.g. 14");
-	i2s_args.mute_level = arg_lit0(NULL,"mute_level","Mute GPIO level. Checked=HIGH, Unchecked=LOW");
-    i2s_args.dac_sda = arg_int0(NULL,"dac_sda", "<n>", "SDA GPIO. e.g. 27");
-    i2s_args.dac_scl = arg_int0(NULL,"dac_scl", "<n>", "SCL GPIO. e.g. 26");
-    i2s_args.dac_i2c = arg_int0(NULL,"dac_i2c", "<n>", "I2C device address. e.g. 106");
-    i2s_args.end = arg_end(6);
+// 	known_model_args.model_config = arg_str1(NULL,"model_config","SqueezeAMP|T-WATCH2020 by LilyGo","Known Board Name.\nFor known boards, several systems parameters will be updated");
+// 	known_model_args.end = arg_end(1);
+// 	 const esp_console_cmd_t cmd = {
+//         .command = CFG_TYPE_HW("preset"),
+//         .help = desc_preset,
+//         .hint = NULL,
+//         .func = &do_register_known_templates_config,
+//         .argtable = &known_model_args
+//     };
+//     cmd_to_json_with_cb(&cmd,&known_model_cb);
+//     ESP_ERROR_CHECK(esp_console_cmd_register(&cmd));
+// }
+// #ifdef CONFIG_CSPOT_SINK
+// static void register_cspot_config(){
+// 	cspot_args.deviceName = arg_str1(NULL,"deviceName","","Device Name");
+// 	cspot_args.bitrate = arg_int1(NULL,"bitrate","96|160|320","Streaming Bitrate (kbps)");
+//     cspot_args.zeroConf = arg_int1(NULL,"zeroConf","0|1","Force use of ZeroConf");
+// //	cspot_args.volume = arg_int1(NULL,"volume","","Spotify Volume");
+// 	cspot_args.end = arg_end(1);
+// 	 const esp_console_cmd_t cmd = {
+// 		.command = CFG_TYPE_SYST("cspot"),
+// 		.help = desc_cspotc,
+// 		.hint = NULL,
+// 		.func = &do_cspot_config,
+// 		.argtable = &cspot_args
+// 	};
+// 	cmd_to_json_with_cb(&cmd,&cspot_cb);
+// 	ESP_ERROR_CHECK(esp_console_cmd_register(&cmd));
+// }
+// #endif
+// static void register_i2s_config(void){
+// 	i2s_args.model_name = arg_str0(NULL,"model_name",STR_OR_BLANK(get_dac_list()),"DAC Model Name");
+// 	i2s_args.clear = arg_lit0(NULL, "clear", "Clear configuration");
+//     i2s_args.clock = arg_int0(NULL,"clock","<n>","Clock GPIO. e.g. 33");
+//     i2s_args.wordselect = arg_int0(NULL,"wordselect","<n>","Word Select GPIO. e.g. 25");
+//     i2s_args.data = arg_int0(NULL,"data","<n>","Data GPIO. e.g. 32");
+//     i2s_args.mute_gpio = arg_int0(NULL,"mute_gpio", "<n>", "Mute GPIO. e.g. 14");
+// 	i2s_args.mute_level = arg_lit0(NULL,"mute_level","Mute GPIO level. Checked=HIGH, Unchecked=LOW");
+//     i2s_args.dac_sda = arg_int0(NULL,"dac_sda", "<n>", "SDA GPIO. e.g. 27");
+//     i2s_args.dac_scl = arg_int0(NULL,"dac_scl", "<n>", "SCL GPIO. e.g. 26");
+//     i2s_args.dac_i2c = arg_int0(NULL,"dac_i2c", "<n>", "I2C device address. e.g. 106");
+//     i2s_args.end = arg_end(6);
 
-	 const esp_console_cmd_t cmd = {
-        .command = CFG_TYPE_HW("dac"),
-        .help = desc_dac,
-        .hint = NULL,
-        .func = &do_i2s_cmd,
-        .argtable = &i2s_args
-    };
-    cmd_to_json_with_cb(&cmd,&i2s_cb);
-    ESP_ERROR_CHECK(esp_console_cmd_register(&cmd));
-}
+// 	 const esp_console_cmd_t cmd = {
+//         .command = CFG_TYPE_HW("dac"),
+//         .help = desc_dac,
+//         .hint = NULL,
+//         .func = &do_i2s_cmd,
+//         .argtable = &i2s_args
+//     };
+//     cmd_to_json_with_cb(&cmd,&i2s_cb);
+//     ESP_ERROR_CHECK(esp_console_cmd_register(&cmd));
+// }
 
 static void register_bt_source_config(void){
 	
@@ -1371,46 +1398,46 @@ static void register_bt_source_config(void){
     ESP_ERROR_CHECK(esp_console_cmd_register(&cmd));
 }
 
-void register_rotary_config(void){
-	rotary_args.rem = arg_rem("remark","One rotary encoder is supported, quadrature shift with press. Such encoders usually have 2 pins for encoders (A and B), and common C that must be set to ground and an optional SW pin for press. A, B and SW must be pulled up, so automatic pull-up is provided by ESP32, but you can add your own resistors. A bit of filtering on A and B (~470nF) helps for debouncing which is not made by software.\r\nEncoder is normally hard-coded to respectively knob left, right and push on LMS and to volume down/up/play toggle on BT and AirPlay.");
-	rotary_args.A = arg_int1(NULL,"A","gpio","A/DT gpio");
-	rotary_args.B = arg_int1(NULL,"B","gpio","B/CLK gpio");
-	rotary_args.SW = arg_int0(NULL,"SW","gpio","Switch gpio");
-	rotary_args.knobonly = arg_lit0(NULL,"knobonly","Single knob full navigation. Left, Right and Press is navigation, with Press always going to lower submenu item. Longpress is 'Play', Double press is 'Back', a quick left-right movement on the encoder is 'Pause'");
-	rotary_args.timer = arg_int0(NULL,"timer","ms","The speed of double click (or left-right) when knob only option is enabled. Be aware that the longer you set double click speed, the less responsive the interface will be. ");
-	rotary_args.volume_lock = arg_lit0(NULL,"volume_lock", "Force Volume down/up/play toggle all the time (even in LMS). ");
-	rotary_args.longpress = arg_lit0(NULL,"longpress","Enable alternate mode mode on long-press. In that mode, left is previous, right is next and press is toggle. Every long press on SW alternates between modes (the main mode actual behavior depends on 'volume').");
-	rotary_args.clear = arg_lit0(NULL, "clear", "Clear configuration");
-	rotary_args.raw_mode = arg_lit0(NULL, "raw_mode", "Send button events as raw values to LMS. No remapping is possible when this is enabled");
-	rotary_args.end = arg_end(3);
-	const esp_console_cmd_t cmd = {
-        .command = CFG_TYPE_HW("rotary"),
-        .help = desc_rotary,
-        .hint = NULL,
-        .func = &do_rotary_cmd,
-        .argtable = &rotary_args
-    };
-    cmd_to_json_with_cb(&cmd,&rotary_cb);
-    ESP_ERROR_CHECK(esp_console_cmd_register(&cmd));
-}
+// void register_rotary_config(void){
+// 	rotary_args.rem = arg_rem("remark","One rotary encoder is supported, quadrature shift with press. Such encoders usually have 2 pins for encoders (A and B), and common C that must be set to ground and an optional SW pin for press. A, B and SW must be pulled up, so automatic pull-up is provided by ESP32, but you can add your own resistors. A bit of filtering on A and B (~470nF) helps for debouncing which is not made by software.\r\nEncoder is normally hard-coded to respectively knob left, right and push on LMS and to volume down/up/play toggle on BT and AirPlay.");
+// 	rotary_args.A = arg_int1(NULL,"A","gpio","A/DT gpio");
+// 	rotary_args.B = arg_int1(NULL,"B","gpio","B/CLK gpio");
+// 	rotary_args.SW = arg_int0(NULL,"SW","gpio","Switch gpio");
+// 	rotary_args.knobonly = arg_lit0(NULL,"knobonly","Single knob full navigation. Left, Right and Press is navigation, with Press always going to lower submenu item. Longpress is 'Play', Double press is 'Back', a quick left-right movement on the encoder is 'Pause'");
+// 	rotary_args.timer = arg_int0(NULL,"timer","ms","The speed of double click (or left-right) when knob only option is enabled. Be aware that the longer you set double click speed, the less responsive the interface will be. ");
+// 	rotary_args.volume_lock = arg_lit0(NULL,"volume_lock", "Force Volume down/up/play toggle all the time (even in LMS). ");
+// 	rotary_args.longpress = arg_lit0(NULL,"longpress","Enable alternate mode mode on long-press. In that mode, left is previous, right is next and press is toggle. Every long press on SW alternates between modes (the main mode actual behavior depends on 'volume').");
+// 	rotary_args.clear = arg_lit0(NULL, "clear", "Clear configuration");
+// 	rotary_args.raw_mode = arg_lit0(NULL, "raw_mode", "Send button events as raw values to LMS. No remapping is possible when this is enabled");
+// 	rotary_args.end = arg_end(3);
+// 	const esp_console_cmd_t cmd = {
+//         .command = CFG_TYPE_HW("rotary"),
+//         .help = desc_rotary,
+//         .hint = NULL,
+//         .func = &do_rotary_cmd,
+//         .argtable = &rotary_args
+//     };
+//     cmd_to_json_with_cb(&cmd,&rotary_cb);
+//     ESP_ERROR_CHECK(esp_console_cmd_register(&cmd));
+// }
 
-void register_ledvu_config(void){
-	ledvu_args.type = arg_str1(NULL,"type","<none>|WS2812","Led type (supports one rgb strip to display built in effects and allow remote control through 'dmx' messaging)");
-	ledvu_args.length = arg_int1(NULL,"length","<1..255>","Strip length (1-255 supported)");
-	ledvu_args.gpio = arg_int1(NULL,"gpio","gpio","Data pin");
-	ledvu_args.clear = arg_lit0(NULL, "clear", "Clear configuration");
-	ledvu_args.end = arg_end(4);
+// void register_ledvu_config(void){
+// 	ledvu_args.type = arg_str1(NULL,"type","<none>|WS2812","Led type (supports one rgb strip to display built in effects and allow remote control through 'dmx' messaging)");
+// 	ledvu_args.length = arg_int1(NULL,"length","<1..255>","Strip length (1-255 supported)");
+// 	ledvu_args.gpio = arg_int1(NULL,"gpio","gpio","Data pin");
+// 	ledvu_args.clear = arg_lit0(NULL, "clear", "Clear configuration");
+// 	ledvu_args.end = arg_end(4);
 
-	const esp_console_cmd_t cmd = {
-        .command = CFG_TYPE_HW("ledvu"),
-        .help = desc_ledvu,
-        .hint = NULL,
-        .func = &do_ledvu_cmd,
-        .argtable = &ledvu_args
-    };
-	cmd_to_json_with_cb(&cmd,&ledvu_cb);
-    ESP_ERROR_CHECK(esp_console_cmd_register(&cmd));
-}
+// 	const esp_console_cmd_t cmd = {
+//         .command = CFG_TYPE_HW("ledvu"),
+//         .help = desc_ledvu,
+//         .hint = NULL,
+//         .func = &do_ledvu_cmd,
+//         .argtable = &ledvu_args
+//     };
+// 	cmd_to_json_with_cb(&cmd,&ledvu_cb);
+//     ESP_ERROR_CHECK(esp_console_cmd_register(&cmd));
+// }
 
 void register_audio_config(void){
 	audio_args.jack_behavior = arg_str0("j", "jack_behavior","Headphones|Subwoofer","On supported DAC, determines the audio jack behavior. Selecting headphones will cause the external amp to be muted on insert, while selecting Subwoofer will keep the amp active all the time.");
@@ -1428,23 +1455,23 @@ void register_audio_config(void){
     ESP_ERROR_CHECK(esp_console_cmd_register(&cmd));
 }
 
-static void register_spdif_config(void){
-	spdif_args.clear = arg_lit0(NULL, "clear", "Clear configuration");
-    spdif_args.clock = arg_int1(NULL,"clock","<n>","Clock GPIO. e.g. 33");
-    spdif_args.wordselect = arg_int1(NULL,"wordselect","<n>","Word Select GPIO. e.g. 25");
-    spdif_args.data = arg_int1(NULL,"data","<n>","Data GPIO. e.g. 32");
-    spdif_args.end = arg_end(6);
+// static void register_spdif_config(void){
+// 	spdif_args.clear = arg_lit0(NULL, "clear", "Clear configuration");
+//     spdif_args.clock = arg_int1(NULL,"clock","<n>","Clock GPIO. e.g. 33");
+//     spdif_args.wordselect = arg_int1(NULL,"wordselect","<n>","Word Select GPIO. e.g. 25");
+//     spdif_args.data = arg_int1(NULL,"data","<n>","Data GPIO. e.g. 32");
+//     spdif_args.end = arg_end(6);
 
-	 const esp_console_cmd_t cmd = {
-        .command = CFG_TYPE_HW("spdif"),
-        .help = desc_spdif,
-        .hint = NULL,
-        .func = &do_spdif_cmd,
-        .argtable = &spdif_args
-    };
-    cmd_to_json_with_cb(&cmd,&spdif_cb);
-    ESP_ERROR_CHECK(esp_console_cmd_register(&cmd));
-}
+// 	 const esp_console_cmd_t cmd = {
+//         .command = CFG_TYPE_HW("spdif"),
+//         .help = desc_spdif,
+//         .hint = NULL,
+//         .func = &do_spdif_cmd,
+//         .argtable = &spdif_args
+//     };
+//     cmd_to_json_with_cb(&cmd,&spdif_cb);
+//     ESP_ERROR_CHECK(esp_console_cmd_register(&cmd));
+// }
 static void register_squeezelite_config(void){
 	squeezelite_args.server = arg_str0("s","server","<server>[:<port>]","Connect to specified server, otherwise uses autodiscovery to find server");
 	squeezelite_args.buffers = arg_str0("b","buffers","<stream>:<output>","Internal Stream and Output buffer sizes in Kbytes");
@@ -1483,21 +1510,37 @@ static void register_squeezelite_config(void){
         .func = &do_squeezelite_cmd,
         .argtable = &squeezelite_args
     };
-    cmd_to_json_with_cb(&cmd,&squeezelite_cb);
-    ESP_ERROR_CHECK(esp_console_cmd_register(&cmd));
+    // cmd_to_json_with_cb(&cmd,&squeezelite_cb);
+    // ESP_ERROR_CHECK(esp_console_cmd_register(&cmd));
 }
 void dummy_register_cmd(){
 	
 }
-void register_config_cmd(void){
-	if(!is_dac_config_locked()){
-	 	 register_known_templates_config();	
-	}
+void register_wifi_connect(){
+	wifi_ap_args.conn= arg_lit0(NULL,"join","Connect to an access point ");
+	wifi_ap_args.ap_name= arg_str0("w","wifi","string","Access Point to connect to ");
+	wifi_ap_args.password= arg_str0("p","pass","string","Password for the access point (if needed) ");
+	wifi_ap_args.end = arg_end(1);
+ const esp_console_cmd_t cmd = {
+        .command = CFG_TYPE_SYST("wifi"),
+        .help = desc_wifi,
+        .hint = NULL,
+        .func = &do_wifi_ops,
+        .argtable = &wifi_ap_args
+    };
+    cmd_to_json_with_cb(&cmd,&squeezelite_cb);
+    ESP_ERROR_CHECK(esp_console_cmd_register(&cmd));	
 
-#ifdef CONFIG_CSPOT_SINK	
-	register_cspot_config();
-#endif	
-	register_bt_source_config();
+}
+void register_config_cmd(void){
+	// if(!is_dac_config_locked()){
+	//  	 register_known_templates_config();	
+	// }
+
+// #ifdef CONFIG_CSPOT_SINK	
+// 	register_cspot_config();
+// #endif	
+	// register_bt_source_config();
 #if CONFIG_WITH_CONFIG_UI	
 	if(!is_dac_config_locked()){
 		register_i2s_config();
@@ -1507,15 +1550,16 @@ void register_config_cmd(void){
 		metrics_add_feature("i2s",true);
 #endif
 	}
-	if(!is_spdif_config_locked()){
-		register_spdif_config();
-	}
-	else {
-#if defined(CONFIG_WITH_METRICS)
-		metrics_add_feature("spdif",true);
-#endif
-	}
+// 	if(!is_spdif_config_locked()){
+// 		register_spdif_config();
+// 	}
+// 	else {
+// #if defined(CONFIG_WITH_METRICS)
+// 		metrics_add_feature("spdif",true);
+// #endif
+// 	}
 #endif
     register_optional_cmd();    
+	register_wifi_connect();
 }
 

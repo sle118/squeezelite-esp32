@@ -1,0 +1,16 @@
+syntax = "proto3";
+package sys;
+import "Network.proto";
+import "Equalizer.proto";
+import "nanopb.proto";
+
+option (nanopb_fileopt).enum_to_string = true;
+
+message State {
+  WifiSTAEntry connected_sta = 1;
+  Server lms = 2;
+  string ota_url = 3  [(nanopb).type = FT_POINTER];
+  string cspot_credentials = 4 [(nanopb).type = FT_POINTER];
+  int32 bt_sink_volume = 5 ;
+  Equalizer equalizer = 6;
+}

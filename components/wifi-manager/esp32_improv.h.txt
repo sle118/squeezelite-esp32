@@ -1,0 +1,71 @@
+#pragma once
+
+#include <improv.h>
+
+#include "esp_bt.h"
+#include "esp_bt_main.h"
+#include "esp_gap_bt_api.h"
+#include "bt_app_core.h"
+
+#include "BLECharacteristic.h"
+//#include "esphome/components/esp32_ble_server/ble_server.h"
+
+namespace esp32_improv {
+
+class ESP32Improv  {
+ public:
+  ESP32Improv();
+  void dump_config() ;
+  void loop() ;
+  void setup() ;
+  void setup_characteristics();
+  void on_client_disconnect() ;
+
+  float get_setup_priority() ;
+  void start() ;
+  void stop() ;
+  bool is_active() const { return this->state_ != improv::STATE_STOPPED; }
+
+  void set_authorizer(binary_sensor::BinarySensor *authorizer) { this->authorizer_ = authorizer; }
+  void set_status_indicator(output::BinaryOutput *status_indicator) { this->status_indicator_ = status_indicator; }
+  void set_identify_duration(uint32_t identify_duration) { this->identify_duration_ = identify_duration; }
+  void set_authorized_duration(uint32_t authorized_duration) { this->authorized_duration_ = authorized_duration; }
+
+ protected:
+  bool should_start_{false};
+  bool setup_complete_{false};
+
+  uint32_t identify_start_{0};
+  uint32_t identify_duration_;
+  uint32_t authorized_start_{0};
+  uint32_t authorized_duration_;
+
+  std::vector<uint8_t> incoming_data_;
+  wifi::WiFiAP connecting_sta_;
+
+  std::shared_ptr<BLEService> service_;
+  BLECharacteristic *status_;
+  BLECharacteristic *error_;
+  BLECharacteristic *rpc_;
+  BLECharacteristic *rpc_response_;
+  BLECharacteristic *capabilities_;
+
+  binary_sensor::BinarySensor *authorizer_{nullptr};
+  output::BinaryOutput *status_indicator_{nullptr};
+
+  improv::State state_{improv::STATE_STOPPED};
+  improv::Error error_state_{improv::ERROR_NONE};
+
+  void set_state_(improv::State state);
+  void set_error_(improv::Error error);
+  void send_response_(std::vector<uint8_t> &response);
+  void process_incoming_data_();
+  void on_wifi_connect_timeout_();
+  bool check_identify_();
+};
+
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+extern ESP32ImprovComponent *global_improv_component;
+
+}  // namespace esp32_improv
+

@@ -1,9 +1,9 @@
 # This is the project CMakeLists.txt file for the test subproject
 cmake_minimum_required(VERSION 3.5)
 
+include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 # Include the components directory of the main application:
 #
-set(EXTRA_COMPONENT_DIRS "../components")
 
 # Set the components to include the tests for.
 # This can be overriden from CMake cache:
@@ -11,9 +11,42 @@ set(EXTRA_COMPONENT_DIRS "../components")
 # - when using idf.py: idf.py -T xxxxx build
 #
 set(TEST_COMPONENTS "platform_console" CACHE STRING "List of components to test")
+set(COMPONENTS main)
 
-include($ENV{IDF_PATH}/tools/cmake/project.cmake)
+# Freertos is included via common components, however, currently only the mock component is compatible with linux
+# target.
+list(APPEND EXTRA_COMPONENT_DIRS "$ENV{IDF_PATH}/tools/mocks/freertos/")
+list(APPEND EXTRA_COMPONENT_DIRS "$ENV{IDF_PATH}/tools/mocks/driver/")
+list(APPEND EXTRA_COMPONENT_DIRS "$ENV{IDF_PATH}/tools/mocks/freertos/")
+list(APPEND EXTRA_COMPONENT_DIRS "$ENV{IDF_PATH}/tools/mocks/spi_flash/")
+list(APPEND EXTRA_COMPONENT_DIRS "$ENV{IDF_PATH}/components/unity/")
+idf_build_set_property(COMPILE_DEFINITIONS "-DNO_DEBUG_STORAGE" APPEND)
+
+# list(APPEND EXTRA_COMPONENT_DIRS "${PROJECT_SOURCE_DIR}/../components")
+# list(APPEND EXTRA_COMPONENT_DIRS "${PROJECT_SOURCE_DIR}/../components/tools")
+
+
 project(squeezelite_esp32_test)
-add_definitions(-include "${PROJECT_SOURCE_DIR}/../build/config/sdkconfig.h")
+# add_definitions(-include "${PROJECT_SOURCE_DIR}/../build/config/sdkconfig.h")
+
 set_property(TARGET squeezelite_esp32_test.elf PROPERTY RECOVERY_PREFIX app_update )
 
+add_custom_command(
+    OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/build/coverage.info"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/build"
+    COMMAND lcov --capture --directory . --output-file coverage.info
+    COMMENT "Create coverage report"
+    )
+
+add_custom_command(
+    OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/build/coverage_report/"
+    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/build/coverage.info"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/build"
+    COMMAND genhtml coverage.info --output-directory coverage_report/
+    COMMENT "Turn coverage report into html-based visualization"
+    )
+
+add_custom_target(coverage
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/build"
+    DEPENDS "coverage_report/"
+    )

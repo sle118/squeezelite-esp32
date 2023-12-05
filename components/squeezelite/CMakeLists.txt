@@ -1,6 +1,6 @@
 # for the forgetful, REQUIRES cannot use CONFIG_XXX due to parsing order
 if(IDF_TARGET STREQUAL "esp32")
-    set(target_requires "driver_bt")
+	set(target_requires "driver_bt" "platform_config")
 endif()
 
 idf_component_register( SRC_DIRS . external ac101 tas57xx wm8978

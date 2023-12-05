@@ -14,7 +14,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/timers.h"
 #endif
-#include "platform_config.h"
+#include "Configurator.h"
+#include "accessors.h"
 #include "squeezelite.h"
 
 
@@ -38,6 +39,7 @@ static bool enable_airplay;
 #define SYNC_WIN_FAST	2
 
 static raop_event_t	raop_state;
+static sys_Squeezelite * squeezelite;
 
 static EXT_RAM_ATTR struct {
 	bool enabled;
@@ -446,44 +448,45 @@ static bool cspot_cmd_handler(cspot_event_t cmd, va_list args)
  * We provide the generic codec register option
  */
 void register_external(void) {
-	char *p;
-
+	sys_BluetoothSink * bt_sink;
+	sys_AirPlay * airplay;
+	sys_Spotify * spotify;
 #if CONFIG_BT_SINK
-	if ((p = config_alloc_get(NVS_TYPE_STR, "enable_bt_sink")) != NULL) {
-		enable_bt_sink = !strcmp(p,"1") || !strcasecmp(p,"y");
-		free(p);
-		if (!strcasestr(output.device, "BT") && enable_bt_sink) {
+	enable_bt_sink= (SYS_SERVICES_BTSINK(bt_sink) && bt_sink->enabled);
+	if ( enable_bt_sink) {
+		#pragma message ("Is the BT sink logic correct?")
+		if(SYS_SERVICES_SQUEEZELITE(squeezelite) && squeezelite->output_type == sys_OutputTypeEnum_OUTPUT_Bluetooth ){
+			LOG_ERROR("BT Sink cannot be enabled with Bluetooth output");
+		}
+		else {
 			bt_sink_init(bt_sink_cmd_handler,  bt_sink_data_handler);
-		}	
-	}
+		}
+	}		
 #endif	
 
 #if CONFIG_AIRPLAY_SINK
-	if ((p = config_alloc_get(NVS_TYPE_STR, "enable_airplay")) != NULL) {
-		enable_airplay = !strcmp(p,"1") || !strcasecmp(p,"y");
-		free(p);
-		if (enable_airplay){
-			raop_sink_init(raop_sink_cmd_handler, raop_sink_data_handler);
-			LOG_INFO("Initializing AirPlay sink");
-		}
+	enable_airplay = SYS_SERVICES_AIRPLAY(airplay) && airplay->enabled;
+	if (enable_airplay){
+		raop_sink_init(raop_sink_cmd_handler, raop_sink_data_handler);
+		LOG_INFO("Initializing AirPlay sink");
 	}
+	
 #endif	
 	
 #if CONFIG_CSPOT_SINK	
-	if ((p = config_alloc_get(NVS_TYPE_STR, "enable_cspot")) != NULL) {
-		enable_cspot = strcmp(p,"1") == 0 || strcasecmp(p,"y") == 0;
-		free(p);
-		if (enable_cspot){
-			cspot_sink_init(cspot_cmd_handler, cspot_sink_data_handler);
-			LOG_INFO("Initializing CSpot sink");
-		}	
+	enable_cspot = SYS_SERVICES_SPOTIFY(spotify) && spotify->enabled;
+	if (enable_cspot){
+		cspot_sink_init(cspot_cmd_handler, cspot_sink_data_handler);
+		LOG_INFO("Initializing CSpot sink");
 	}	
 #endif	
+
 }
 
 void deregister_external(void) {
 #if CONFIG_BT_SINK
-	if (!strcasestr(output.device, "BT") && enable_bt_sink) {
+	sys_Squeezelite * squeezelite;
+	if(SYS_SERVICES_SQUEEZELITE(squeezelite) && squeezelite->output_type != sys_OutputTypeEnum_OUTPUT_Bluetooth && enable_bt_sink ){
 		bt_sink_deinit();
 	}
 #endif

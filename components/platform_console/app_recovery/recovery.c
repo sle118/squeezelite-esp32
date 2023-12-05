@@ -40,7 +40,10 @@ int main(int argc, char **argv){
 	return 1;
 }
 
-void register_squeezelite(){
+// void register_squeezelite(){
+// }
+
+void start_squeezelite(){
 }
 
 void register_external(void) {

@@ -17,7 +17,7 @@
 #include "esp_log.h"
 #include "cJSON.h"
 #include "buttons.h"
-#include "platform_config.h"
+#include "Configurator.h"
 #include "accessors.h"
 #include "services.h"
 #include "audio_controls.h"
@@ -118,50 +118,53 @@ static void ir_handler(uint16_t addr, uint16_t cmd) {
 }
 
 /****************************************************************************************
- * 
+ *
  */
-static void set_ir_gpio(int gpio, char *value) {
-	if (strcasestr(value, "ir")) {
-        if (strcasestr(value, "rc5")) create_infrared(gpio, ir_handler, IR_RC5);
-		else create_infrared(gpio, ir_handler, IR_NEC);
-	}	
-}	
- 
-/****************************************************************************************
- * 
- */
-esp_err_t actrls_init(const char *profile_name) {
-	esp_err_t err = ESP_OK;
-	char *config = config_alloc_get_default(NVS_TYPE_STR, "rotary_config", NULL, 0);
-	
-	if (config && *config) {
-		char *p;
-		int A = -1, B = -1, SW = -1, longpress = 0;
-		
-		// parse config
-		PARSE_PARAM(config, "A", '=', A);
-		PARSE_PARAM(config, "B", '=', B);
-		PARSE_PARAM(config, "SW", '=', SW);
-		if ((p = strcasestr(config, "knobonly"))) {
-			p = strchr(p, '=');
-			int double_press = p ? atoi(p + 1) : 350;
-			rotary.timer = xTimerCreate("knobTimer", double_press / portTICK_RATE_MS, pdFALSE, NULL, rotary_timer);
-			longpress = 500;
-			ESP_LOGI(TAG, "single knob navigation %d", double_press);
-		} else {
-			if ((p = strcasestr(config, "volume")) != NULL) rotary.volume_lock = true;
-			if ((p = strcasestr(config, "longpress")) != NULL) longpress = 1000;
-		}	
-				
-		// create rotary (no handling of long press)
-		err = create_rotary(NULL, A, B, SW, longpress, control_rotary_handler) ? ESP_OK : ESP_FAIL;
-	}
-	
-	// set infrared GPIO if any
-	parse_set_GPIO(set_ir_gpio);
+esp_err_t actrls_init(const char* profile_name) {
+    esp_err_t err = ESP_OK;
+    sys_Rotary* dev_config = NULL;
+    if (!SYS_DEV_ROTARY(dev_config) ) {
+        ESP_LOGD(TAG, "Rotary not configured");
+        return ESP_OK;
+    }
 
-	if (!err) return actrls_init_json(profile_name, true);
-	else return err;
+    char* p;
+    int A = -1, B = -1, SW = -1, longpress = 0;
+    A = dev_config->A.pin;
+    B = dev_config->B.pin;
+    SW = dev_config->SW.pin;
+
+    if (dev_config->has_knobonly && dev_config->knobonly.enable) {
+        p = strchr(p, '=');
+
+        int double_press =
+            dev_config->knobonly.delay_ms > 0 ? dev_config->knobonly.delay_ms : 350;
+        rotary.timer =
+            xTimerCreate("knobTimer", double_press / portTICK_RATE_MS, pdFALSE, NULL, rotary_timer);
+        longpress = 500;
+        ESP_LOGI(TAG, "single knob navigation %d", double_press);
+    } else {
+
+        if (dev_config->volume) rotary.volume_lock = true;
+        if (dev_config->longpress) longpress = 1000;
+    }
+
+    // create rotary (no handling of long press)
+    err = create_rotary(NULL, A, B, SW, longpress, control_rotary_handler) ? ESP_OK : ESP_FAIL;
+
+    if (platform->dev.has_ir && platform->dev.ir.gpio.pin >= 0) {
+
+        if (platform->dev.ir.type == sys_InfraredType_IR_NEC) {
+            create_infrared(platform->dev.ir.gpio.pin, ir_handler, IR_RC5);
+        } else {
+            create_infrared(platform->dev.ir.gpio.pin, ir_handler, IR_NEC);
+        }
+    }
+    if (!err)
+        return actrls_init_json(profile_name, true);
+    else
+        return err;
+    return err;
 }
 
 /****************************************************************************************
@@ -509,62 +512,64 @@ static void actrls_defaults(actrls_config_t *config) {
  */
 static esp_err_t actrls_init_json(const char *profile_name, bool create) {
 	esp_err_t err = ESP_OK;
-	actrls_config_t *cur_config = NULL;
-	actrls_config_t *config_root = NULL;
-	char *config;
-	const cJSON *button;
+	#pragma message("Add support to button profile names")
+// 	actrls_config_t *cur_config = NULL;
+// 	actrls_config_t *config_root = NULL;
+// 	char *config=NULL;
+// 	const cJSON *button;
 	
-	if (!profile_name) return ESP_OK;
-	if ((config = config_alloc_get_str(profile_name, NULL, CONFIG_AUDIO_CONTROLS)) == NULL) return ESP_FAIL;
-	if (!*config) goto exit;
+// 	if (!profile_name) return ESP_OK;
+// 	//if ((config = config_alloc_get_str(profile_name, NULL, CONFIG_AUDIO_CONTROLS)) == NULL) return ESP_FAIL;
+// 	// TODO: Add support for the commented code
+// 	if (!*config) goto exit;
 		
-	ESP_LOGD(TAG,"Parsing JSON structure %s", config);
-	cJSON *buttons = cJSON_Parse(config);
-	if (buttons == NULL) {
-		ESP_LOGE(TAG,"JSON Parsing failed for %s", config);
-		err = ESP_FAIL;
-	} else {
-		ESP_LOGD(TAG,"Json parsing completed");
-		if (cJSON_IsArray(buttons)) {
-			ESP_LOGD(TAG,"configuration is an array as expected");
-			cur_config =config_root= actrls_init_alloc_structure(buttons, profile_name);
-			if(!cur_config) {
-				ESP_LOGE(TAG,"Config buffer was empty. ");
-				cJSON_Delete(buttons);
-				err = ESP_FAIL;
-				goto exit;
-			}
-			ESP_LOGD(TAG,"Processing button definitions. ");
-			cJSON_ArrayForEach(button, buttons){
-				char * str = cJSON_Print(button);
-				ESP_LOGD(TAG,"Processing %s. ", str?str:"");
-				if(str){
-					free(str);
-				}
-				actrls_defaults(cur_config);
-				esp_err_t loc_err = actrls_process_button(button, cur_config);
-				err = (err == ESP_OK) ? loc_err : err;
-				if (loc_err == ESP_OK) {
-					if (create) button_create((void*) cur_config, cur_config->gpio,cur_config->type, 
-												cur_config->pull,cur_config->debounce, control_handler, 
-												cur_config->long_press, cur_config->shifter_gpio);
-				} else {
-					ESP_LOGE(TAG,"Error parsing button structure.  Button will not be registered.");
-				}
+// 	ESP_LOGD(TAG,"Parsing JSON structure %s", config);
+// 	cJSON *buttons = cJSON_Parse(config);
+// 	if (buttons == NULL) {
+// 		ESP_LOGE(TAG,"JSON Parsing failed for %s", config);
+// 		err = ESP_FAIL;
+// 	} else {
+// 		ESP_LOGD(TAG,"Json parsing completed");
+// 		if (cJSON_IsArray(buttons)) {
+// 			ESP_LOGD(TAG,"configuration is an array as expected");
+// 			cur_config =config_root= actrls_init_alloc_structure(buttons, profile_name);
+// 			if(!cur_config) {
+// 				ESP_LOGE(TAG,"Config buffer was empty. ");
+// 				cJSON_Delete(buttons);
+// 				err = ESP_FAIL;
+// 				goto exit;
+// 			}
+// 			ESP_LOGD(TAG,"Processing button definitions. ");
+// 			cJSON_ArrayForEach(button, buttons){
+// 				char * str = cJSON_Print(button);
+// 				ESP_LOGD(TAG,"Processing %s. ", str?str:"");
+// 				if(str){
+// 					free(str);
+// 				}
+// 				actrls_defaults(cur_config);
+// 				esp_err_t loc_err = actrls_process_button(button, cur_config);
+// 				err = (err == ESP_OK) ? loc_err : err;
+// 				if (loc_err == ESP_OK) {
+// 					if (create) button_create((void*) cur_config, cur_config->gpio,cur_config->type, 
+// 												cur_config->pull,cur_config->debounce, control_handler, 
+// 												cur_config->long_press, cur_config->shifter_gpio);
+// 				} else {
+// 					ESP_LOGE(TAG,"Error parsing button structure.  Button will not be registered.");
+// 				}
 
-				cur_config++;
-			}
-		} else {
-			ESP_LOGE(TAG,"Invalid configuration; array is expected and none received in %s ", config);
-		}
-		cJSON_Delete(buttons);
-	}
-	// Now update the global json_config object.  If we are recursively processing menu structures,
-	// the last init that completes will assigh the first json config object found, which will match
-	// the default config from nvs.
-	json_config = config_root;
-exit:	
-	free(config);
+// 				cur_config++;
+// 			}
+// 		} else {
+// 			ESP_LOGE(TAG,"Invalid configuration; array is expected and none received in %s ", config);
+// 		}
+// 		cJSON_Delete(buttons);
+// 	}
+// 	// Now update the global json_config object.  If we are recursively processing menu structures,
+// 	// the last init that completes will assigh the first json config object found, which will match
+// 	// the default config from nvs.
+// 	json_config = config_root;
+// exit:	
+// 	free(config);
 	return err;
 }
 

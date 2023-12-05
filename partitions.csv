@@ -1,8 +1,5 @@
-# Name,   Type, SubType, Offset,  Size, Flags
-# Note: if you change the phy_init or app partition offset, make sure to change the offset in Kconfig.projbuild
-nvs,  data,  nvs,  0x9000,  0x4000,
-otadata,  data,  ota,  0xD000,  0x2000,
-phy_init,  data,  phy,  0xF000,  0x1000,
-recovery,  app,  factory,  0x10000,  0x140000,
-ota_0,  app,  ota_0,  ,  0x2A0000,
-settings,  data,  nvs,  ,  0x10000,
+otadata, data, ota, 0xD000, 0x2000, 
+phy_init, data, phy, 0xF000, 0x1000, 
+recovery, app, factory, 0x10000, 0x130000, 
+ota_0, app, ota_0, , 0x290000, 
+spiffs, data, spiffs, , 0x2D000, 

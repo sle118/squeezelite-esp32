@@ -13,6 +13,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include "Status.pb.h"
 
 #define BT_APP_CORE_TAG                   "BT_APP_CORE"
 #define BT_APP_SIG_WORK_DISPATCH          (0x01)
@@ -21,27 +22,9 @@ enum {
     BT_APP_EVT_STACK_UP = 0,
 };
 
-/* A2DP global state */
-enum {
-    APP_AV_STATE_IDLE,
-    APP_AV_STATE_DISCOVERING,
-    APP_AV_STATE_DISCOVERED,
-    APP_AV_STATE_UNCONNECTED,
-    APP_AV_STATE_CONNECTING,
-    APP_AV_STATE_CONNECTED,
-    APP_AV_STATE_DISCONNECTING,
-};
 
-/* sub states of APP_AV_STATE_CONNECTED */
-enum {
-    APP_AV_MEDIA_STATE_IDLE,
-    APP_AV_MEDIA_STATE_STARTING,
-    APP_AV_MEDIA_STATE_STARTED,
-    APP_AV_MEDIA_STATE_STOPPING,
-	APP_AV_MEDIA_STATE_WAIT_DISCONNECT
-};
-extern int bt_app_source_get_a2d_state();
-extern int bt_app_source_get_media_state();
+extern sys_AV_STATE bt_app_source_get_a2d_state();
+extern sys_MEDIA_STATE bt_app_source_get_media_state();
 /**
  * @brief     handler for the dispatched work
  */

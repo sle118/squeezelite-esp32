@@ -4,6 +4,7 @@
 #include "accessors.h"
 #include <string.h>
 #include "esp_netif_defaults.h"
+#include "Configurator.h"
 #ifdef __cplusplus
 extern "C" {
 
@@ -13,17 +14,18 @@ typedef struct {
     bool valid;
     bool rmii;
     bool spi;
+    sys_EthModelEnum model;
     esp_eth_handle_t handle;
     esp_netif_config_t * cfg_netif;
     spi_device_interface_config_t * devcfg;
     // This function is called when the network interface is started
     // and performs any initialization that requires a valid ethernet 
     // configuration .
-    void (*init_config)(eth_config_t * eth_config);
-    esp_err_t (*start)(spi_device_handle_t spi_handle,eth_config_t *ethernet_config);
+    void (*init_config)(sys_Eth * config);
+    esp_err_t (*start)(spi_device_handle_t spi_handle,sys_Eth * config);
 } network_ethernet_driver_t;
-typedef network_ethernet_driver_t* network_ethernet_detect_func_t(const char* Driver);
-network_ethernet_driver_t* network_ethernet_driver_autodetect(const char* Driver);
+typedef network_ethernet_driver_t* network_ethernet_detect_func_t(sys_Eth * config);
+network_ethernet_driver_t* network_ethernet_driver_autodetect();
 void destroy_network_ethernet();
 void init_network_ethernet();
 bool network_ethernet_wait_for_link(uint16_t max_wait_ms);

@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <string>
+#include <time.h>
 
 namespace Metrics {
 struct StrCompare {
@@ -45,7 +46,7 @@ class Event {
     }
   private:
     char* _name = nullptr;
-    uint32_t _time;
+    std::time_t _time;
     cJSON* _json = nullptr;    
 };
 

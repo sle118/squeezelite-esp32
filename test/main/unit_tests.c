@@ -47,7 +47,8 @@
 #include "squeezelite-ota.h"
 #include <math.h>
 #include "audio_controls.h"
-#include "platform_config.h"
+// #include "Configurator.h"
+#pragma message("fixme: search for TODO below")
 #include "telnet.h"
 #include "messaging.h"
 #include "gds.h"
@@ -78,6 +79,8 @@ void init_commands(){
 	register_config_cmd();
 	register_nvs();
 	register_i2ctools();
+#if CONFIG_WITH_CONFIG_UI
+#endif    
 }
 void test_init()
 {
@@ -111,6 +114,13 @@ void app_main()
     unity_run_menu();
 }
 
+int main(int argc, char **argv)
+{
+    setbuf(stdout, NULL);
+    app_main();
+
+    return 0;
+}
 static void print_banner(const char* text)
 {
     printf("\n#### %s #####\n\n", text);

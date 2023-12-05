@@ -1,0 +1,65 @@
+{
+    "dev": {
+        "spi": {
+            "mosi": {
+                "pin": 4
+            },
+            "clk": {
+                "pin": 5
+            },
+            "dc": {
+                "pin": 18
+            },
+            "host": "Host1"
+        },
+        "dac": {
+            "bck": {
+                "pin": 25
+            },
+            "ws": {
+                "pin": 26
+            },
+            "dout": {
+                "pin": 33
+            },
+            "model": "I2S"
+        },
+        "display": {
+            "type": "DEVTYPE_SPI",
+            "common": {
+                "width": 256,
+                "height": 64,
+                "HFlip": false,
+                "VFlip": false,
+                "rotate": false,
+                "driver": "SSD1322",
+                "reset": {
+                    "pin": 21
+                }
+            },
+            "spi": {
+                "cs": {
+                    "pin": 19
+                },
+                "speed": 8000000
+                
+            }
+        },
+        "rotary": {
+            "A": {
+                "pin": 23
+            },
+            "B": {
+                "pin": 22
+            },
+            "SW": {
+                "pin": 34
+            },
+            "volume": true,
+            "longpress": true
+        }
+    },
+    "names": {
+        "device": "bureau-oled"
+    }
+}

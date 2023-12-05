@@ -15,7 +15,7 @@
 #include "driver/gpio.h"
 #include "driver/ledc.h"
 #include "esp_log.h"
-
+#include "Configurator.h"
 #include "gds.h"
 #include "gds_private.h"
 
@@ -24,14 +24,14 @@
 #else
 #define LEDC_SPEED_MODE LEDC_HIGH_SPEED_MODE
 #endif                
-
+extern bool gds_init_fonts();
 static struct GDS_Device Display;
 static struct GDS_BacklightPWM PWMConfig;
 
 static char TAG[] = "gds";
 
-struct GDS_Device* GDS_AutoDetect( char *Driver, GDS_DetectFunc* DetectFunc[], struct GDS_BacklightPWM* PWM ) {
-	if (!Driver) return NULL;
+struct GDS_Device* GDS_AutoDetect( sys_Display * Driver, GDS_DetectFunc* DetectFunc[], struct GDS_BacklightPWM* PWM ) {
+	if (!Driver->has_common || Driver->common.driver == sys_DisplayDriverEnum_UNSPECIFIED_DRIVER) return NULL;
 	if (PWM) PWMConfig = *PWM;
 	
 	for (int i = 0; DetectFunc[i]; i++) {
@@ -203,7 +203,11 @@ bool GDS_Init( struct GDS_Device* Device ) {
 	}
 	
 	bool Res = Device->Init( Device );
+	if(Res){
+		Res = gds_init_fonts();
+	}
 	if (!Res && Device->Framebuffer) free(Device->Framebuffer);
+	
 	return Res;
 }
 

@@ -36,11 +36,11 @@
 #include "soc/uart_struct.h"
 #include "driver/uart.h"
 #include "config.h"
-#include "nvs_utilities.h"
 #include "platform_esp32.h"
 #include "messaging.h"
 #include "tools.h"
-
+#include "Configurator.h"
+#include "accessors.h"
 /************************************
  * Globals
  */
@@ -77,35 +77,24 @@ static void 	handle_telnet_conn();
 static size_t 	process_logs( UBaseType_t bytes, bool make_room);
 
 void init_telnet(){
-	char *val= get_nvs_value_alloc(NVS_TYPE_STR, "telnet_enable");
-
-	if (!val || strlen(val) == 0 || !strcasestr("YXD",val) ) {
+	sys_Telnet * telnet_svc=NULL;
+	if(!SYS_SERVICES_TELNET(telnet_svc) || !telnet_svc->enable){
 		ESP_LOGI(TAG,"Telnet support disabled");
-		if(val) free(val);
 		return;
 	}
 
-	// if wifi manager is bypassed, there will possibly be no wifi available
-	bMirrorToUART = (strcasestr("D",val)!=NULL);
-	if (!bMirrorToUART && bypass_network_manager){
-		// This isn't supposed to happen, as telnet won't start if wifi manager isn't
-		// started. So this is a safeguard only.
-		ESP_LOGW(TAG,"Wifi manager is not active.  Forcing console on Serial output.");
-	}
+	#pragma message("Do we still need this logic for telnet?")
+	// // if wifi manager is bypassed, there will possibly be no wifi available
+	// bMirrorToUART = (strcasestr("D",val)!=NULL);
+	// if (!bMirrorToUART && bypass_network_manager){
+	// 	// This isn't supposed to happen, as telnet won't start if wifi manager isn't
+	// 	// started. So this is a safeguard only.
+	// 	ESP_LOGW(TAG,"Wifi manager is not active.  Forcing console on Serial output.");
+	// }
 
-	FREE_AND_NULL(val);
-	val = get_nvs_value_alloc(NVS_TYPE_STR, "telnet_block");
-	if (val){
-		int size = atol(val);
-		if (size > 0) send_chunk = size;
-		free(val);
-	}
-	val = get_nvs_value_alloc(NVS_TYPE_STR, "telnet_buffer");
-	if (val){
-		int size = atol(val);
-		if (size > 0) log_buf_size = size;
-		free(val);
-	}
+	if (telnet_svc->block > 0) send_chunk = telnet_svc->block;
+	if (telnet_svc->block > 0) log_buf_size = telnet_svc->buffer;
+
 	// Redirect the output to our telnet handler as soon as possible
 	StaticRingbuffer_t *buffer_struct = (StaticRingbuffer_t *) heap_caps_malloc(sizeof(StaticRingbuffer_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
 	// All non-split ring buffer must have their memory alignment set to 32 bits.
@@ -132,6 +121,7 @@ void init_telnet(){
 	freopen("/dev/pkspstdout", "w", stderr);
 
 	bIsEnabled=true;
+
 }
 
 void start_telnet(void * pvParameter){

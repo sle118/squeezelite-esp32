@@ -767,7 +767,7 @@ int squeezelite_main(int argc, char **argv) {
 	stream_init(log_stream, stream_buf_size);
 
 #if EMBEDDED
-	output_init_embedded(log_output, output_device, output_buf_size, output_params, rates, rate_delay, idle);
+	output_init_embedded();
 #else
 	if (!strcmp(output_device, "-")) {
 		output_init_stdout(log_output, output_buf_size, output_params, rates, rate_delay);

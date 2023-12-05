@@ -30,7 +30,7 @@ static uint16_t i2c_read_shadow(uint8_t reg);
 
 static int WM8978;
 
-const struct adac_s dac_wm8978 = { "WM8978", init, adac_deinit, power, speaker, headset, volume };
+const struct adac_s dac_wm8978 = { sys_DACModelEnum_WM8978, init, adac_deinit, power, speaker, headset, volume };
 
 // initiation table for non-readbale 9-bit i2c registers
 static uint16_t WM8978_REGVAL_TBL[58] =	{

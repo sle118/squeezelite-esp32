@@ -9,7 +9,6 @@
 #include "esp_tls.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "nvs_flash.h"
 #include "tools.h"
 #include <cstdarg>
 #include <cstdio>
@@ -21,7 +20,8 @@
 #include "cJSON.h"
 #include "freertos/timers.h"
 #include "network_manager.h"
-#include "platform_config.h"
+// #include "Configurator.h"
+#pragma message("fixme: search for TODO below")
 
 static const char* TAG = "metrics";
 
@@ -36,7 +36,7 @@ static uint32_t metrics_usage_gen_time = 0;
     #pragma message "Metrics API key needs to be passed from the environment"
     #define METRICS_API_KEY "ZZZ"
 #endif
-static const char* metrics_api_key = 
+static const char* metrics_api_key =  METRICS_API_KEY;
 static const char* parms_str = "params";
 static const char* properties_str = "properties";
 static const char* user_properties_str = "user_properties";

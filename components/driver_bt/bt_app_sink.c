@@ -21,14 +21,14 @@
 #include "esp_gap_bt_api.h"
 #include "esp_a2dp_api.h"
 #include "esp_avrc_api.h"
-#include "nvs.h"
-#include "platform_config.h"
+#include "Configurator.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "tools.h"
 #include "audio_controls.h"
 #include "sys/lock.h"
 #include "display.h"
+#include "accessors.h"
 
 // AVRCP used transaction label
 #define APP_RC_CT_TL_GET_CAPS            (0)
@@ -493,7 +493,7 @@ static void bt_av_hdl_avrc_ct_evt(uint16_t event, void *p_param)
 
 static void volume_set_by_controller(uint8_t volume)
 {
-	// do not modified NVS volume
+	// do not modified state volume
     _lock_acquire(&s_volume_lock);
     s_volume = abs_volume = (volume * 100) / 127;
     _lock_release(&s_volume_lock);
@@ -509,12 +509,10 @@ static void volume_set_by_local_host(int value, bool is_step)
 	if (abs_volume >= 0) abs_volume = s_volume;
 	else sink_volume = s_volume;
 	_lock_release(&s_volume_lock);
-
-	// volume has been set by controller, do not store it in NVS	
-	if (abs_volume < 0) {
-		char p[4];
-		config_set_value(NVS_TYPE_STR, "bt_sink_volume", itoa(s_volume, p, 10));					
-	}
+    if(sys_state->bt_sink_volume != s_volume){
+        sys_state->bt_sink_volume = s_volume;
+        configurator_raise_state_changed();
+    }
 	
     if (s_volume_notify) {
         esp_avrc_rn_param_t rn_param;
@@ -569,23 +567,25 @@ void bt_sink_init(bt_cmd_vcb_t cmd_cb, bt_data_cb_t data_cb)
 	bt_app_a2d_cmd_cb = cmd_handler;
 	cmd_handler_chain = cmd_cb;
   	bt_app_a2d_data_cb = data_cb;
+    sys_BluetoothSink * bt_sink;
+    if(!SYS_SERVICES_BTSINK(bt_sink)){
+        return;
+    }
+    char pin_code[ESP_BT_PIN_CODE_LEN+1] = "1234\0";
 	
 	// create task and run event loop
     bt_app_task_start_up(bt_av_hdl_stack_evt);
 	
-	char *item = config_alloc_get_default(NVS_TYPE_STR, "bt_sink_volume", "127", 0);
-	sink_volume = atol(item);
-	free(item);
-
+	sink_volume = sys_state->bt_sink_volume;
+	
     /*
      * Set default parameters for Legacy Pairing
      */
     esp_bt_pin_type_t pin_type = ESP_BT_PIN_TYPE_FIXED;
+    strncpy(pin_code,bt_sink->pin,sizeof(pin_code));
+    if(SYS_SERVICES_BTSINK(bt_sink) && strlen(bt_sink->pin)>ESP_BT_PIN_CODE_LEN){
 
-    char * pin_code = config_alloc_get_default(NVS_TYPE_STR, "bt_sink_pin", STR(CONFIG_BT_SINK_PIN), 0);
-    if(strlen(pin_code)>ESP_BT_PIN_CODE_LEN){
-
-    	ESP_LOGW(BT_AV_TAG, "BT Sink pin code [%s] too long. ", pin_code);
+    	ESP_LOGW(BT_AV_TAG, "BT Sink pin code [%s] too long. ", bt_sink->pin);
     	pin_code[ESP_BT_PIN_CODE_LEN] = '\0';
     	ESP_LOGW(BT_AV_TAG, "BT Sink pin truncated code [%s]. ", pin_code);
     }
@@ -654,9 +654,7 @@ static void bt_av_hdl_stack_evt(uint16_t event, void *p_param)
     switch (event) {
     case BT_APP_EVT_STACK_UP: {
         /* set up device name */
-		bt_name = (char * )config_alloc_get_default(NVS_TYPE_STR, "bt_name", CONFIG_BT_NAME, 0);
-		esp_bt_dev_set_device_name(bt_name);
-		free(bt_name);
+		esp_bt_dev_set_device_name(strlen(platform->names.bluetooth)>0?platform->names.bluetooth:platform->names.device);
         esp_bt_gap_register_callback(bt_app_gap_cb);
 
         /* initialize AVRCP controller */

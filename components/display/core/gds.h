@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "Configurator.h"
 
 /* NOTE for drivers:
  The build-in DrawPixel(Fast), DrawCBR and ClearWindow have optimized for 1 bit 
@@ -33,9 +34,9 @@ struct GDS_Layout {
 	bool ColorSwap;
 };
 
-typedef struct GDS_Device* GDS_DetectFunc(char *Driver, struct GDS_Device *Device);
+typedef struct GDS_Device* GDS_DetectFunc(sys_Display * Driver, struct GDS_Device *Device);
 
-struct GDS_Device*	GDS_AutoDetect( char *Driver, GDS_DetectFunc* DetectFunc[], struct GDS_BacklightPWM *PWM );
+struct GDS_Device*	GDS_AutoDetect( sys_Display * Driver, GDS_DetectFunc* DetectFunc[], struct GDS_BacklightPWM *PWM );
 
 void 	GDS_SetContrast( struct GDS_Device* Device, uint8_t Contrast );
 void 	GDS_DisplayOn( struct GDS_Device* Device );

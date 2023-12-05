@@ -12,8 +12,8 @@
 #include <arpa/inet.h>
 #include "esp_log.h"
 #include "globdefs.h"
-#include "platform_config.h"
 #include "tools.h"
+#include "accessors.h"
 #include "display.h"
 #include "services.h"
 #include "gds.h"
@@ -22,7 +22,7 @@
 #include "gds_text.h"
 #include "gds_font.h"
 #include "gds_image.h"
-
+#include "Configurator.h"
 static const char *TAG = "display";
 
 #define min(a,b) (((a) < (b)) ? (a) : (b))
@@ -44,7 +44,7 @@ static EXT_RAM_ATTR struct {
 	char header[HEADER_SIZE + 1];
 	char string[SCROLLABLE_SIZE + 1];
 	int offset, boundary;
-	char *metadata_config;
+	sys_Metadata *metadata_config;
 	bool timer, refresh;
 	uint32_t elapsed;
 	struct {
@@ -62,18 +62,6 @@ static EXT_RAM_ATTR struct {
 	TickType_t tick;
 } displayer;
 
-static const char *known_drivers[] = {"SH1106",
-		"SSD1306",
-		"SSD1322",
-		"SSD1326",
-		"SSD1327",
-		"SSD1675",
-		"SSD1351",
-		"ST7735",
-		"ST7789",
-		"ILI9341",
-		NULL
-	};
     
 static void displayer_task(void *args);
 static void display_sleep(void);
@@ -87,46 +75,61 @@ GDS_DetectFunc *drivers[] = { SH1106_Detect, SSD1306_Detect, SSD132x_Detect, SSD
  */
 void display_init(char *welcome) {
 	bool init = false;
-	char *config = config_alloc_get_str("display_config", CONFIG_DISPLAY_CONFIG, "N/A");
-	
-	int width = -1, height = -1, backlight_pin = -1;
-	char *drivername = strstr(config, "driver");
+	int width = -1, height = -1, backlight_pin = -1, RST_pin = -1;
+	sys_Display * sys_display;
+	sys_DispCommon * common;
 
-	PARSE_PARAM(config, "width", '=', width);
-	PARSE_PARAM(config, "height", '=', height);
-	PARSE_PARAM(config, "back", '=', backlight_pin);
-		
-	// query drivers to see if we have a match
-	ESP_LOGI(TAG, "Trying to configure display with %s", config);
-	if (backlight_pin >= 0) {
+	if(!SYS_DISPLAY(sys_display) || !SYS_DISPLAY_COMMON(common)){
+		return;
+	}
+	// // so far so good
+	if(	common->width == 0 || common->height == 0){
+		ESP_LOGE(TAG,"Misconfigured display missing data");
+		return;
+	}	
+
+	ESP_LOGI(TAG, "Trying to configure display type %s, driver: %s", 
+				sys_DeviceTypeEnum_name(sys_display->type),
+				sys_DisplayDriverEnum_name(common->driver));
+	if (common->has_back && common->back.pin >= 0) {
 		struct GDS_BacklightPWM PWMConfig = { .Channel = pwm_system.base_channel++, .Timer = pwm_system.timer, .Max = pwm_system.max, .Init = false	};
-		display = GDS_AutoDetect(drivername, drivers, &PWMConfig);
+		display = GDS_AutoDetect(sys_display, drivers, &PWMConfig);
 	} else {
-		display = GDS_AutoDetect(drivername, drivers, NULL);
+		display = GDS_AutoDetect(sys_display, drivers, NULL);
 	}
 
-	// so far so good
-	if (display && width > 0 && height > 0) {
-		int RST_pin = -1;
-		PARSE_PARAM(config, "reset", '=', RST_pin);
-		
+	if (display) {
+		if(common->has_reset){
+			RST_pin = common->reset.pin;
+		}
+		if(common->has_back){
+			backlight_pin = common->back.pin;
+		}		
+		width = common->width;
+		height = common->height;
+
 		// Detect driver interface
-		if (strcasestr(config, "I2C") && i2c_system_port != -1) {
+		if (sys_display->which_dispType == sys_Display_i2c_tag && i2c_system_port != -1){
 			int address = 0x3C;
-				
-			PARSE_PARAM(config, "address", '=', address);
-				
+			
+			address = sys_display->dispType.i2c.address;
 			init = true;
 			GDS_I2CInit( i2c_system_port, -1, -1, i2c_system_speed ) ;
 			GDS_I2CAttachDevice( display, width, height, address, RST_pin, backlight_pin );
 		
 			ESP_LOGI(TAG, "Display is I2C on port %u", address);
-		} else if (strcasestr(config, "SPI") && spi_system_host != -1) {
+		} else if (sys_display->which_dispType == sys_Display_spi_tag && spi_system_host != -1) {
 			int CS_pin = -1, speed = 0, mode = 0;
-		
-			PARSE_PARAM(config, "cs", '=', CS_pin);
-			PARSE_PARAM(config, "speed", '=', speed);
-			PARSE_PARAM(config, "mode", '=', mode);
+			if(sys_display->dispType.spi.has_cs){
+				CS_pin = sys_display->dispType.spi.cs.pin;
+			}		
+			speed = sys_display->dispType.spi.speed;
+			
+			//todo: what is mode? 
+
+			// PARSE_PARAM(config, "mode", '=', mode);
+
+			// todo: need to handle display offsets 
 		
 			init = true;
 			GDS_SPIInit( spi_system_host, spi_system_dc_gpio );
@@ -137,24 +140,22 @@ void display_init(char *welcome) {
 			display = NULL;
 			ESP_LOGI(TAG, "Unsupported display interface or serial link not configured");
 		}
-	} else {
-		display = NULL;
-		ESP_LOGW(TAG, "No display driver");
-	}	
+	}
+	
 	
 	if (init) {
 		static DRAM_ATTR StaticTask_t xTaskBuffer __attribute__ ((aligned (4)));
 		static EXT_RAM_ATTR StackType_t xStack[DISPLAYER_STACK_SIZE] __attribute__ ((aligned (4)));
 		struct GDS_Layout Layout = {
-			.HFlip = strcasestr(config, "HFlip"), 
-			.VFlip = strcasestr(config, "VFlip"), 
-			.Rotate = strcasestr(config, "rotate"), 
-			.Invert = strcasestr(config, "invert"),
-			.ColorSwap = strcasestr(config, "cswap"),
+			.HFlip = platform->dev.display.common.HFlip,
+			.VFlip = platform->dev.display.common.VFlip,
+			.Rotate = platform->dev.display.common.rotate, 
+			.Invert = platform->dev.display.common.invert,
+			.ColorSwap = platform->dev.display.common.colow_swap
 		};	
 
 		GDS_SetLayout(display, &Layout);
-		GDS_SetFont(display, &Font_line_2);
+		GDS_SetFont(display, Font_line_2);
 		GDS_TextPos(display, GDS_FONT_DEFAULT, GDS_TEXT_CENTERED, GDS_TEXT_CLEAR | GDS_TEXT_UPDATE, welcome);
 
 		// start the task that will handle scrolling & counting
@@ -168,21 +169,25 @@ void display_init(char *welcome) {
 		GDS_TextSetFontAuto(display, 1, GDS_FONT_LINE_1, -3);
 		GDS_TextSetFontAuto(display, 2, GDS_FONT_LINE_2, -3);
 		
-		displayer.metadata_config = config_alloc_get(NVS_TYPE_STR, "metadata_config");
+		if(platform->has_services && platform->services.has_metadata){
+			displayer.metadata_config = &platform->services.metadata;
 		
-		// leave room for artwork is display is horizontal-style
-		if (strcasestr(displayer.metadata_config, "artwork")) {
-			displayer.artwork.enable = true;
-			displayer.artwork.fit = true;
-			if (height <= 64 && width > height * 2) displayer.artwork.offset = width - height - ARTWORK_BORDER;
-			PARSE_PARAM(displayer.metadata_config, "artwork", ':', displayer.artwork.fit);
-		}	
+			// leave room for artwork is display is horizontal-style
+			if (displayer.metadata_config->has_artwork && displayer.metadata_config->artwork.enabled) {
+				// todo : check for resize flag
+				displayer.artwork.enable = true;
+				displayer.artwork.fit = true;
+				if (height <= 64 && width > height * 2)
+					displayer.artwork.offset = width - height - ARTWORK_BORDER;
+			}	
+		}
+		
         
         // and finally register ourselves to power off upon deep sleep
         services_sleep_setsuspend(display_sleep);
 	}
 	
-	free(config);
+	
 }
 
 /****************************************************************************************
@@ -328,13 +333,13 @@ void displayer_metadata(char *artist, char *album, char *title) {
 	xSemaphoreTake(displayer.mutex, portMAX_DELAY);
 	
 	// format metadata parameters and write them directly
-	if ((p = strcasestr(displayer.metadata_config, "format")) != NULL) {
+	if (strlen(displayer.metadata_config->format)>0) {
 		char token[16], *q;
 		int space = len;
 		bool skip = false;
 			
 		displayer.string[0] = '\0';	
-		p = strchr(displayer.metadata_config, '=');
+		p = strchr(displayer.metadata_config->format, '=');
 			
 		while (p++) {
 			// find token and copy what's after when reaching last one
@@ -369,11 +374,9 @@ void displayer_metadata(char *artist, char *album, char *title) {
 	} else {
 		strncpy(string, title ? title : "", SCROLLABLE_SIZE);
 	}
-	
-	// get optional scroll speed & pause
-	PARSE_PARAM(displayer.metadata_config, "speed", '=', displayer.speed);
-	PARSE_PARAM(displayer.metadata_config, "pause", '=', displayer.pause);
-	
+	if(displayer.metadata_config->speed <=0) displayer.metadata_config->speed= displayer.speed;
+	if(displayer.metadata_config->pause <=0) displayer.metadata_config->pause= displayer.pause;
+	displayer.metadata_config->speed = displayer.speed;
 	displayer.offset = 0;	
 	utf8_decode(displayer.string);
 	ESP_LOGI(TAG, "playing %s", displayer.string);
@@ -493,47 +496,4 @@ void displayer_control(enum displayer_cmd_e cmd, ...) {
 	
 	xSemaphoreGive(displayer.mutex);
 	va_end(args);
-}
-
-/****************************************************************************************
- *
- */
-bool display_is_valid_driver(const char * driver){
-	return display_conf_get_driver_name(driver)!=NULL;
-}
-
-/****************************************************************************************
- *
- */
-const char *display_conf_get_driver_name(const char * driver){
-	for(uint8_t i=0;known_drivers[i]!=NULL && strlen(known_drivers[i])>0;i++ ){
-		if(strcasestr(driver,known_drivers[i])){
-			return known_drivers[i];
-		}
-	}
-	return NULL;
-}
-
-/****************************************************************************************
- *
- */
-char * display_get_supported_drivers(void){
-	int total_size = 1;
-	char * supported_drivers=NULL;
-	const char * separator = "|";
-	int separator_len = strlen(separator);
-
-	for(uint8_t i=0;known_drivers[i]!=NULL && strlen(known_drivers[i])>0;i++ ){
-		total_size += strlen(known_drivers[i])+separator_len;
-	}
-	total_size+=2;
-	supported_drivers = malloc(total_size);
-	memset(supported_drivers,0x00,total_size);
-	strcat(supported_drivers,"<");
-	for(uint8_t i=0;known_drivers[i]!=NULL && strlen(known_drivers[i])>0;i++ ){
-		supported_drivers = strcat(supported_drivers,known_drivers[i]);
-		supported_drivers = strcat(supported_drivers,separator);
-	}
-	strcat(supported_drivers,">");
-	return supported_drivers;
 }

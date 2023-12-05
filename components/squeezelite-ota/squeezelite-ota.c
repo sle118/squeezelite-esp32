@@ -21,7 +21,7 @@
 #include "esp_err.h"
 #include "squeezelite-ota.h"
 #include "esp_netif.h"
-#include "platform_config.h"
+#include "Configurator.h"
 #include <time.h>
 #include <sys/time.h>
 #include <stdarg.h>
@@ -400,19 +400,9 @@ esp_err_t _erase_last_boot_app_partition(const esp_partition_t *ota_partition)
 {
 	uint16_t num_passes=0;
 	uint16_t remain_size=0;
-	uint32_t single_pass_size=0;
+	uint32_t single_pass_size=OTA_FLASH_ERASE_BLOCK;
 	esp_err_t err=ESP_OK;
 
-    char * ota_erase_size=config_alloc_get(NVS_TYPE_STR, "ota_erase_blk");
-	if(ota_erase_size!=NULL) {
-		single_pass_size = atol(ota_erase_size);
-		ESP_LOGD(TAG,"OTA Erase block size is %d (from string: %s)",single_pass_size, ota_erase_size );
-		free(ota_erase_size);
-	}
-	else {
-		ESP_LOGW(TAG,"OTA Erase block config not found");
-		single_pass_size = OTA_FLASH_ERASE_BLOCK;
-	}
 
 	if(single_pass_size % SPI_FLASH_SEC_SIZE !=0){
 		uint32_t temp_single_pass_size = single_pass_size-(single_pass_size % SPI_FLASH_SEC_SIZE);
@@ -442,30 +432,32 @@ esp_err_t _erase_last_boot_app_partition(const esp_partition_t *ota_partition)
 	sendMessaging(MESSAGING_INFO,"Erasing flash complete.");
 	loc_displayer_progressbar(100);
 	vTaskDelay(200/ portTICK_PERIOD_MS);
+	// TODO: Add support for the commented code
 	return ESP_OK;
 }
 
 void ota_task_cleanup(const char * message, ...){
-	ota_status->bOTAThreadStarted=false;
-	loc_displayer_progressbar(0);
-	if(message!=NULL){
-	    va_list args;
-	    va_start(args, message);
-		sendMessaging(MESSAGING_ERROR,message, args);
-	    va_end(args);
+	// TODO: Add support for the commented code
+	// ota_status->bOTAThreadStarted=false;
+	// loc_displayer_progressbar(0);
+	// if(message!=NULL){
+	//     va_list args;
+	//     va_start(args, message);
+	// 	sendMessaging(MESSAGING_ERROR,message, args);
+	//     va_end(args);
 		
-	    if (led_display) led_vu_color_red(LED_VU_BRIGHT);
-	} else {
-	    if (led_display) led_vu_color_green(LED_VU_BRIGHT);
-	}
-	FREE_RESET(ota_status->ota_write_data);
-	FREE_RESET(ota_status->bin_data);
-	if(ota_http_client!=NULL) {
-		esp_http_client_cleanup(ota_http_client);
-		ota_http_client=NULL;
-	}
-	ota_status->bOTAStarted = false;
-	task_fatal_error();
+	//     if (led_display) led_vu_color_red(LED_VU_BRIGHT);
+	// } else {
+	//     if (led_display) led_vu_color_green(LED_VU_BRIGHT);
+	// }
+	// FREE_RESET(ota_status->ota_write_data);
+	// FREE_RESET(ota_status->bin_data);
+	// if(ota_http_client!=NULL) {
+	// 	esp_http_client_cleanup(ota_http_client);
+	// 	ota_http_client=NULL;
+	// }
+	// ota_status->bOTAStarted = false;
+	// task_fatal_error();
 }
 esp_err_t ota_buffer_all(){
 		esp_err_t err=ESP_OK;
@@ -563,7 +555,7 @@ void ota_task(void *pvParameter)
 {
 	esp_err_t err = ESP_OK;
     int data_read = 0;
-    IF_DISPLAY(GDS_TextSetFont(display,2,GDS_GetHeight(display)>32?&Font_droid_sans_fallback_15x17:&Font_droid_sans_fallback_11x13,-2))
+    IF_DISPLAY(GDS_TextSetFontAuto(display,2,GDS_GetHeight(display)>32?GDS_FONT_LARGE:GDS_FONT_MEDIUM,-2))
     IF_DISPLAY(	GDS_ClearExt(display, true));
 	IF_DISPLAY(GDS_TextLine(display, 1, GDS_TEXT_LEFT, GDS_TEXT_CLEAR | GDS_TEXT_UPDATE, "Firmware update"));
 	IF_DISPLAY(GDS_TextLine(display, 2, GDS_TEXT_LEFT, GDS_TEXT_CLEAR | GDS_TEXT_UPDATE, "Initializing"));
@@ -691,7 +683,10 @@ esp_err_t process_recovery_ota(const char * bin_url, char * bin_buffer, uint32_t
 	ota_status->bOTAThreadStarted=true;
 
 	if(bin_url){
+		ESP_LOGI(TAG,"Processing recovery OTA for url %s",STR_OR_ALT(bin_url,"N/A"));
 		ota_thread_parms.url =strdup_psram(bin_url);
+		configurator_set_string(&sys_State_msg,sys_State_ota_url_tag,sys_state,NULL);
+		configurator_raise_state_changed();
 		ESP_LOGD(TAG, "Starting ota on core %u for : %s", OTA_CORE,ota_thread_parms.url);
 	}
 	else {
@@ -699,28 +694,10 @@ esp_err_t process_recovery_ota(const char * bin_url, char * bin_buffer, uint32_t
 		ota_thread_parms.length = length;
 		ESP_LOGD(TAG, "Starting ota on core %u for file upload", OTA_CORE);
 	}
-
-    char * num_buffer=config_alloc_get(NVS_TYPE_STR, "ota_stack");
-  	if(num_buffer!=NULL) {
-  		stack_size= atol(num_buffer);
-  		FREE_AND_NULL(num_buffer);
-  	}
-  	else {
-		ESP_LOGW(TAG,"OTA stack size config not found");
-  		stack_size = OTA_STACK_SIZE;
-  	}
-  	num_buffer=config_alloc_get(NVS_TYPE_STR, "ota_prio");
-	if(num_buffer!=NULL) {
-		task_priority= atol(num_buffer);
-		FREE_AND_NULL(num_buffer);
-	}
-	else {
-		ESP_LOGW(TAG,"OTA task priority not found");
-		task_priority= OTA_TASK_PRIOTITY;
-  	}
+	stack_size = OTA_STACK_SIZE;
+	task_priority= OTA_TASK_PRIOTITY;
 
   	ESP_LOGD(TAG,"OTA task stack size %d, priority %d (%d %s ESP_TASK_MAIN_PRIO)",stack_size , task_priority, abs(task_priority-ESP_TASK_MAIN_PRIO), task_priority-ESP_TASK_MAIN_PRIO>0?"above":"below");
-//    ret=xTaskCreatePinnedToCore(&ota_task, "ota_task", stack_size , (void *)&ota_thread_parms, task_priority, NULL, OTA_CORE);
     ret=xTaskCreate(&ota_task, "ota_task", stack_size , (void *)&ota_thread_parms, task_priority, NULL);
     if (ret != pdPASS)  {
             ESP_LOGE(TAG, "create thread %s failed", "ota_task");

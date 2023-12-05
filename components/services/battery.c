@@ -16,7 +16,7 @@
 #include "esp_log.h"
 #include "driver/adc.h"
 #include "battery.h"
-#include "platform_config.h"
+#include "Configurator.h"
 
 /* 
  There is a bug in esp32 which causes a spurious interrupt on gpio 36/39 when
@@ -30,16 +30,13 @@
 static const char *TAG = "battery";
 
 static struct {
-	int channel;
 	float sum, avg, scale;
 	int count;
-	int cells, attenuation;
+	sys_Battery * battery_config;
 	TimerHandle_t timer;
-} battery = { 
-	.channel = -1,
-	.cells = 2,
-};	
-
+} battery;
+#define BATTERY_CHANNEL(b) (b.battery_config?b.battery_config->channel - sys_BatteryChannelEnum_CH0:-1)
+#define ATTENUATION(b) (b.battery_config?b.battery_config->atten - sys_BatteryAttenEnum_ATT_0:-1)
 void (*battery_handler_svc)(float value, int cells);
 
 /****************************************************************************************
@@ -54,7 +51,8 @@ float battery_value_svc(void) {
  */
 uint8_t battery_level_svc(void) {
 	// TODO: this is vastly incorrect
-	int level = battery.avg ? (battery.avg - (3.0 * battery.cells)) / ((4.2 - 3.0) * battery.cells) * 100 : 0;
+	if(!battery.battery_config){ return 0; }
+	int level = battery.avg ? (battery.avg - (3.0 * battery.battery_config->cells)) / ((4.2 - 3.0) * battery.battery_config->cells) * 100 : 0;
 	return level < 100 ? level : 100;
 }
 
@@ -62,11 +60,13 @@ uint8_t battery_level_svc(void) {
  * 
  */
 static void battery_callback(TimerHandle_t xTimer) {
-	battery.sum += adc1_get_raw(battery.channel) * battery.scale / 4095.0;
+	if(!battery.battery_config){ return;  }
+	
+	battery.sum += adc1_get_raw(BATTERY_CHANNEL(battery)) * battery.battery_config->scale / 4095.0;
 	if (++battery.count == 30) {
 		battery.avg = battery.sum / battery.count;
 		battery.sum = battery.count = 0;
-		if (battery_handler_svc) (battery_handler_svc)(battery.avg, battery.cells);
+		if (battery_handler_svc) (battery_handler_svc)(battery.avg, battery.battery_config->cells);
 		ESP_LOGI(TAG, "Voltage %.2fV", battery.avg);
 	}	
 }
@@ -75,31 +75,15 @@ static void battery_callback(TimerHandle_t xTimer) {
  * 
  */
 void battery_svc_init(void) {
-	char *nvs_item = config_alloc_get_default(NVS_TYPE_STR, "bat_config", "", 0);
-	
-#ifdef CONFIG_BAT_LOCKED
-	char *p = nvs_item;
-	asprintf(&nvs_item, CONFIG_BAT_CONFIG ",%s", p);
-	free(p);
-#endif		
-
-	if (nvs_item) {
-		PARSE_PARAM(nvs_item, "channel", '=', battery.channel);
-		PARSE_PARAM_FLOAT(nvs_item, "scale", '=', battery.scale);
-		PARSE_PARAM(nvs_item, "atten", '=', battery.attenuation);
-		PARSE_PARAM(nvs_item, "cells", '=', battery.cells);
-		free(nvs_item);
-	}	
-
-	if (battery.channel != -1) {
+	if (SYS_DEV_BATTERY(battery.battery_config) && BATTERY_CHANNEL(battery) != -1) {
 		adc1_config_width(ADC_WIDTH_BIT_12);
-		adc1_config_channel_atten(battery.channel, battery.attenuation);
+		adc1_config_channel_atten(BATTERY_CHANNEL(battery), ATTENUATION(battery));
 
-		battery.avg = adc1_get_raw(battery.channel) * battery.scale / 4095.0;    
+		battery.avg = adc1_get_raw(BATTERY_CHANNEL(battery)) * battery.scale / 4095.0;    
 		battery.timer = xTimerCreate("battery", BATTERY_TIMER / portTICK_RATE_MS, pdTRUE, NULL, battery_callback);
 		xTimerStart(battery.timer, portMAX_DELAY);
 		
-		ESP_LOGI(TAG, "Battery measure channel: %u, scale %f, atten %d, cells %u, avg %.2fV", battery.channel, battery.scale, battery.attenuation, battery.cells, battery.avg);		
+		ESP_LOGI(TAG, "Battery measure channel: %u, scale %f, atten %d, cells %u, avg %.2fV", BATTERY_CHANNEL(battery), battery.scale, ATTENUATION(battery), battery.battery_config->cells, battery.avg);		
 	} else {
 		ESP_LOGI(TAG, "No battery");
 	}	

@@ -26,7 +26,7 @@
 #include "esp_partition.h"
 #include "esp_ota_ops.h"
 #include "platform_esp32.h"
-#include "platform_config.h"
+#include "Configurator.h"
 #include "esp_sleep.h"
 #include "messaging.h"				  
 #include "platform_console.h"
@@ -42,25 +42,24 @@
 #pragma message("Runtime stats disabled")
 #endif
 EXT_RAM_ATTR static struct {
-	struct arg_str *name;
-	struct arg_end *end;
-} name_args;
-EXT_RAM_ATTR static struct {
-    #if CONFIG_CSPOT_SINK	
-    struct arg_lit *cspot;
-    #endif     
- 	struct arg_lit *btspeaker;
- 	struct arg_lit *airplay;
- 	struct arg_str *telnet;
 
-#if WITH_TASKS_INFO    
- 	struct arg_lit *stats;
-#endif  
-    struct arg_end *end;
-} set_services_args;
+ 	struct arg_str * device;
+  // AirPlay device name
+    struct arg_str * airplay;
+  // Spotify device name
+    struct arg_str * spotify;
+  // Bluetooth player name advertized
+    struct arg_str * bluetooth;
+  // Player name reported to the Logitech Media Server
+    struct arg_str * squeezelite;
+  // Wifi Access Point name
+    struct arg_str * wifi_ap_name;
+    struct arg_lit * all;
+	struct arg_end *end;
+} names_args;
+
 static const char * TAG = "cmd_system";
 
-//static void register_setbtsource();
 static void register_free();
 static void register_setdevicename();
 static void register_heap();
@@ -73,7 +72,7 @@ static void register_light_sleep();
 #endif
 static void register_factory_boot();
 static void register_restart_ota();
-static void register_set_services();
+// static void register_set_services();
 #if WITH_TASKS_INFO
 static void register_tasks();
 #endif
@@ -88,7 +87,7 @@ FILE * system_open_memstream(const char * cmdname,char **buf,size_t *buf_size){
 void register_system()
 {
 
-    register_set_services();
+    // register_set_services();
     register_setdevicename();
     register_free();
     register_heap();
@@ -108,7 +107,7 @@ void register_system()
 void simple_restart()
 {
 	log_send_messaging(MESSAGING_WARNING,"Rebooting.");
-	if(!wait_for_commit()){
+	if(!configurator_waitcommit()){
 		log_send_messaging(MESSAGING_WARNING,"Unable to commit configuration. ");
 	}
 	vTaskDelay(750/ portTICK_PERIOD_MS);
@@ -320,17 +319,19 @@ static int heap_size(int argc, char **argv)
     return 0;
 }
 cJSON * setdevicename_cb(){
-	char * default_host_name = config_alloc_get_str("host_name",NULL,"Squeezelite");
+	// char * default_host_name = config_alloc_get_str("host_name",NULL,"Squeezelite");
 	cJSON * values = cJSON_CreateObject();
-	cJSON_AddStringToObject(values,"name",default_host_name);
-	free(default_host_name);
+	// cJSON_AddStringToObject(values,"name",default_host_name);
+	// free(default_host_name);
+    // TODO: Add support for the commented code")
 	return values;
 }
 static int setnamevar(char * nvsname, FILE *f, char * value){
 	esp_err_t err=ESP_OK;
-	if((err=config_set_value(NVS_TYPE_STR, nvsname, value))!=ESP_OK){
-		fprintf(f,"Unable to set %s=%s. %s\n",nvsname,value,esp_err_to_name(err));
-	}
+	// if((err=config_set_value(NVS_TYPE_STR, nvsname, value))!=ESP_OK){
+	// 	fprintf(f,"Unable to set %s=%s. %s\n",nvsname,value,esp_err_to_name(err));
+	// }
+    // TODO: Add support for the commented code")
 	return err==ESP_OK?0:1;
 }
 typedef enum {
@@ -339,140 +340,147 @@ typedef enum {
 } scanstate_t;
 int set_cspot_player_name(FILE * f,const char * name){
     int ret=0;
-    cJSON * cspot_config = config_alloc_get_cjson("cspot_config");
-    if(cspot_config==NULL){
-        fprintf(f,"Unable to get cspot_config\n");
-        return 1;
-    }
-    cJSON * player_name = cJSON_GetObjectItemCaseSensitive(cspot_config,"deviceName");
-    if(player_name==NULL){
-        fprintf(f,"Unable to get deviceName\n");
-        ret=1;
-    }
-    if(strcmp(player_name->valuestring,name)==0){
-        fprintf(f,"CSpot device name not changed.\n");
-        ret=0;
-    }
-    else{
-        cJSON_SetValuestring(player_name,name);
-        if(setnamevar("cspot_config",f,cJSON_Print(cspot_config))!=0){
-            fprintf(f,"Unable to set cspot_config\n");
-            ret=1;
-        }
-        else{
-            fprintf(f,"CSpot device name set to %s\n",name);
-        }
-    }
-    cJSON_Delete(cspot_config);
+    // cJSON * cspot_config = config_alloc_get_cjson("cspot_config");
+    // if(cspot_config==NULL){
+    //     fprintf(f,"Unable to get cspot_config\n");
+    //     return 1;
+    // }
+    // cJSON * player_name = cJSON_GetObjectItemCaseSensitive(cspot_config,"deviceName");
+    // if(player_name==NULL){
+    //     fprintf(f,"Unable to get deviceName\n");
+    //     ret=1;
+    // }
+    // if(strcmp(player_name->valuestring,name)==0){
+    //     fprintf(f,"CSpot device name not changed.\n");
+    //     ret=0;
+    // }
+    // else{
+    //     cJSON_SetValuestring(player_name,name);
+    //     if(setnamevar("cspot_config",f,cJSON_Print(cspot_config))!=0){
+    //         fprintf(f,"Unable to set cspot_config\n");
+    //         ret=1;
+    //     }
+    //     else{
+    //         fprintf(f,"CSpot device name set to %s\n",name);
+    //     }
+    // }
+    // cJSON_Delete(cspot_config);
+    // TODO: Add support for the commented code")
     return ret;
 }
 int set_squeezelite_player_name(FILE * f,const char * name){
-	char * nvs_config= config_alloc_get(NVS_TYPE_STR, "autoexec1");
-	char **argv = NULL;
-    esp_err_t err=ESP_OK;
-    int nerrors=0;
-    bool bFoundParm=false;
-    scanstate_t state=SCANNING;
-    char * newCommandLine = NULL;
-    char * parm = " -n ";
-    char * cleaned_name = strdup(name);
-    for(char * p=cleaned_name;*p!='\0';p++){
-        if(*p == ' '){
-            *p='_'; // no spaces allowed
-        }
-    }
-	if(nvs_config && strlen(nvs_config)>0){
-        // allocate enough memory to hold the new command line
-        size_t cmdLength = strlen(nvs_config) + strlen(cleaned_name) + strlen(parm) +1 ;
-        newCommandLine = malloc_init_external(cmdLength);
-        ESP_LOGD(TAG,"Parsing command %s",nvs_config);
-		argv = (char **) malloc_init_external(22* sizeof(char *));
-		if (argv == NULL) {
-			FREE_AND_NULL(nvs_config);
-			return 1;
-		}
-		size_t argc = esp_console_split_argv(nvs_config, argv,22);
-		for(int i=0;i<argc;i++) {
-            if(i>0){
-                strcat(newCommandLine," ");
-            }
-            switch (state)
-            {
-            case SCANNING:
-                strcat(newCommandLine,argv[i]);
-                if(strcasecmp(argv[i],"--name")==0 || strcasecmp(argv[i],"-n")==0 ){
-                    state = PROCESSING_NAME;
-                }
-                break;
-            case PROCESSING_NAME:
-                bFoundParm=true;
-                strcat(newCommandLine,cleaned_name);
-                state = SCANNING;
-                break;
+	int nerrors=0;
+    // TODO: Add support for the commented code")
+    // char * nvs_config= config_alloc_get(NVS_TYPE_STR, "autoexec1");
+	// char **argv = NULL;
+    // esp_err_t err=ESP_OK;
+    // bool bFoundParm=false;
+    // scanstate_t state=SCANNING;
+    // char * newCommandLine = NULL;
+    // char * parm = " -n ";
+    // char * cleaned_name = strdup(name);
+    // for(char * p=cleaned_name;*p!='\0';p++){
+    //     if(*p == ' '){
+    //         *p='_'; // no spaces allowed
+    //     }
+    // }
+	// if(nvs_config && strlen(nvs_config)>0){
+    //     // allocate enough memory to hold the new command line
+    //     size_t cmdLength = strlen(nvs_config) + strlen(cleaned_name) + strlen(parm) +1 ;
+    //     newCommandLine = malloc_init_external(cmdLength);
+    //     ESP_LOGD(TAG,"Parsing command %s",nvs_config);
+	// 	argv = (char **) malloc_init_external(22* sizeof(char *));
+	// 	if (argv == NULL) {
+	// 		FREE_AND_NULL(nvs_config);
+	// 		return 1;
+	// 	}
+	// 	size_t argc = esp_console_split_argv(nvs_config, argv,22);
+	// 	for(int i=0;i<argc;i++) {
+    //         if(i>0){
+    //             strcat(newCommandLine," ");
+    //         }
+    //         switch (state)
+    //         {
+    //         case SCANNING:
+    //             strcat(newCommandLine,argv[i]);
+    //             if(strcasecmp(argv[i],"--name")==0 || strcasecmp(argv[i],"-n")==0 ){
+    //                 state = PROCESSING_NAME;
+    //             }
+    //             break;
+    //         case PROCESSING_NAME:
+    //             bFoundParm=true;
+    //             strcat(newCommandLine,cleaned_name);
+    //             state = SCANNING;
+    //             break;
             
-            default:
-                break;
-            }
-        }
-        if(!bFoundParm){
-            strcat(newCommandLine,parm);
-            strcat(newCommandLine,name);
-        }
-        fprintf(f,"Squeezelite player name changed to %s\n",newCommandLine);
-        if((err=config_set_value(NVS_TYPE_STR, "autoexec1",newCommandLine))!=ESP_OK){
-            nerrors++;
-            fprintf(f,"Failed updating squeezelite command. %s", esp_err_to_name(err));
-        }
+    //         default:
+    //             break;
+    //         }
+    //     }
+    //     if(!bFoundParm){
+    //         strcat(newCommandLine,parm);
+    //         strcat(newCommandLine,name);
+    //     }
+    //     fprintf(f,"Squeezelite player name changed to %s\n",newCommandLine);
+    //     if((err=config_set_value(NVS_TYPE_STR, "autoexec1",newCommandLine))!=ESP_OK){
+    //         nerrors++;
+    //         fprintf(f,"Failed updating squeezelite command. %s", esp_err_to_name(err));
+    //     }
 		
-	}
+	// }
 
-	FREE_AND_NULL(nvs_config);
-	FREE_AND_NULL(argv);
-	free(cleaned_name);
+	// FREE_AND_NULL(nvs_config);
+	// FREE_AND_NULL(argv);
+	// free(cleaned_name);
 	return nerrors;
 	
 }
 static int setdevicename(int argc, char **argv)
 {
-	char * name = NULL;
-    int nerrors = arg_parse_msg(argc, argv,(struct arg_hdr **)&name_args);
+	bool changed = false;
+    int nerrors = arg_parse_msg(argc, argv,(struct arg_hdr **)&names_args);
     if (nerrors != 0) {
         return 1;
     }
-
-	/* Check "--name" option */
-	if (name_args.name->count) {
-		name=strdup_psram(name_args.name->sval[0]);
-	}
+	if (names_args.device->count >0){
+        changed = changed | configurator_set_string(&sys_Names_msg,sys_Names_device_tag, &platform->names,names_args.device->sval[0]);
+    }
 	else {
-		cmd_send_messaging(argv[0],MESSAGING_ERROR,"Name must be specified.");
+		ESP_LOGE(TAG,"Device name must be specified");
 		return 1;
 	}
+	if (names_args.airplay->count >0){
+        changed = changed | configurator_set_string(&sys_Names_msg,sys_Names_airplay_tag, &platform->names,names_args.airplay->sval[0]);
+    }
 
-	char *buf = NULL;
-	size_t buf_size = 0;
-	FILE *f = system_open_memstream(argv[0],&buf, &buf_size);
-	if (f == NULL) {
-		return 1;
-	}
-	nerrors+=setnamevar("a2dp_dev_name", f, name);
-	nerrors+=setnamevar("airplay_name", f, name);
-	nerrors+=setnamevar("ap_ssid", f, name);
-	nerrors+=setnamevar("bt_name", f, name);
-	nerrors+=setnamevar("host_name", f, name);
-    nerrors+=set_squeezelite_player_name(f, name);
-    nerrors+=set_cspot_player_name(f, name);
-	if(nerrors==0){
-		fprintf(f,"Device name changed to %s\n",name);
-	}
-	if(!nerrors ){
-		fprintf(f,"Done.\n");
-	}
-	FREE_AND_NULL(name);
-	fflush (f);
-	cmd_send_messaging(argv[0],nerrors>0?MESSAGING_ERROR:MESSAGING_INFO,"%s", buf);
-	fclose(f);
-	FREE_AND_NULL(buf);
+	if (names_args.bluetooth->count >0){
+        changed = changed | configurator_set_string(&sys_Names_msg,sys_Names_bluetooth_tag, &platform->names,names_args.bluetooth->sval[0]);
+    }
+	if (names_args.spotify->count >0){
+        changed = changed | configurator_set_string(&sys_Names_msg,sys_Names_spotify_tag, &platform->names,names_args.spotify->sval[0]);
+    }
+	if (names_args.squeezelite->count >0){
+        changed = changed | configurator_set_string(&sys_Names_msg,sys_Names_squeezelite_tag, &platform->names,names_args.squeezelite->sval[0]);
+    }    
+	if (names_args.wifi_ap_name->count >0){
+        changed = changed | configurator_set_string(&sys_Names_msg,sys_Names_wifi_ap_name_tag, &platform->names,names_args.wifi_ap_name->sval[0]);
+    }        
+	if (names_args.all->count >0){    
+        ESP_LOGI(TAG,"Setting all names to %s", platform->names.device);
+        changed = changed | configurator_set_string(&sys_Names_msg,sys_Names_airplay_tag, &platform->names,platform->names.device);
+        changed = changed | configurator_set_string(&sys_Names_msg,sys_Names_bluetooth_tag, &platform->names,platform->names.device);
+        changed = changed | configurator_set_string(&sys_Names_msg,sys_Names_spotify_tag, &platform->names,platform->names.device);
+        changed = changed | configurator_set_string(&sys_Names_msg,sys_Names_squeezelite_tag, &platform->names,platform->names.device);
+        changed = changed | configurator_set_string(&sys_Names_msg,sys_Names_wifi_ap_name_tag, &platform->names,platform->names.device);
+    }
+    if(changed){
+        ESP_LOGI(TAG,"Found change(s). Saving");
+        configurator_raise_changed();
+    }
+    else {
+        ESP_LOGW(TAG,"No change detected.");
+    }
+
 	return nerrors;
 
 }
@@ -506,18 +514,23 @@ static void register_dump_heap()
 
 static void register_setdevicename()
 {
-	char * default_host_name = config_alloc_get_str("host_name",NULL,"Squeezelite");
-	name_args.name = arg_str0("n", "name", default_host_name, "New Name");
-	name_args.end = arg_end(8);
+    char * default_host_name = platform->names.device;
+	names_args.device = arg_str0("n", "device", default_host_name, "New Name");
+    names_args.airplay = arg_str0("a", "airplay", default_host_name, "New Airplay Device Name");
+    names_args.bluetooth = arg_str0("b", "bt", default_host_name, "New Bluetooth Device Name");
+    names_args.spotify = arg_str0("s", "spotify", default_host_name, "New Spotify Device Name");
+    names_args.squeezelite = arg_str0("l", "squeezelite", default_host_name, "New Squeezelite Player Name");
+    names_args.wifi_ap_name = arg_str0("w", "wifiap", default_host_name, "New Wifi AP Name");
+    names_args.all = arg_lit0(NULL, "all", "Set all names to device name");
+	names_args.end = arg_end(2);
 	const esp_console_cmd_t set_name= {
 	 		.command = CFG_TYPE_SYST("name"),
 			.help="Device Name",
 			.hint = NULL,
 			.func = &setdevicename,
-			.argtable = &name_args
+			.argtable = &names_args
 	};
 
-	cmd_to_json_with_cb(&set_name,&setdevicename_cb);
 	ESP_ERROR_CHECK(esp_console_cmd_register(&set_name));
 }
 /** 'tasks' command prints the list of tasks and related information */
@@ -625,123 +638,124 @@ static void register_deep_sleep()
 #endif
 
 static int enable_disable(FILE * f,char * nvs_name, struct arg_lit *arg){
-	esp_err_t err = config_set_value(NVS_TYPE_STR, nvs_name, arg->count>0?"Y":"N");
-	const char * name = arg->hdr.longopts?arg->hdr.longopts:arg->hdr.glossary;
+	esp_err_t err = ESP_OK;
+    // err= config_set_value(NVS_TYPE_STR, nvs_name, arg->count>0?"Y":"N");
+	// const char * name = arg->hdr.longopts?arg->hdr.longopts:arg->hdr.glossary;
 
-	if(err!=ESP_OK){
-		fprintf(f,"Error %s %s. %s\n",arg->count>0?"Enabling":"Disabling", name, esp_err_to_name(err));
-	}
-	else {
-		fprintf(f,"%s %s\n",arg->count>0?"Enabled":"Disabled",name);
-	}
+	// if(err!=ESP_OK){
+	// 	fprintf(f,"Error %s %s. %s\n",arg->count>0?"Enabling":"Disabling", name, esp_err_to_name(err));
+	// }
+	// else {
+	// 	fprintf(f,"%s %s\n",arg->count>0?"Enabled":"Disabled",name);
+	// }
 	return err;
 }
 
-static int do_set_services(int argc, char **argv)
-{
-    esp_err_t err = ESP_OK;
-    int nerrors = arg_parse_msg(argc, argv,(struct arg_hdr **)&set_services_args);
-    if (nerrors != 0) {
-        return 1;
-    }
-	char *buf = NULL;
-	size_t buf_size = 0;
-	FILE *f = system_open_memstream(argv[0],&buf, &buf_size);
-	if (f == NULL) {
-		return 1;
-	}
+// static int do_set_services(int argc, char **argv)
+// {
+//     esp_err_t err = ESP_OK;
+//     int nerrors = arg_parse_msg(argc, argv,(struct arg_hdr **)&set_services_args);
+//     if (nerrors != 0) {
+//         return 1;
+//     }
+// 	char *buf = NULL;
+// 	size_t buf_size = 0;
+// 	FILE *f = system_open_memstream(argv[0],&buf, &buf_size);
+// 	if (f == NULL) {
+// 		return 1;
+// 	}
 
-	nerrors += enable_disable(f,"enable_airplay",set_services_args.airplay);
-	nerrors += enable_disable(f,"enable_bt_sink",set_services_args.btspeaker);
-    #if CONFIG_CSPOT_SINK	
-    nerrors += enable_disable(f,"enable_cspot",set_services_args.cspot);
-    #endif    
+// 	nerrors += enable_disable(f,"enable_airplay",set_services_args.airplay);
+// 	nerrors += enable_disable(f,"enable_bt_sink",set_services_args.btspeaker);
+//     #if CONFIG_CSPOT_SINK	
+//     nerrors += enable_disable(f,"enable_cspot",set_services_args.cspot);
+//     #endif    
 
-    if(set_services_args.telnet->count>0){
-        if(strcasecmp(set_services_args.telnet->sval[0],"Disabled") == 0){
-            err = config_set_value(NVS_TYPE_STR, "telnet_enable", "N");
-        } 
-        else if(strcasecmp(set_services_args.telnet->sval[0],"Telnet Only") == 0){
-            err = config_set_value(NVS_TYPE_STR, "telnet_enable", "Y");
-        }
-        else if(strcasecmp(set_services_args.telnet->sval[0],"Telnet and Serial") == 0){
-            err = config_set_value(NVS_TYPE_STR, "telnet_enable", "D");
-        }
-        
-        if(err!=ESP_OK){
-            nerrors++;
-            fprintf(f,"Error setting telnet to %s. %s\n",set_services_args.telnet->sval[0], esp_err_to_name(err));
-        }
-        else {
-            fprintf(f,"Telnet service changed to %s\n",set_services_args.telnet->sval[0]);
-        }
-    }
+//     if(set_services_args.telnet->count>0){
+//         // if(strcasecmp(set_services_args.telnet->sval[0],"Disabled") == 0){
+//         //     err = config_set_value(NVS_TYPE_STR, "telnet_enable", "N");
+//         // } 
+//         // else if(strcasecmp(set_services_args.telnet->sval[0],"Telnet Only") == 0){
+//         //     err = config_set_value(NVS_TYPE_STR, "telnet_enable", "Y");
+//         // }
+//         // else if(strcasecmp(set_services_args.telnet->sval[0],"Telnet and Serial") == 0){
+//         //     err = config_set_value(NVS_TYPE_STR, "telnet_enable", "D");
+//         // }
+//         // TODO: Add support for the commented code")
+//         if(err!=ESP_OK){
+//             nerrors++;
+//             fprintf(f,"Error setting telnet to %s. %s\n",set_services_args.telnet->sval[0], esp_err_to_name(err));
+//         }
+//         else {
+//             fprintf(f,"Telnet service changed to %s\n",set_services_args.telnet->sval[0]);
+//         }
+//     }
 
-#if WITH_TASKS_INFO    
-	nerrors += enable_disable(f,"stats",set_services_args.stats);
-#endif
-	if(!nerrors ){
-		fprintf(f,"Done.\n");
-	}
-	fflush (f);
-	cmd_send_messaging(argv[0],nerrors>0?MESSAGING_ERROR:MESSAGING_INFO,"%s", buf);
-	fclose(f);
-	FREE_AND_NULL(buf);
-	return nerrors;
-}
+// #if WITH_TASKS_INFO    
+// 	nerrors += enable_disable(f,"stats",set_services_args.stats);
+// #endif
+// 	if(!nerrors ){
+// 		fprintf(f,"Done.\n");
+// 	}
+// 	fflush (f);
+// 	cmd_send_messaging(argv[0],nerrors>0?MESSAGING_ERROR:MESSAGING_INFO,"%s", buf);
+// 	fclose(f);
+// 	FREE_AND_NULL(buf);
+// 	return nerrors;
+// }
 
 
-cJSON * set_services_cb(){
-	cJSON * values = cJSON_CreateObject();
-	char * p=NULL;
-    console_set_bool_parameter(values,"enable_bt_sink",set_services_args.btspeaker);
-    console_set_bool_parameter(values,"enable_airplay",set_services_args.airplay);
-    #if CONFIG_CSPOT_SINK	
-    console_set_bool_parameter(values,"enable_cspot",set_services_args.cspot);
-    #endif
-    #if WITH_TASKS_INFO        
-    console_set_bool_parameter(values,"stats",set_services_args.stats);
-    #endif
-	if ((p = config_alloc_get(NVS_TYPE_STR, "telnet_enable")) != NULL) {
-        if(strcasestr("YX",p)!=NULL){
-		    cJSON_AddStringToObject(values,set_services_args.telnet->hdr.longopts,"Telnet Only");
-        }
-        else if(strcasestr("D",p)!=NULL){
-            cJSON_AddStringToObject(values,set_services_args.telnet->hdr.longopts,"Telnet and Serial");
-        }
-        else {
-            cJSON_AddStringToObject(values,set_services_args.telnet->hdr.longopts,"Disabled");
-        }
-#if defined(CONFIG_WITH_METRICS)
-        metrics_add_feature_variant("telnet",p);
-#endif
-		FREE_AND_NULL(p);
-	}
+// cJSON * set_services_cb(){
+// 	cJSON * values = cJSON_CreateObject();
+// 	char * p=NULL;
+//     console_set_bool_parameter(values,"enable_bt_sink",set_services_args.btspeaker);
+//     console_set_bool_parameter(values,"enable_airplay",set_services_args.airplay);
+//     #if CONFIG_CSPOT_SINK	
+//     console_set_bool_parameter(values,"enable_cspot",set_services_args.cspot);
+//     #endif
+//     #if WITH_TASKS_INFO        
+//     console_set_bool_parameter(values,"stats",set_services_args.stats);
+//     #endif
+// // 	if ((p = config_alloc_get(NVS_TYPE_STR, "telnet_enable")) != NULL) {
+// //         if(strcasestr("YX",p)!=NULL){
+// // 		    cJSON_AddStringToObject(values,set_services_args.telnet->hdr.longopts,"Telnet Only");
+// //         }
+// //         else if(strcasestr("D",p)!=NULL){
+// //             cJSON_AddStringToObject(values,set_services_args.telnet->hdr.longopts,"Telnet and Serial");
+// //         }
+// //         else {
+// //             cJSON_AddStringToObject(values,set_services_args.telnet->hdr.longopts,"Disabled");
+// //         }
+// // #if defined(CONFIG_WITH_METRICS)
+// //         metrics_add_feature_variant("telnet",p);
+// // #endif
+// // 		FREE_AND_NULL(p);
+// // 	}
+// // TODO: Add support for the commented code")
+// 	return values;
+// }
 
-	return values;
-}
-
-static void register_set_services(){
-	set_services_args.airplay = arg_lit0(NULL, "AirPlay", "AirPlay");
-    #if CONFIG_CSPOT_SINK	
-    set_services_args.cspot = arg_lit0(NULL, "cspot", "Spotify (cspot)");
-    #endif
-	set_services_args.btspeaker = arg_lit0(NULL, "BT_Speaker", "Bluetooth Speaker");
-	set_services_args.telnet= arg_str0("t", "telnet","Disabled|Telnet Only|Telnet and Serial","Telnet server. Use only for troubleshooting");
-#if WITH_TASKS_INFO    
-	set_services_args.stats= arg_lit0(NULL, "stats", "System Statistics. Use only for troubleshooting");
-#endif    
-    set_services_args.end=arg_end(2);
-	const esp_console_cmd_t cmd = {
-        .command = CFG_TYPE_SYST("services"),
-        .help = "Services",
-		.argtable = &set_services_args,
-        .hint = NULL,
-        .func = &do_set_services,
-    };
-	cmd_to_json_with_cb(&cmd,&set_services_cb);
-    ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
-}
+// static void register_set_services(){
+// 	set_services_args.airplay = arg_lit0(NULL, "AirPlay", "AirPlay");
+//     #if CONFIG_CSPOT_SINK	
+//     set_services_args.cspot = arg_lit0(NULL, "cspot", "Spotify (cspot)");
+//     #endif
+// 	set_services_args.btspeaker = arg_lit0(NULL, "BT_Speaker", "Bluetooth Speaker");
+// 	set_services_args.telnet= arg_str0("t", "telnet","Disabled|Telnet Only|Telnet and Serial","Telnet server. Use only for troubleshooting");
+// #if WITH_TASKS_INFO    
+// 	set_services_args.stats= arg_lit0(NULL, "stats", "System Statistics. Use only for troubleshooting");
+// #endif    
+//     set_services_args.end=arg_end(2);
+// 	const esp_console_cmd_t cmd = {
+//         .command = CFG_TYPE_SYST("services"),
+//         .help = "Services",
+// 		.argtable = &set_services_args,
+//         .hint = NULL,
+//         .func = &do_set_services,
+//     };
+// 	cmd_to_json_with_cb(&cmd,&set_services_cb);
+//     ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
+// }
 
 #if CONFIG_WITH_CONFIG_UI
 static struct {

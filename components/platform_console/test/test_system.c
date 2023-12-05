@@ -11,7 +11,8 @@
 #include "unity.h"
 #include "platform_console.h"
 #include "platform_esp32.h"
-#include "platform_config.h"
+// #include "Configurator.h"
+#pragma message("fixme: search for TODO below")
 #include "string.h"
 struct arg_lit *arglit;
 struct arg_int *argint;

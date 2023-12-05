@@ -1,0 +1,63 @@
+syntax = "proto3";
+package sys;
+import "nanopb.proto";
+option (nanopb_fileopt).enum_to_string = true;
+
+message DacControlSet {
+    option (nanopb_msgopt).msgid  = 10009;
+    repeated ControlCommand commands = 1 [(nanopb).type = FT_POINTER]; //[(nanopb).max_count= 10];
+}
+
+message ControlCommand {
+    option (nanopb_msgopt).msgid  = 10010;
+    ControlCommandType type = 1;
+    repeated ControlItem items = 2 [(nanopb).type = FT_POINTER]; //[(nanopb).max_count= 50];
+}
+
+enum ControlCommandType {
+    INIT = 0;
+    POWER_ON = 1;
+    POWER_OFF = 2;
+    SPEAKER_ON = 3;
+    SPEAKER_OFF = 4;
+    HEADSET_ON = 5;
+    HEADSET_OFF = 6;
+}
+
+message ControlItem {
+    option (nanopb_msgopt).msgid  = 10011;
+    oneof item_type {
+        RegisterAction reg_action = 1;
+        GpioAction gpio_action = 2;
+        DelayAction delay_action = 3;
+    }
+}
+
+message RegisterAction {
+    option (nanopb_msgopt).msgid  = 10012;
+    int32 reg = 1[(nanopb).int_size = IS_8]; 
+    int32 val = 2 [(nanopb).int_size = IS_8];
+    Mode mode = 3;
+}
+
+enum GpioActionLevel {
+    ACTION_LEVEL_UNDEFINED = 0;
+    ACTION_LEVEL_1 = 1;
+    ACTION_LEVEL_0 = 2;
+}
+message GpioAction {
+    option (nanopb_msgopt).msgid  = 10013;
+    int32 gpio = 1 [(nanopb).int_size = IS_8];
+    GpioActionLevel level = 2; 
+}
+
+message DelayAction {
+    option (nanopb_msgopt).msgid  = 10014;
+    int32 delay = 1; // Delay in milliseconds
+}
+
+enum Mode {
+    REG_MODE_NOTHING = 0;
+    REG_MODE_OR = 1;
+    REG_MODE_AND = 2;
+}

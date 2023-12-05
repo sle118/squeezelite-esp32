@@ -29,10 +29,9 @@
 #include "esp_http_server.h"
 #include "cspot_private.h"
 #include "cspot_sink.h"
-#include "platform_config.h"
-#include "nvs_utilities.h"
+#include "Configurator.h"
 #include "tools.h"
-
+#include "accessors.h"
 static class cspotPlayer *player;
 
 static const struct {
@@ -70,6 +69,7 @@ private:
     void enableZeroConf(void);
 
     void runTask();
+    sys_Spotify * cspot_config = NULL;
 
 public:
     typedef enum {TRACK_INIT, TRACK_NOTIFY, TRACK_STREAM, TRACK_END} TrackStatus;
@@ -86,27 +86,18 @@ cspotPlayer::cspotPlayer(const char* name, httpd_handle_t server, int port, cspo
                         serverHandle(server), serverPort(port),
                         cmdHandler(cmdHandler), dataHandler(dataHandler) {
 
-    cJSON *item, *config = config_alloc_get_cjson("cspot_config");
-    if ((item = cJSON_GetObjectItem(config, "volume")) != NULL) volume = item->valueint;
-    if ((item = cJSON_GetObjectItem(config, "bitrate")) != NULL) bitrate = item->valueint;   
-    if ((item = cJSON_GetObjectItem(config, "deviceName") ) != NULL) this->name = item->valuestring;
-    else this->name = name; 
-    
-    if ((item = cJSON_GetObjectItem(config, "zeroConf")) != NULL) {
-        zeroConf = item->valueint;
-        cJSON_Delete(config);
-    } else {
-        zeroConf = true;
-        cJSON_AddNumberToObject(config, "zeroConf", 1);
-        config_set_cjson_str_and_free("cspot_config", config);
+    if(!SYS_SERVICES_SPOTIFY(cspot_config)){
+        return;        
     }
+    volume = cspot_config->volume;
+    bitrate = cspot_config->bitrate;
+    this->name = strlen(platform->names.spotify)>0?platform->names.spotify:name;
+    zeroConf = cspot_config->zeroconf;
     
     // get optional credentials from own NVS
     if (!zeroConf) {
-        char *credentials = (char*) get_nvs_value_alloc_for_partition(NVS_DEFAULT_PART_NAME, spotify_ns.ns, NVS_TYPE_STR, spotify_ns.credentials, NULL);
-        if (credentials) {
-            this->credentials = credentials;
-            free(credentials); 
+        if (sys_state->cspot_credentials && strlen(sys_state->cspot_credentials)>0) {
+            this->credentials = sys_state->cspot_credentials;
         }
     }
 
@@ -369,15 +360,9 @@ void cspotPlayer::runTask() {
             // we might have been forced to use zeroConf, so store credentials and reset zeroConf usage
             if (!zeroConf) {
                 useZeroConf = false;
-                // can't call store_nvs... from a task running on EXTRAM stack
-                TimerHandle_t timer = xTimerCreate( "credentials", 1, pdFALSE, strdup(ctx->getCredentialsJson().c_str()),
-                            [](TimerHandle_t xTimer) {
-                                auto credentials = (char*) pvTimerGetTimerID(xTimer);
-                                store_nvs_value_len_for_partition(NVS_DEFAULT_PART_NAME, spotify_ns.ns, NVS_TYPE_STR, spotify_ns.credentials, credentials, 0);
-                                free(credentials);
-                                xTimerDelete(xTimer, portMAX_DELAY);
-                            } );
-                xTimerStart(timer, portMAX_DELAY);
+                if(configurator_set_string(&sys_State_msg,sys_State_cspot_credentials_tag,sys_state,credentials.c_str())){
+                    configurator.RaiseStateModified();
+                }
             }
 
             spirc = std::make_unique<cspot::SpircHandler>(ctx);
@@ -430,11 +415,8 @@ void cspotPlayer::runTask() {
                 // on disconnect, stay in the core loop unless we are in ZeroConf mode
                 if (state == DISCO) {
                     // update volume then
-                    cJSON *config = config_alloc_get_cjson("cspot_config");
-                    cJSON_DeleteItemFromObject(config, "volume");
-                    cJSON_AddNumberToObject(config, "volume", volume);
-                    config_set_cjson_str_and_free("cspot_config", config);
-                    
+                    cspot_config->volume = volume;
+                    configurator_raise_changed();
                     // in ZeroConf mod, stay connected (in this loop)
                     if (!zeroConf) state = LINKED;
                 }

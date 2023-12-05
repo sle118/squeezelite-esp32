@@ -12,6 +12,7 @@
 #pragma once
 
 #ifdef ENABLE_MEMTRACE
+void memtrace_print_delta(const char * msg, const char * tag, const char * function);
 #define MEMTRACE_PRINT_DELTA() memtrace_print_delta(NULL,TAG,__FUNCTION__);
 #define MEMTRACE_PRINT_DELTA_MESSAGE(x) memtrace_print_delta(x,TAG,__FUNCTION__);
 #else

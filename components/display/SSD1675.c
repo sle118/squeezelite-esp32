@@ -234,8 +234,8 @@ static const struct GDS_Device SSD1675 = {
 	.Alloc = GDS_ALLOC_NONE,
 };	
 
-struct GDS_Device* SSD1675_Detect(char *Driver, struct GDS_Device* Device) {
-	if (!strcasestr(Driver, "SSD1675")) return NULL;
+struct GDS_Device* SSD1675_Detect(sys_Display * Driver, struct GDS_Device* Device) {
+	if(Driver->common.driver != sys_DisplayDriverEnum_SSD1675) return NULL;
 	
 	if (!Device) Device = calloc(1, sizeof(struct GDS_Device));
 	*Device = SSD1675;	
@@ -243,7 +243,9 @@ struct GDS_Device* SSD1675_Detect(char *Driver, struct GDS_Device* Device) {
 	char *p;
 	struct PrivateSpace* Private = (struct PrivateSpace*) Device->Private;
 	Private->ReadyPin = -1;
-	if ((p = strcasestr(Driver, "ready")) && (p = strchr(p, '='))) Private->ReadyPin = atoi(p + 1);
+	if(Driver->common.has_ready && Driver->common.ready.pin >=0){
+		Private->ReadyPin = Driver->common.ready.pin;
+	}
 	
 	ESP_LOGI(TAG, "SSD1675 driver with ready GPIO %d", Private->ReadyPin);
 	

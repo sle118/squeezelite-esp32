@@ -319,13 +319,13 @@ static const struct GDS_Device SSD132x = {
 	.Mode = GDS_GRAYSCALE, .Depth = 4,
 };	
 
-struct GDS_Device* SSD132x_Detect(char *Driver, struct GDS_Device* Device) {
+struct GDS_Device* SSD132x_Detect(sys_Display * Driver, struct GDS_Device* Device) {
 	uint8_t Model;
 	int Depth;
 		
-	if (strcasestr(Driver, "SSD1326")) Model = SSD1326;
-	else if (strcasestr(Driver, "SSD1327")) Model = SSD1327;
-	else return NULL;
+	if(Driver->common.driver == sys_DisplayDriverEnum_SSD1326) Model = SSD1326;
+	else if(Driver->common.driver == sys_DisplayDriverEnum_SSD1327) Model = SSD1327;
+	return NULL;
 	
 	if (!Device) Device = calloc(1, sizeof(struct GDS_Device));
 	
@@ -333,7 +333,7 @@ struct GDS_Device* SSD132x_Detect(char *Driver, struct GDS_Device* Device) {
 	struct PrivateSpace *Private = (struct PrivateSpace*) Device->Private;
 	Private->Model = Model;
 		
-	sscanf(Driver, "%*[^:]:%u", &Depth);
+	Depth = Driver->common.bitDepth != 0?Driver->common.bitDepth:1;
 		
 	if (Model == SSD1326 && Depth == 1) {
 		Device->Update = Update1;

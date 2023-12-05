@@ -34,7 +34,8 @@
 #include "mdns.h"
 #include "messaging.h"
 
-#include "platform_config.h"
+// #include "Configurator.h"
+#pragma message("fixme: look for TODO below")
 #include "trace.h"
 
 #include "accessors.h"
@@ -166,7 +167,8 @@ static state_machine_result_t handle_global_event(state_machine_t* state_machine
         case EN_UPDATE_STATUS:
             // handle the event, but don't swicth
             MEMTRACE_PRINT_DELTA_MESSAGE("handle EN_UPDATE_STATUS - start");
-            network_status_update_basic_info();
+            // todo: fix this
+            // network_status_update_basic_info();
             MEMTRACE_PRINT_DELTA_MESSAGE("handle EN_UPDATE_STATUS - end");
             return EVENT_HANDLED;
             /* code */
@@ -224,16 +226,16 @@ static state_machine_result_t NETWORK_INSTANTIATED_STATE_handler(state_machine_t
     network_t* const nm = (network_t *)State_Machine;
     State_Machine->State = &network_states[NETWORK_INSTANTIATED_STATE];
     State_Machine->Event = EN_START;
-    config_get_uint16t_from_str("pollmx",&nm->sta_polling_max_ms,600);
-    nm->sta_polling_max_ms = nm->sta_polling_max_ms * 1000;
-    config_get_uint16t_from_str("apdelay",&nm->ap_duration_ms,20);
-    nm->ap_duration_ms = nm->ap_duration_ms * 1000;
-    config_get_uint16t_from_str("pollmin",&nm->sta_polling_min_ms,15);
-    nm->sta_polling_min_ms = nm->sta_polling_min_ms*1000;
-    config_get_uint16t_from_str("ethtmout",&nm->eth_link_down_reboot_ms,30);
-    nm->eth_link_down_reboot_ms = nm->eth_link_down_reboot_ms*1000;
-    config_get_uint16t_from_str("dhcp_tmout",&nm->dhcp_timeout,30);
-    nm->dhcp_timeout = nm->dhcp_timeout*1000;
+    // config_get_uint16t_from_str("pollmx",&nm->sta_polling_max_ms,600);
+    // nm->sta_polling_max_ms = nm->sta_polling_max_ms * 1000;
+    // config_get_uint16t_from_str("apdelay",&nm->ap_duration_ms,20);
+    // nm->ap_duration_ms = nm->ap_duration_ms * 1000;
+    // config_get_uint16t_from_str("pollmin",&nm->sta_polling_min_ms,15);
+    // nm->sta_polling_min_ms = nm->sta_polling_min_ms*1000;
+    // config_get_uint16t_from_str("ethtmout",&nm->eth_link_down_reboot_ms,30);
+    // nm->eth_link_down_reboot_ms = nm->eth_link_down_reboot_ms*1000;
+    // config_get_uint16t_from_str("dhcp_tmout",&nm->dhcp_timeout,30);
+    // nm->dhcp_timeout = nm->dhcp_timeout*1000;
     ESP_LOGI(TAG,"Network manager configuration: polling max %d, polling min %d, ap delay %d, dhcp timeout %d, eth timeout %d",
         nm->sta_polling_max_ms,nm->sta_polling_min_ms,nm->ap_duration_ms,nm->dhcp_timeout, nm->eth_link_down_reboot_ms);
     HANDLE_GLOBAL_EVENT(State_Machine);
@@ -386,13 +388,14 @@ static state_machine_result_t NETWORK_ETH_ACTIVE_STATE_handler(state_machine_t* 
             break;
         case EN_SCAN:
             ESP_LOGW(TAG,"Wifi  scan cannot be executed in this state");
-            network_wifi_built_known_ap_list();
+            //todo: fix this!
+            // network_wifi_built_known_ap_list();
             result = EVENT_HANDLED;
             break;
         case EN_DELETE: {
             ESP_LOGD(TAG, "WiFi disconnected by user");
             network_wifi_clear_config();
-            network_status_update_ip_info(UPDATE_USER_DISCONNECT);
+            network_status_update_ip_info(sys_UPDATE_REASONS_R_USER_DISCONNECT);
             result= EVENT_HANDLED;
         } break;
         default:
@@ -434,7 +437,7 @@ static state_machine_result_t ETH_CONNECTING_NEW_STATE_handler(state_machine_t* 
             result= local_traverse_state(State_Machine, &network_states[WIFI_CONNECTED_STATE],__FUNCTION__);
             break;
         case EN_LOST_CONNECTION:
-            network_status_update_ip_info(UPDATE_FAILED_ATTEMPT);
+            network_status_update_ip_info(sys_UPDATE_REASONS_R_FAILED_ATTEMPT);
             messaging_post_message(MESSAGING_ERROR, MESSAGING_CLASS_SYSTEM, "Unable to connect to new WiFi access point.");
             // no existing configuration, or wifi wasn't the active connection when connection
             // attempt was made
@@ -528,7 +531,7 @@ static state_machine_result_t NETWORK_WIFI_ACTIVE_STATE_handler(state_machine_t*
             network_interface_coexistence(State_Machine);
             break;
         case EN_GOT_IP:
-            network_status_update_ip_info(UPDATE_CONNECTION_OK);
+            network_status_update_ip_info(sys_UPDATE_REASONS_R_CONNECTION_OK);
             result= local_traverse_state(State_Machine, &Wifi_Active_State[WIFI_CONNECTED_STATE],__FUNCTION__);
             break;            
         case EN_SCAN:
@@ -715,7 +718,7 @@ static state_machine_result_t WIFI_CONFIGURING_CONNECT_STATE_handler(state_machi
             network_set_timer(nm->dhcp_timeout,"DHCP Timeout");
             break;
         case EN_GOT_IP:
-            network_status_update_ip_info(UPDATE_CONNECTION_OK); 
+            network_status_update_ip_info(sys_UPDATE_REASONS_R_CONNECTION_OK); 
             result= local_traverse_state(State_Machine, &Wifi_Configuring_State[WIFI_CONFIGURING_CONNECT_SUCCESS_STATE],__FUNCTION__);
             break;
         case EN_LOST_CONNECTION:
@@ -723,13 +726,13 @@ static state_machine_result_t WIFI_CONFIGURING_CONNECT_STATE_handler(state_machi
                 ESP_LOGI(TAG,"Wifi was disconnected from previous access point. Waiting to connect.");
             }
             else {
-                network_status_update_ip_info(UPDATE_FAILED_ATTEMPT);
+                network_status_update_ip_info(sys_UPDATE_REASONS_R_FAILED_ATTEMPT);
                 result = local_traverse_state(State_Machine, &Wifi_Configuring_State[WIFI_CONFIGURING_STATE],__FUNCTION__);
             }
             break;
         case EN_TIMER:
             ESP_LOGW(TAG,"Connection timeout.  (%s)",STR_OR_ALT(nm->timer_tag, "Unknown"));
-            network_status_update_ip_info(UPDATE_FAILED_ATTEMPT);
+            network_status_update_ip_info(sys_UPDATE_REASONS_R_FAILED_ATTEMPT);
             result = local_traverse_state(State_Machine, &Wifi_Configuring_State[WIFI_CONFIGURING_STATE],__FUNCTION__);
             break;
         default:
@@ -752,9 +755,10 @@ static state_machine_result_t WIFI_CONFIGURING_CONNECT_STATE_exit_handler(state_
  */
 static state_machine_result_t WIFI_CONFIGURING_CONNECT_SUCCESS_STATE_entry_handler(state_machine_t* const State_Machine) {
     network_handler_entry_print(State_Machine,true);
-    network_status_update_ip_info(UPDATE_CONNECTION_OK);
+    network_status_update_ip_info(sys_UPDATE_REASONS_R_CONNECTION_OK);
     ESP_LOGD(TAG, "Saving wifi configuration.");
-    network_wifi_save_sta_config();
+    // todo: fix this!
+    // network_wifi_save_sta_config();
     NETWORK_EXECUTE_CB(State_Machine);
     network_handler_entry_print(State_Machine,false);
     return EVENT_HANDLED;
@@ -765,11 +769,13 @@ static state_machine_result_t WIFI_CONFIGURING_CONNECT_SUCCESS_STATE_handler(sta
     network_t* const nm = (network_t *)State_Machine;
     switch (State_Machine->Event) {
          case EN_UPDATE_STATUS:
-            network_status_update_basic_info();
+            // todo: fix this
+            // network_status_update_basic_info();
             network_set_timer(nm->ap_duration_ms,"Access point teardown"); // set a timer to tear down the AP mode
             break;
         case EN_TIMER:
-            network_status_update_basic_info();
+            // todo: fix this
+            // network_status_update_basic_info();
             result= local_traverse_state(State_Machine, &Wifi_Active_State[WIFI_CONNECTED_STATE],__FUNCTION__);
             break;
         default:
@@ -826,7 +832,7 @@ static state_machine_result_t WIFI_CONNECTING_STATE_handler(state_machine_t* con
                 ESP_LOGI(TAG,"Wifi was disconnected from previous access point. Waiting to connect.");
             }
             else if(nm->event_parameters->disconnected_event->reason != WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT) {
-                network_status_update_ip_info(UPDATE_FAILED_ATTEMPT);
+                network_status_update_ip_info(sys_UPDATE_REASONS_R_FAILED_ATTEMPT);
                 result = local_traverse_state(State_Machine, &Wifi_Configuring_State[WIFI_CONFIGURING_STATE],__FUNCTION__);
             }
             break;
@@ -862,7 +868,7 @@ static state_machine_result_t WIFI_CONNECTING_NEW_STATE_handler(state_machine_t*
     state_machine_result_t result = EVENT_HANDLED;
     switch (State_Machine->Event) {
         case EN_GOT_IP:
-            network_status_update_ip_info(UPDATE_CONNECTION_OK); 
+            network_status_update_ip_info(sys_UPDATE_REASONS_R_CONNECTION_OK); 
             result= local_traverse_state(State_Machine, &Wifi_Active_State[WIFI_CONNECTED_STATE],__FUNCTION__);
             break;
         case EN_CONNECTED:
@@ -916,7 +922,7 @@ static state_machine_result_t WIFI_CONNECTING_NEW_FAILED_STATE_handler(state_mac
     state_machine_result_t result = EVENT_HANDLED;
     switch (State_Machine->Event) {
         case EN_GOT_IP:
-            network_status_update_ip_info(UPDATE_FAILED_ATTEMPT_AND_RESTORE); 
+            network_status_update_ip_info(sys_UPDATE_REASONS_R_FAILED_ATTEMPT_AND_RESTORE); 
             result= local_traverse_state(State_Machine, &Wifi_Active_State[WIFI_CONNECTED_STATE],__FUNCTION__);
             break;
         case EN_CONNECTED:
@@ -924,7 +930,7 @@ static state_machine_result_t WIFI_CONNECTING_NEW_FAILED_STATE_handler(state_mac
             result = EVENT_HANDLED;
             break;
         case EN_LOST_CONNECTION:
-            network_status_update_ip_info(UPDATE_FAILED_ATTEMPT);
+            network_status_update_ip_info(sys_UPDATE_REASONS_R_FAILED_ATTEMPT);
             messaging_post_message(MESSAGING_ERROR, MESSAGING_CLASS_SYSTEM, "Unable to fall back to previous access point.");
             result = EVENT_HANDLED;
             break;
@@ -958,7 +964,7 @@ static state_machine_result_t WIFI_CONNECTED_STATE_entry_handler(state_machine_t
     ESP_LOGD(TAG, "Checking if wifi config changed.");
     if (network_wifi_sta_config_changed()) {
         ESP_LOGD(TAG, "Wifi Config changed. Saving it.");
-        network_wifi_save_sta_config();
+        configurator_raise_changed();
     }
     ESP_LOGD(TAG, "Updating the ip info json.");
     network_interface_coexistence(State_Machine);
@@ -997,7 +1003,7 @@ static state_machine_result_t WIFI_USER_DISCONNECTED_STATE_entry_handler(state_m
     network_handler_entry_print(State_Machine,true);
     ESP_LOGD(TAG, " WiFi disconnected by user");
     network_wifi_clear_config();
-    network_status_update_ip_info(UPDATE_USER_DISCONNECT);
+    network_status_update_ip_info(sys_UPDATE_REASONS_R_USER_DISCONNECT);
     NETWORK_EXECUTE_CB(State_Machine);
     network_handler_entry_print(State_Machine,false);
     return EVENT_HANDLED;
@@ -1031,8 +1037,9 @@ static state_machine_result_t WIFI_LOST_CONNECTION_STATE_entry_handler(state_mac
     network_handler_entry_print(State_Machine,true);
     ESP_LOGE(TAG, " WiFi Connection lost.");
     messaging_post_message(MESSAGING_WARNING, MESSAGING_CLASS_SYSTEM, "WiFi Connection lost");
-    network_status_update_ip_info(UPDATE_LOST_CONNECTION);
-    network_status_safe_reset_sta_ip_string();
+    network_status_update_ip_info(sys_UPDATE_REASONS_R_LOST_CONNECTION);
+    //todo: fix this!
+    // network_status_safe_reset_sta_ip_string();
     if (nm->last_connected > 0)
         nm->total_connected_time += ((esp_timer_get_time() - nm->last_connected) / (1000 * 1000));
     nm->last_connected = 0;
@@ -1050,7 +1057,7 @@ static state_machine_result_t WIFI_LOST_CONNECTION_STATE_entry_handler(state_mac
             ESP_LOGW(TAG, "Cannot connect to Wifi. Falling back to Ethernet ");
             network_async(EN_ETHERNET_FALLBACK);
         } else {
-            network_status_update_ip_info(UPDATE_LOST_CONNECTION);
+            network_status_update_ip_info(sys_UPDATE_REASONS_R_LOST_CONNECTION);
             wifi_mode_t mode;
             ESP_LOGW(TAG, " All connect retry attempts failed.");
 
@@ -1109,7 +1116,7 @@ static state_machine_result_t WIFI_LOST_CONNECTION_STATE_exit_handler(state_mach
 static state_machine_result_t ETH_ACTIVE_CONNECTED_STATE_entry_handler(state_machine_t* const State_Machine) {
     network_t* const nm = (network_t *)State_Machine;
     network_handler_entry_print(State_Machine,true);
-    network_status_update_ip_info(UPDATE_ETHERNET_CONNECTED);
+    network_status_update_ip_info(sys_UPDATE_REASONS_R_ETHERNET_CONNECTED);
     nm->ethernet_connected = true;
     // start a wifi Scan so web ui is populated with available entries
     NETWORK_EXECUTE_CB(State_Machine);
@@ -1161,15 +1168,16 @@ static void network_interface_coexistence(state_machine_t* state_machine) {
     // found to be active at the same time
     network_t* nm = (network_t *)state_machine;
     if (nm->wifi_connected && state_machine->Event == EN_ETH_GOT_IP) {
-        char* eth_reboot = config_alloc_get_default(NVS_TYPE_STR, "eth_boot", "N", 0);
-        network_prioritize_wifi(false);
-        if (strcasecmp(eth_reboot, "N")) {
-            ESP_LOGW(TAG, "Option eth_reboot set to reboot when ethernet is connected. Rebooting");
-            simple_restart();
-        } else {
-            ESP_LOGW(TAG, "Option eth_reboot set to not reboot when ethernet is connected. Using Wifi interface until next reboot");
-        }
-        FREE_AND_NULL(eth_reboot);
+        // char* eth_reboot = config_alloc_get_default(NVS_TYPE_STR, "eth_boot", "N", 0);
+        // network_prioritize_wifi(false);
+        // if (strcasecmp(eth_reboot, "N")) {
+        //     ESP_LOGW(TAG, "Option eth_reboot set to reboot when ethernet is connected. Rebooting");
+        //     simple_restart();
+        // } else {
+        //     ESP_LOGW(TAG, "Option eth_reboot set to not reboot when ethernet is connected. Using Wifi interface until next reboot");
+        // }
+        // FREE_AND_NULL(eth_reboot);
+        // TODO: Add support for the commented code
     } else if (get_root(state_machine->State)->Id == NETWORK_ETH_ACTIVE_STATE){
         messaging_post_message(MESSAGING_WARNING, MESSAGING_CLASS_SYSTEM, "Wifi Connected with Ethernet active. System reload needed");
         simple_restart();

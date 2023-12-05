@@ -273,24 +273,25 @@ static const struct GDS_Device ST77xx = {
 	.Mode = GDS_RGB565, .Depth = 16,
 };		
 
-struct GDS_Device* ST77xx_Detect(char *Driver, struct GDS_Device* Device) {
+struct GDS_Device* ST77xx_Detect(sys_Display * Driver, struct GDS_Device* Device) {
 	uint8_t Model;
 	int Depth;
-		
-	if (strcasestr(Driver, "ST7735")) Model = ST7735;
-	else if (strcasestr(Driver, "ST7789")) Model = ST7789;
+	if(Driver->common.driver == sys_DisplayDriverEnum_ST7735)  Model = ST7735;
+	else if(Driver->common.driver == sys_DisplayDriverEnum_ST7789)  Model = ST7789;
 	else return NULL;
 		
 	if (!Device) Device = calloc(1, sizeof(struct GDS_Device));
 		
 	*Device = ST77xx;	
-	sscanf(Driver, "%*[^:]:%u", &Depth);
+	Depth = Driver->common.bitDepth != 0?Driver->common.bitDepth:18;
 
 	struct PrivateSpace* Private = (struct PrivateSpace*) Device->Private;
 	Private->Model = Model;
 
-	sscanf(Driver, "%*[^:]%*[^x]%*[^=]=%hu", &Private->Offset.Height);		
-	sscanf(Driver, "%*[^:]%*[^y]%*[^=]=%hu", &Private->Offset.Width);		
+	if(Driver->common.has_offsets){
+		Private->Offset.Height = Driver->common.offsets.height;
+		Private->Offset.Width = Driver->common.offsets.width;
+	}
 	
 	if (Depth == 18) {
 		Device->Mode = GDS_RGB666;

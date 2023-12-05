@@ -14,7 +14,6 @@ extern "C" {
 
 #include "cmd_system.h"
 #include "cmd_wifi.h"
-#include "cmd_nvs.h"
 #include "cmd_i2ctools.h"
 #include "cmd_ota.h"
 #include "cmd_config.h"

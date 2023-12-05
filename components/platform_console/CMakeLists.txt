@@ -1,6 +1,5 @@
 idf_component_register( SRCS 
 							cmd_i2ctools.c
-							cmd_nvs.c
 							cmd_ota.c
 							cmd_system.c
 							cmd_wifi.c

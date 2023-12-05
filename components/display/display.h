@@ -32,8 +32,6 @@ enum displayer_time_e 	{ DISPLAYER_ELAPSED, DISPLAYER_REMAINING };
 
 enum display_bus_cmd_e { DISPLAY_BUS_TAKE, DISPLAY_BUS_GIVE };
 bool (*display_bus)(void *from, enum display_bus_cmd_e cmd);
-const char *display_conf_get_driver_name(const char * driver);
-bool display_is_valid_driver(const char * driver);
 
 void displayer_scroll(char *string, int speed, int pause);
 void displayer_control(enum displayer_cmd_e cmd, ...);
@@ -41,4 +39,3 @@ void displayer_metadata(char *artist, char *album, char *title);
 void displayer_artwork(uint8_t *data);
 void displayer_timer(enum displayer_time_e mode, int elapsed, int duration);
 bool displayer_can_artwork(void);
-char * display_get_supported_drivers(void);

@@ -14,55 +14,55 @@
 
 
 static const char TAG[] = "TRACE";
-// typedef struct mem_usage_trace_for_thread {
-//     TaskHandle_t task;
-//     size_t malloc_int_last;
-// 	size_t malloc_spiram_last;
-//     size_t malloc_dma_last;
-//     const char *name;
-//     SLIST_ENTRY(mem_usage_trace_for_thread) next;
-// } mem_usage_trace_for_thread_t;
+typedef struct mem_usage_trace_for_thread {
+    TaskHandle_t task;
+    size_t malloc_int_last;
+	size_t malloc_spiram_last;
+    size_t malloc_dma_last;
+    const char *name;
+    SLIST_ENTRY(mem_usage_trace_for_thread) next;
+} mem_usage_trace_for_thread_t;
 
-// static EXT_RAM_ATTR SLIST_HEAD(memtrace, mem_usage_trace_for_thread) s_memtrace;
+static EXT_RAM_ATTR SLIST_HEAD(memtrace, mem_usage_trace_for_thread) s_memtrace;
 
-// mem_usage_trace_for_thread_t* memtrace_get_thread_entry(TaskHandle_t task)  {
-//     if(!task) {
-//         ESP_LOGE(TAG, "memtrace_get_thread_entry: task is NULL");
-//         return NULL;
-//     }
-//     ESP_LOGD(TAG,"Looking for task %s",STR_OR_ALT(pcTaskGetName(task ), "unknown"));
-//     mem_usage_trace_for_thread_t* it;
-//     SLIST_FOREACH(it, &s_memtrace, next) {
-//         if ( it->task == task ) {
-//             ESP_LOGD(TAG,"Found task %s",STR_OR_ALT(pcTaskGetName(task ), "unknown"));
-//             return it;
-//         }
-//     }
-//     return NULL;
-// }
-// void memtrace_add_thread_entry(TaskHandle_t task) {
-//     if(!task) {
-//         ESP_LOGE(TAG, "memtrace_get_thread_entry: task is NULL");
-//         return ;
-//     }
-//     mem_usage_trace_for_thread_t* it = memtrace_get_thread_entry(task);
-//     if (it) {
-//         ESP_LOGW(TAG, "memtrace_add_thread_entry: thread already in list");
-//         return;
-//     }
-//     it = (mem_usage_trace_for_thread_t*)malloc_init_external(sizeof(mem_usage_trace_for_thread_t));
-//     if (!it) {
-//         ESP_LOGE(TAG, "memtrace_add_thread_entry: malloc failed");
-//         return;
-//     }
-//     it->task = task;
-//     it->malloc_int_last = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
-//     it->malloc_spiram_last = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
-//     it->malloc_dma_last = heap_caps_get_free_size(MALLOC_CAP_DMA);
-//     it->name = pcTaskGetName(task);
-//     SLIST_INSERT_HEAD(&s_memtrace, it, next);
-//     return;
-// }
+mem_usage_trace_for_thread_t* memtrace_get_thread_entry(TaskHandle_t task)  {
+    if(!task) {
+        ESP_LOGE(TAG, "memtrace_get_thread_entry: task is NULL");
+        return NULL;
+    }
+    ESP_LOGD(TAG,"Looking for task %s",STR_OR_ALT(pcTaskGetName(task ), "unknown"));
+    mem_usage_trace_for_thread_t* it;
+    SLIST_FOREACH(it, &s_memtrace, next) {
+        if ( it->task == task ) {
+            ESP_LOGD(TAG,"Found task %s",STR_OR_ALT(pcTaskGetName(task ), "unknown"));
+            return it;
+        }
+    }
+    return NULL;
+}
+void memtrace_add_thread_entry(TaskHandle_t task) {
+    if(!task) {
+        ESP_LOGE(TAG, "memtrace_get_thread_entry: task is NULL");
+        return ;
+    }
+    mem_usage_trace_for_thread_t* it = memtrace_get_thread_entry(task);
+    if (it) {
+        ESP_LOGW(TAG, "memtrace_add_thread_entry: thread already in list");
+        return;
+    }
+    it = (mem_usage_trace_for_thread_t*)malloc_init_external(sizeof(mem_usage_trace_for_thread_t));
+    if (!it) {
+        ESP_LOGE(TAG, "memtrace_add_thread_entry: malloc failed");
+        return;
+    }
+    it->task = task;
+    it->malloc_int_last = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+    it->malloc_spiram_last = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+    it->malloc_dma_last = heap_caps_get_free_size(MALLOC_CAP_DMA);
+    it->name = pcTaskGetName(task);
+    SLIST_INSERT_HEAD(&s_memtrace, it, next);
+    return;
+}
 // void memtrace_print_delta(){
 //     TaskHandle_t task = xTaskGetCurrentTaskHandle();
 //     mem_usage_trace_for_thread_t* it = memtrace_get_thread_entry(task);
@@ -74,7 +74,7 @@ static const char TAG[] = "TRACE";
 //     size_t malloc_int_delta = heap_caps_get_free_size(MALLOC_CAP_INTERNAL) - it->malloc_int_last;
 //     size_t malloc_spiram_delta = heap_caps_get_free_size(MALLOC_CAP_SPIRAM) - it->malloc_spiram_last;
 //     size_t malloc_dma_delta = heap_caps_get_free_size(MALLOC_CAP_DMA) - it->malloc_dma_last;
-// 	ESP_LOG(TAG, "Heap internal:%zu (min:%zu) external:%zu (min:%zu) dma:%zu (min:%zu)",
+// 	ESP_LOGD(TAG, "Heap internal:%zu (min:%zu) external:%zu (min:%zu) dma:%zu (min:%zu)",
 // 			heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
 // 			heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL),
 // 			heap_caps_get_free_size(MALLOC_CAP_SPIRAM),

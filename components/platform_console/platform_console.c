@@ -24,7 +24,8 @@
 #include "platform_esp32.h"
 #include "cmd_decl.h"
 #include "trace.h"
-#include "platform_config.h"
+// #include "Configurator.h"
+#pragma message("fixme: search for TODO below")
 #include "telnet.h" 
 #include "tools.h"
 #if defined(CONFIG_WITH_METRICS)
@@ -38,7 +39,7 @@ static void * console_thread();
 void console_start();
 static const char * TAG = "console";
 extern bool bypass_network_manager;
-extern void register_squeezelite();
+extern void launchsqueezelite();
 
 static EXT_RAM_ATTR QueueHandle_t uart_queue;
 static EXT_RAM_ATTR struct {
@@ -92,16 +93,17 @@ void console_set_bool_parameter(cJSON * root,char * nvs_name, struct arg_lit *ar
         ESP_LOGE(TAG,"Invalid json parameter. Cannot set %s from %s",arg->hdr.longopts?arg->hdr.longopts:arg->hdr.glossary,nvs_name);
         return;
     }
-    if ((p = config_alloc_get(NVS_TYPE_STR, nvs_name)) != NULL) {
-		enabled = strcmp(p,"1") == 0 || strcasecmp(p,"y") == 0;
-		cJSON_AddBoolToObject(root,arg->hdr.longopts,enabled);
-        FREE_AND_NULL(p);
-    }
-#if defined(CONFIG_WITH_METRICS)	
-	if(enabled){
-		metrics_add_feature(nvs_name,"enabled");
-	}
-#endif
+//     if ((p = config_alloc_get(NVS_TYPE_STR, nvs_name)) != NULL) {
+// 		enabled = strcmp(p,"1") == 0 || strcasecmp(p,"y") == 0;
+// 		cJSON_AddBoolToObject(root,arg->hdr.longopts,enabled);
+//         FREE_AND_NULL(p);
+//     }
+// #if defined(CONFIG_WITH_METRICS)	
+// 	if(enabled){
+// 		metrics_add_feature(nvs_name,"enabled");
+// 	}
+// #endif
+// TODO: Add support for the commented code
 	
 }
 struct arg_end *getParmsEnd(struct arg_hdr * * argtable){
@@ -215,48 +217,52 @@ void process_autoexec(){
 	char autoexec_name[21]={0};
 	char * autoexec_value=NULL;
 	uint8_t autoexec_flag=0;
+	// TODO: Add support for the commented code
+	void * cmd = run_command; 
 
-	char * str_flag = config_alloc_get(NVS_TYPE_STR, "autoexec");
-	if(!bypass_network_manager){
-		ESP_LOGW(TAG, "Processing autoexec commands while network manager active.  Wifi related commands will be ignored.");
-	}
-	if(is_recovery_running){
-		ESP_LOGD(TAG, "Processing autoexec commands in recovery mode.  Squeezelite commands will be ignored.");
-	}
-	if(str_flag !=NULL ){
-		autoexec_flag=atoi(str_flag);
-		ESP_LOGI(TAG,"autoexec is set to %s auto-process", autoexec_flag>0?"perform":"skip");
-		if(autoexec_flag == 1) {
-			do {
-				snprintf(autoexec_name,sizeof(autoexec_name)-1,"autoexec%u",i++);
-				ESP_LOGD(TAG,"Getting command name %s", autoexec_name);
-				autoexec_value= config_alloc_get(NVS_TYPE_STR, autoexec_name);
-				if(autoexec_value!=NULL ){
-					if(!bypass_network_manager && strstr(autoexec_value, "join ")!=NULL ){
-						ESP_LOGW(TAG,"Ignoring wifi join command.");
-					}
-					else if(is_recovery_running && !strstr(autoexec_value, "squeezelite " ) ){
-						ESP_LOGW(TAG,"Ignoring command. ");
-					}
-					else {
-						ESP_LOGI(TAG,"Running command %s = %s", autoexec_name, autoexec_value);
-						run_command(autoexec_value);
-					}
-					ESP_LOGD(TAG,"Freeing memory for command %s name", autoexec_name);
-					free(autoexec_value);
-				}
-				else {
-					ESP_LOGD(TAG,"No matching command found for name %s", autoexec_name);
-					break;
-				}
-			} while(1);
-		}
-		free(str_flag);
-	}
-	else
-	{
-		ESP_LOGD(TAG,"No matching command found for name autoexec.");
-	}
+	// char * str_flag = config_alloc_get(NVS_TYPE_STR, "autoexec");
+	// if(!bypass_network_manager){
+	// 	ESP_LOGW(TAG, "Processing autoexec commands while network manager active.  Wifi related commands will be ignored.");
+	// }
+	// if(is_recovery_running){
+	// 	ESP_LOGD(TAG, "Processing autoexec commands in recovery mode.  Squeezelite commands will be ignored.");
+	// }
+	// if(str_flag !=NULL ){
+	// 	autoexec_flag=atoi(str_flag);
+	// 	ESP_LOGI(TAG,"autoexec is set to %s auto-process", autoexec_flag>0?"perform":"skip");
+	// 	if(autoexec_flag == 1) {
+	// 		do {
+	// 			snprintf(autoexec_name,sizeof(autoexec_name)-1,"autoexec%u",i++);
+	// 			ESP_LOGD(TAG,"Getting command name %s", autoexec_name);
+	// 			autoexec_value= config_alloc_get(NVS_TYPE_STR, autoexec_name);
+	// 			if(autoexec_value!=NULL ){
+	// 				if(!bypass_network_manager && strstr(autoexec_value, "join ")!=NULL ){
+	// 					ESP_LOGW(TAG,"Ignoring wifi join command.");
+	// 				}
+	// 				else if(is_recovery_running && !strstr(autoexec_value, "squeezelite " ) ){
+	// 					ESP_LOGW(TAG,"Ignoring command. ");
+	// 				}
+	// 				else {
+	// 					ESP_LOGI(TAG,"Running command %s = %s", autoexec_name, autoexec_value);
+	// 					run_command(autoexec_value);
+	// 				}
+	// 				ESP_LOGD(TAG,"Freeing memory for command %s name", autoexec_name);
+	// 				free(autoexec_value);
+	// 			}
+	// 			else {
+	// 				ESP_LOGD(TAG,"No matching command found for name %s", autoexec_name);
+	// 				break;
+	// 			}
+	// 		} while(1);
+	// 	}
+	// 	free(str_flag);
+	
+	// }
+	// else
+	// {
+	// 	ESP_LOGD(TAG,"No matching command found for name autoexec.");
+	// }
+	// TODO: Add support for the commented code
 }
 
 static ssize_t stdin_read(int fd, void* data, size_t size) {
@@ -373,11 +379,7 @@ void console_start() {
 	MEMTRACE_PRINT_DELTA_MESSAGE("Registering wifi commands");
 	register_wifi();
 
-	if(!is_recovery_running){
-		MEMTRACE_PRINT_DELTA_MESSAGE("Registering squeezelite commands");
-		register_squeezelite();
-	}
-	else {
+	if(is_recovery_running){
 		MEMTRACE_PRINT_DELTA_MESSAGE("Registering recovery commands");
 		register_ota_cmd();
 	}

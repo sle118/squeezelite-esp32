@@ -22,17 +22,21 @@ struct GDS_Device;
  * 'c': And so on...
  */
  
+#pragma pack(push, 1)  // Disable padding
 struct GDS_FontDef {
-    const uint8_t* FontData;
+    const void* dummy;            // 4 bytes (assuming 32-bit pointers)
 
-    int Width;
-    int Height;
+    int Width;                    // 4 bytes
+    int Height;                   // 4 bytes
+    int StartChar;                // 4 bytes
+    int EndChar;                  // 4 bytes
+    bool Monospace;               // 1 byte
 
-    int StartChar;
-    int EndChar;
-
-    bool Monospace;
+    uint8_t padding[3];           // 3 bytes padding to align to 24 bytes
+    const uint8_t FontData[];      // 4 bytes (assuming 32-bit pointers)
 };
+#pragma pack(pop) // Re-enable padding
+
 
 typedef enum {
     TextAnchor_East = 0,
@@ -45,7 +49,7 @@ typedef enum {
     TextAnchor_SouthWest,
     TextAnchor_Center
 } TextAnchor;
-
+bool gds_init_fonts();
 const struct GDS_FontDef* GDS_SetFont( struct GDS_Device* Display, const struct GDS_FontDef* Font );
 
 void GDS_FontForceProportional( struct GDS_Device* Display, bool Force );
@@ -67,23 +71,23 @@ void GDS_FontDrawString( struct GDS_Device* Display, int x, int y, const char* T
 void GDS_FontDrawAnchoredString( struct GDS_Device* Display, TextAnchor Anchor, const char* Text, int Color );
 void GDS_FontGetAnchoredStringCoords( struct GDS_Device* Display, int* OutX, int* OutY, TextAnchor Anchor, const char* Text );
 
-extern const struct GDS_FontDef Font_droid_sans_fallback_11x13;
-extern const struct GDS_FontDef Font_droid_sans_fallback_15x17;
-extern const struct GDS_FontDef Font_droid_sans_fallback_24x28;
+struct GDS_FontDef * Font_droid_sans_fallback_11x13;
+// const struct GDS_FontDef * Font_droid_sans_fallback_15x17;
+// const struct GDS_FontDef * Font_droid_sans_fallback_24x28;
 
-extern const struct GDS_FontDef Font_droid_sans_mono_7x13;
-extern const struct GDS_FontDef Font_droid_sans_mono_13x24;
-extern const struct GDS_FontDef Font_droid_sans_mono_16x31;
+// const struct GDS_FontDef * Font_droid_sans_mono_7x13;
+// const struct GDS_FontDef * Font_droid_sans_mono_13x24;
+// const struct GDS_FontDef * Font_droid_sans_mono_16x31;
 
-extern const struct GDS_FontDef Font_liberation_mono_9x15;
-extern const struct GDS_FontDef Font_liberation_mono_13x21;
-extern const struct GDS_FontDef Font_liberation_mono_17x30;
+// const struct GDS_FontDef * Font_liberation_mono_9x15;
+// const struct GDS_FontDef * Font_liberation_mono_13x21;
+// const struct GDS_FontDef * Font_liberation_mono_17x30;
 
-extern const struct GDS_FontDef Font_Tarable7Seg_16x32;
-extern const struct GDS_FontDef Font_Tarable7Seg_32x64;
+// const struct GDS_FontDef * Font_Tarable7Seg_16x32;
+// const struct GDS_FontDef * Font_Tarable7Seg_32x64;
 
-extern const struct GDS_FontDef Font_line_1;
-extern const struct GDS_FontDef Font_line_2;
+struct GDS_FontDef * Font_line_1;
+struct GDS_FontDef * Font_line_2;
 
 #ifdef __cplusplus
 }

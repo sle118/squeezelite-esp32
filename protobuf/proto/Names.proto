@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package sys;
+
+import "customoptions.proto";
+import "nanopb.proto";
+// Main system configuration definition. This gets loaded in a pointer
+// named platform-> which is available across the build
+message Names {
+  option (cust_msg).init_from_mac = true;
+  option (cust_msg).const_prefix = "squeezelite-";
+  option (nanopb_msgopt).max_length= 128;
+  // Network device name
+  string device = 1 ;
+  // AirPlay device name
+  string airplay = 2;
+  // Spotify device name
+  string spotify = 3;
+  // Bluetooth player name advertized
+  string bluetooth = 4;
+  // Player name reported to the Logitech Media Server
+  string squeezelite = 5;
+  // Wifi Access Point name
+  string wifi_ap_name = 6;
+}

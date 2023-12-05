@@ -9,7 +9,7 @@
  */
 
 #include "math.h"
-#include "platform_config.h"
+#include "Configurator.h"
 #include "squeezelite.h"
 #include "equalizer.h"
 #include "esp_equalizer.h"
@@ -20,11 +20,13 @@ static log_level loglevel = lINFO;
 
 static EXT_RAM_ATTR struct {
 	void *handle;
-    float loudness, volume;
     uint32_t samplerate;
-	float gain[EQ_BANDS], loudness_gain[EQ_BANDS];
+    float volume;
+	float loudness_gain[EQ_BANDS];
 	bool update;
+    sys_Equalizer *state; 
 } equalizer;
+
 
 #define POLYNOME_COUNT 6
 
@@ -67,11 +69,11 @@ static void calculate_loudness(void) {
     char trace[EQ_BANDS * 5 + 1];
     size_t n = 0;
 	for (int i = 0; i < EQ_BANDS; i++) {
-		for (int j = 0; j < POLYNOME_COUNT && equalizer.loudness != 0; j++) {
+		for (int j = 0; j < POLYNOME_COUNT && equalizer.state->loudness != 0; j++) {
 			equalizer.loudness_gain[i] +=
 				loudness_envelope_coefficients[i][j] * pow(equalizer.volume, j);
 		}
-		equalizer.loudness_gain[i] *= equalizer.loudness / 2;
+		equalizer.loudness_gain[i] *= equalizer.state->loudness / 2;
         n += sprintf(trace + n, "%.2g%c", equalizer.loudness_gain[i], i < EQ_BANDS ? ',' : '\0');
 	}
     LOG_INFO("loudness %s", trace);    
@@ -81,22 +83,20 @@ static void calculate_loudness(void) {
  * initialize equalizer
  */
 void equalizer_init(void) {
-    // handle equalizer
-	char *config = config_alloc_get(NVS_TYPE_STR, "equalizer");
-	char *p = strtok(config, ", !");
+    sys_Services * services;
+    sys_Equalizer blank_eq = sys_Equalizer_init_default;
 
-	for (int i = 0; p && i < EQ_BANDS; i++) {
-		equalizer.gain[i] = atoi(p);
-		p = strtok(NULL, ", :");
-	}
-
-	free(config);
-
-    // handle loudness
-    config = config_alloc_get(NVS_TYPE_STR, "loudness");
-    equalizer.loudness = atof(config) / 10.0;
-
-	free(config);
+    equalizer.state = &sys_state->equalizer;
+    if(!sys_state->has_equalizer ){
+        sys_state->has_equalizer = true;
+        if(SYS_SERVICES(services) && services->has_equalizer){
+            memcpy(equalizer.state,&services->equalizer,sizeof(sys_Equalizer));
+        }
+        else {
+            memcpy(equalizer.state,&blank_eq,sizeof(sys_Equalizer)); 
+        }
+        configurator_raise_state_changed();
+    }
 }
 
 /****************************************************************************************
@@ -135,7 +135,7 @@ void equalizer_set_volume(unsigned left, unsigned right) {
 	volume = volume / 16.0 * 100.0;
     
     // LMS has the bad habit to send multiple volume commands
-    if (volume != equalizer.volume && equalizer.loudness) {
+    if (volume != equalizer.volume && equalizer.state->loudness) {
         equalizer.volume = volume;
         calculate_loudness();
         equalizer.update = true;
@@ -152,15 +152,16 @@ void equalizer_set_gain(int8_t *gain) {
 	int n = 0;
     
     for (int i = 0; i < EQ_BANDS; i++) {
-		equalizer.gain[i] = gain[i];
+		equalizer.state->gains[i] = gain[i];
 		n += sprintf(config + n, "%d,", gain[i]);
 	}
 
-	config[n-1] = '\0';
-	config_set_value(NVS_TYPE_STR, "equalizer", config);
     
     // update only if something changed
-    if (!memcmp(equalizer.gain, gain, EQ_BANDS)) equalizer.update = true;
+    if (!memcmp(&equalizer.state->gains, gain, EQ_BANDS)) {
+        equalizer.update = true;
+        configurator_raise_state_changed();
+    }
 
     LOG_INFO("equalizer gain %s", config);
 #else
@@ -173,13 +174,11 @@ void equalizer_set_gain(int8_t *gain) {
  */
 void equalizer_set_loudness(uint8_t loudness) {
 #if BYTES_PER_FRAME == 4
-    char p[4];
-    itoa(loudness, p, 10);
-    config_set_value(NVS_TYPE_STR, "loudness", p);
     
-    // update loudness gains as a factor of loudness and volume
-    if (equalizer.loudness != loudness / 10.0) {
-        equalizer.loudness = loudness / 10.0;
+   // update loudness gains as a factor of loudness and volume
+    if (equalizer.state->loudness != loudness / 10.0) {
+        equalizer.state->loudness = loudness / 10.0;
+        configurator_raise_state_changed();
         calculate_loudness();
         equalizer.update = true;
     }
@@ -188,6 +187,7 @@ void equalizer_set_loudness(uint8_t loudness) {
 #else
     LOG_INFO("no equalizer with 32 bits samples");
 #endif
+
 }
 
 /****************************************************************************************
@@ -211,7 +211,7 @@ void equalizer_process(uint8_t *buf, uint32_t bytes) {
 
 		bool active = false;
 		for (int i = 0; i < EQ_BANDS; i++) {
-            float gain = equalizer.gain[i] + equalizer.loudness_gain[i];
+            float gain = equalizer.state->gains[i] + equalizer.loudness_gain[i];
 			esp_equalizer_set_band_value(equalizer.handle, gain, i, 0);
 			esp_equalizer_set_band_value(equalizer.handle, gain, i, 1);
 			active |= gain != 0;

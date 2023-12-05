@@ -60,9 +60,6 @@ void register_common_handlers(httpd_handle_t server){
 void register_regular_handlers(httpd_handle_t server){
 	httpd_uri_t root_get = { .uri = "/", .method = HTTP_GET, .handler = root_get_handler, .user_ctx = rest_context };
 	httpd_register_uri_handler(server, &root_get);
-
-	httpd_uri_t ap_get = { .uri = "/ap.json", .method = HTTP_GET, .handler = ap_get_handler, .user_ctx = rest_context };
-	httpd_register_uri_handler(server, &ap_get);
 	httpd_uri_t scan_get = { .uri = "/scan.json", .method = HTTP_GET, .handler = ap_scan_handler, .user_ctx = rest_context };
 	httpd_register_uri_handler(server, &scan_get);
 	httpd_uri_t config_get = { .uri = "/config.json", .method = HTTP_GET, .handler = config_get_handler, .user_ctx = rest_context };
@@ -123,7 +120,11 @@ void register_regular_handlers(httpd_handle_t server){
 	httpd_uri_t connect_redirect_8 = { .uri = "/success.txt", .method = HTTP_GET, .handler = redirect_ev_handler, .user_ctx = rest_context }; // OSX
 	httpd_register_uri_handler(server, &connect_redirect_8);
 
-
+	httpd_uri_t configurator_post = { .uri = "/config.pro", .method = HTTP_POST, .handler = configurator_post_handler, .user_ctx = rest_context };
+	httpd_register_uri_handler(server, &configurator_post);
+	httpd_uri_t configurator_get = { .uri = "/config.pro", .method = HTTP_POST, .handler = configurator_get_handler, .user_ctx = rest_context };
+	httpd_register_uri_handler(server, &configurator_get);	
+	
 
 	ESP_LOGD(TAG,"Registering default error handler for 404");
 	httpd_register_err_handler(server, HTTPD_404_NOT_FOUND,&err_handler);

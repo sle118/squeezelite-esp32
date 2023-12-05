@@ -23,7 +23,8 @@
 #include "globdefs.h"
 #include "monitor.h"
 #include "led_strip.h"
-#include "platform_config.h"
+#include "Configurator.h"
+#include "accessors.h"
 #include "led_vu.h"
 
 static const char *TAG = "led_vu";
@@ -76,24 +77,23 @@ static void battery_svc(float value, int cells) {
  */
 void led_vu_init()
 {
-    char* p;
-    char* config = config_alloc_get_str("led_vu_config", NULL, "N/A");
+    sys_LEDStrip * config = NULL;
+    if(!SYS_DEV_LEDSTRIP(config)){
+        return;
+    }
+    if(!!config->has_gpio ){
+        return;
+    }
+    // char* config = config_alloc_get_str("led_vu_config", NULL, "N/A");
 
     // Initialize led VU strip 
-    char* drivername = strcasestr(config, "WS2812");
-
-    if ((p = strcasestr(config, "length")) != NULL) {
-        strip.length = atoi(strchr(p, '=') + 1);
-    } // else 0
-    if ((p = strcasestr(config, "gpio")) != NULL) {
-        strip.gpio = atoi(strchr(p, '=') + 1);
-    } else {
-        strip.gpio = LED_VU_DEFAULT_GPIO;
-    }
+    strip.length = config->length;
+    strip.gpio = config->gpio.pin;
+    
     // check for valid configuration
-    if (!drivername || !strip.gpio) {
+    if (config->strip_type == sys_LEDStripType_LS_UNKNOWN || !config->has_gpio || config->gpio.pin <0) {
         ESP_LOGI(TAG, "led_vu configuration invalid");
-        goto done;
+        return;
     }
 
     battery_handler_chain = battery_handler_svc;
@@ -117,7 +117,7 @@ void led_vu_init()
     ESP_LOGI(TAG, "vu meter using length:%d left:%d right:%d status:%d", strip.vu_length, strip.vu_start_l, strip.vu_start_r, strip.vu_status);
 
     // create driver configuration
-    led_strip_config.rgb_led_type = RGB_LED_TYPE_WS2812;
+    led_strip_config.rgb_led_type = config->strip_type == sys_LEDStripType_LS_WS2812?RGB_LED_TYPE_WS2812:RGB_LED_TYPE_MAX;
     led_strip_config.access_semaphore = xSemaphoreCreateBinary();
     led_strip_config.led_strip_length = strip.length;
     led_strip_config.led_strip_working = heap_caps_malloc(strip.length * sizeof(struct led_color_t), MALLOC_CAP_8BIT);
@@ -132,7 +132,7 @@ void led_vu_init()
         ESP_LOGI(TAG, "led_vu using gpio:%d length:%d on channel:%d", strip.gpio, strip.length, led_strip_config.rmt_channel);
     } else {
         ESP_LOGE(TAG, "led_vu init failed");
-        goto done;
+        return;
     }
 
     // reserver max memory for remote management systems
@@ -140,9 +140,6 @@ void led_vu_init()
 
     led_vu_clear(led_display);
 
-    done:
-        free(config);
-        return;
     }
 
 inline bool inRange(double x, double y, double z) {

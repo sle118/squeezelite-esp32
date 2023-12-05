@@ -7,7 +7,9 @@
  *  https://opensource.org/licenses/MIT
  *
  */
- 
+#include "Configurator.h" 
+#include "driver/gpio.h"
+
 #pragma once
 
 typedef enum { SLEEP_ONTIMER, SLEEP_ONKEY, SLEEP_ONGPIO, SLEEP_ONIR, SLEEP_ONBATTERY } sleep_cause_e;
@@ -15,3 +17,4 @@ void services_sleep_activate(sleep_cause_e cause);
 void services_sleep_setsuspend(void (*hook)(void));
 void services_sleep_setsleeper(uint32_t (*sleeper)(void));
 void services_sleep_init(void);
+void set_gpio_level(sys_GPIO*gpio,const char * name, gpio_mode_t mode);

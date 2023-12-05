@@ -13,115 +13,52 @@
 #include "driver/i2s.h"
 #include "driver/spi_master.h"
 #include "gpio_exp.h"
+#define ASSIGN_GPIO(pin, root, name, mandatory) config_set_gpio(&pin, &(root).name, (root).has_##name, #name, mandatory)
 
-extern const char *i2c_name_type;
-extern const char *spi_name_type;
+#define ASSIGN_COND_VAL_1LVL(name, targetval) \
+    ((targetval) = (platform && platform->has_##name ? &(platform->name) : NULL))
+#define ASSIGN_COND_VAL_2LVL(name1, name2, targetval) \
+    ((targetval) = (platform && platform->has_##name1 && platform->name1.has_##name2 ? &(platform->name1.name2) : NULL))
+#define ASSIGN_COND_VAL_3LVL(name1, name2, name3, targetval) \
+    ((targetval) = (platform && platform->has_##name1 && platform->name1.has_##name2 && platform->name1.name2.has_##name3 ? &(platform->name1.name2.name3) : NULL))
+#define ASSIGN_COND_VAL_4LVL(name1, name2, name3, name4, targetval) \
+    ((targetval) = (platform && platform->has_##name1 && platform->name1.has_##name2 && platform->name1.name2.has_##name3 && platform->name1.name2.name3.has_##name4 ? &(platform->name1.name2.name3.name4) : NULL))
+#define ASSIGN_COND_VAL_5LVL(name1, name2, name3, name4, name5, targetval) \
+    ((targetval) = (platform && platform->has_##name1 && platform->name1.has_##name2 && platform->name1.name2.has_##name3 && platform->name1.name2.name3.has_##name4 && platform->name1.name2.name3.name4.has_##name5 ? &(platform->name1.name2.name3.name4.name5) : NULL))
 
-typedef struct {
-	int width;
-	int height;
-	int address;
-	int RST_pin;
-	bool hflip;
-	bool vflip;
-	const char *drivername;
-	int CS_pin;
-	int speed;
-	int back;
-	int depth;
-	const char *type;
-	bool rotate;
-	bool invert;
-	int colorswap;
-	int mode;
-} display_config_t;
 
-typedef struct eth_config_struct {
-	char model[16];
-	bool valid;
-	bool rmii;
-	bool spi;
-	int rst;
-	int mdc, mdio;
-	int host;
-	int cs, mosi, miso, intr, clk;
-	int speed;
-} eth_config_t;
 
-typedef struct {
-	i2s_pin_config_t pin;
-	char model[32];
-	int mute_gpio;
-	int mute_level;
-	int i2c_addr;
-	int sda;
-	int scl;
-} i2s_platform_config_t;
+#define SYS_NET(target) ASSIGN_COND_VAL_1LVL(net,target)
+#define SYS_DISPLAY(target) ASSIGN_COND_VAL_2LVL(dev,display,target)
+#define SYS_DEV_LEDSTRIP(target) ASSIGN_COND_VAL_2LVL(dev,led_strip,target)
+#define SYS_DEV_ROTARY(target) ASSIGN_COND_VAL_2LVL(dev,rotary,target)
+#define SYS_DISPLAY_COMMON(target) ASSIGN_COND_VAL_3LVL(dev,display,common,target)
+#define SYS_DISPLAY_SPI(target) ASSIGN_COND_VAL_3LVL(dev,display,spi,target)
+#define SYS_DISPLAY_I2C(target) ASSIGN_COND_VAL_3LVL(dev,display,i2c,target)
+#define SYS_GPIOS(target) ASSIGN_COND_VAL_2LVL(dev,gpios,target)
+#define SYS_ETH(target) ASSIGN_COND_VAL_2LVL(dev,eth,target)
+#define SYS_ETH_COMMON(target) ASSIGN_COND_VAL_3LVL(dev,eth,common,target)
 
-typedef struct {
-	int gpio;
-	int level;
-	bool fixed;
-} gpio_with_level_t;
 
-typedef struct {
-	gpio_with_level_t vcc;
-	gpio_with_level_t gnd;
-	gpio_with_level_t amp;
-	gpio_with_level_t ir;
-	gpio_with_level_t jack;
-	gpio_with_level_t green;
-	gpio_with_level_t red;
-	gpio_with_level_t spkfault;	
-	gpio_with_level_t power;	
-} set_GPIO_struct_t;
+#define SYS_I2CBUS(target) ASSIGN_COND_VAL_2LVL(dev,i2c,target)
+#define SYS_GPIOS_NAME(name,target) ASSIGN_COND_VAL_2LVL(gpios,name,target)
+#define SYS_SERVICES(target) ASSIGN_COND_VAL_1LVL(services,target)
+#define SYS_SERVICES_SPOTIFY(target) ASSIGN_COND_VAL_2LVL(services,cspot,target)
+#define SYS_SERVICES_METADATA(target) ASSIGN_COND_VAL_2LVL(services,metadata,target)
+#define SYS_SERVICES_AIRPLAY(target) ASSIGN_COND_VAL_2LVL(services,airplay,target)
+#define SYS_SERVICES_SLEEP(target) ASSIGN_COND_VAL_2LVL(services,sleep,target)
+#define SYS_SERVICES_EQUALIZER(target) ASSIGN_COND_VAL_2LVL(services,equalizer,target)
 
-typedef struct {
-	int A;
-	int B;
-	int SW;
-	bool knobonly;
-	bool volume_lock;
-	bool longpress;
-	int timer;
-} rotary_struct_t;
+#define SYS_SERVICES_TELNET(target) ASSIGN_COND_VAL_2LVL(services,telnet,target)
+#define SYS_SERVICES_BTSINK(target) ASSIGN_COND_VAL_2LVL(services,bt_sink,target)
+#define SYS_SERVICES_SQUEEZELITE(target) ASSIGN_COND_VAL_2LVL(services,squeezelite,target)
 
-typedef struct {
-	char type[16];
-	int length;
-	int gpio;
-} ledvu_struct_t;
 
-typedef struct {
-	bool fixed;
-	char * name;
-	char * group;
-	int gpio;
-} gpio_entry_t;
+#define SYS_DEV_BATTERY(target) ASSIGN_COND_VAL_2LVL(dev,battery,target)
 
-const display_config_t * 	config_display_get();
-const eth_config_t * 		config_eth_get( );
-void 						config_eth_init( eth_config_t *  target );
-esp_err_t 					config_display_set(const display_config_t * config);
-esp_err_t 					config_i2c_set(const i2c_config_t * config, int port);
-esp_err_t 					config_i2s_set(const i2s_platform_config_t * config, const char * nvs_name);
-esp_err_t 					config_spi_set(const spi_bus_config_t * config, int host, int dc);
 const i2c_config_t * 		config_i2c_get(int * i2c_port);
 const spi_bus_config_t * 	config_spi_get(spi_host_device_t * spi_host);
 const gpio_exp_config_t *   config_gpio_exp_get(int index);
-void 						parse_set_GPIO(void (*cb)(int gpio, char *value));
-const i2s_platform_config_t * 	config_dac_get();
-const i2s_platform_config_t * 	config_spdif_get( );
-const i2s_platform_config_t * config_i2s_get_from_str(char * dac_config );
-esp_err_t 					config_spdif_set(const i2s_platform_config_t * config);
-bool 						is_spdif_config_locked();
-esp_err_t 					free_gpio_entry( gpio_entry_t ** gpio);
-gpio_entry_t * 				get_gpio_by_name(char * name,char * group, bool refresh);
-gpio_entry_t * 				get_gpio_by_no(int gpionum, bool refresh);
 
 bool 						is_dac_config_locked();
 bool 						are_statistics_enabled();
-const rotary_struct_t * 	config_rotary_get();
-esp_err_t 					config_rotary_set(rotary_struct_t * rotary);
-const ledvu_struct_t * 		config_ledvu_get();
-esp_err_t 					config_ledvu_set(ledvu_struct_t * ledvu);

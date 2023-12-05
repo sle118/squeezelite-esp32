@@ -20,7 +20,8 @@
 #include "buttons.h"
 #include "led.h"
 #include "globdefs.h"
-#include "platform_config.h"
+// #include "Configurator.h"
+// TODO: Add support for the commented code: search for TODO in the code below")
 #include "accessors.h"
 #include "messaging.h"
 #include "cJSON.h"
@@ -41,8 +42,7 @@ bool jack_inserted_svc(void);
 void (*spkfault_handler_svc)(bool inserted);
 bool spkfault_svc(void);
 
-static monitor_gpio_t jack = { CONFIG_JACK_GPIO, 0 };
-static monitor_gpio_t spkfault = { CONFIG_SPKFAULT_GPIO, 0 };
+
 static bool monitor_stats;
 
 /****************************************************************************************
@@ -163,8 +163,11 @@ static void jack_handler_default(void *id, button_event_e event, button_press_e 
  *
  */
 bool jack_inserted_svc (void) {
-	if (jack.gpio != -1) return button_is_pressed(jack.gpio, NULL);
-	else return true;
+	sys_GPIO * jack=NULL;
+	if(SYS_GPIOS_NAME(jack,jack)){
+		return button_is_pressed(jack->pin, NULL);
+	}
+	return false;
 }
 
 /****************************************************************************************
@@ -181,40 +184,12 @@ static void spkfault_handler_default(void *id, button_event_e event, button_pres
  *
  */
 bool spkfault_svc (void) {
-	return button_is_pressed(spkfault.gpio, NULL);
+	sys_GPIO * spkfault=NULL;
+	if(SYS_GPIOS_NAME(spkfault,spkfault)){
+		return button_is_pressed(spkfault->pin, NULL);
+	}
+	return false;
 }
-
-/****************************************************************************************
- *
- */
-#ifndef CONFIG_JACK_LOCKED
-static void set_jack_gpio(int gpio, char *value) {
-	if (strcasestr(value, "jack")) {
-		char *p;
-		jack.gpio = gpio;
-		if ((p = strchr(value, ':')) != NULL) jack.active = atoi(p + 1);
-	}
-	else {
-		jack.gpio = -1;
-	}
-}
-#endif
-
-/****************************************************************************************
- *
- */
-#ifndef CONFIG_SPKFAULT_LOCKED
-static void set_spkfault_gpio(int gpio, char *value) {
-	if (strcasestr(value, "spkfault")) {
-		char *p;
-		spkfault.gpio = gpio;
-		if ((p = strchr(value, ':')) != NULL) spkfault.active = atoi(p + 1);
-	}
-	else {
-		spkfault.gpio = -1;
-	}
-}
-#endif
 
 /****************************************************************************************
  *
@@ -233,40 +208,19 @@ static void pseudo_idle(void *arg) {
  *
  */
 void monitor_svc_init(void) {
-	ESP_LOGI(TAG, "Initializing monitoring");
-
-#ifdef CONFIG_JACK_GPIO_LEVEL
-	jack.active = CONFIG_JACK_GPIO_LEVEL;
-#endif
-
-#ifndef CONFIG_JACK_LOCKED
-	parse_set_GPIO(set_jack_gpio);
-#endif
-
-	// re-use button management for jack handler, it's a GPIO after all
-	if (jack.gpio != -1) {
-		ESP_LOGI(TAG,"Adding jack (%s) detection GPIO %d", jack.active ? "high" : "low", jack.gpio);
-		button_create(NULL, jack.gpio, jack.active ? BUTTON_HIGH : BUTTON_LOW, false, 250, jack_handler_default, 0, -1);
+ 	ESP_LOGI(TAG, "Initializing monitoring");
+	sys_Services * services = NULL;
+	sys_GPIO * gpio=NULL;
+	if(SYS_GPIOS_NAME(jack,gpio) && gpio->pin>=0){
+		ESP_LOGI(TAG,"Adding jack (%s) detection GPIO %d", gpio->level ? "high" : "low", gpio->pin);
+		button_create(NULL, gpio->pin, gpio->level ? BUTTON_HIGH : BUTTON_LOW, false, 250, jack_handler_default, 0, -1);
 	}
-
-#ifdef CONFIG_SPKFAULT_GPIO_LEVEL
-	spkfault.active = CONFIG_SPKFAULT_GPIO_LEVEL;
-#endif
-
-#ifndef CONFIG_SPKFAULT_LOCKED
-	parse_set_GPIO(set_spkfault_gpio);
-#endif
-
-	// re-use button management for speaker fault handler, it's a GPIO after all
-	if (spkfault.gpio != -1) {
-		ESP_LOGI(TAG,"Adding speaker fault (%s) detection GPIO %d", spkfault.active ? "high" : "low", spkfault.gpio);
-		button_create(NULL, spkfault.gpio, spkfault.active ? BUTTON_HIGH : BUTTON_LOW, false, 0, spkfault_handler_default, 0, -1);
+	if(SYS_GPIOS_NAME(spkfault,gpio) && gpio->pin>=0){
+		ESP_LOGI(TAG,"Adding speaker fault (%s) detection GPIO %d", gpio->level ? "high" : "low", gpio->pin);
+		button_create(NULL, gpio->pin, gpio->level ? BUTTON_HIGH : BUTTON_LOW, false, 0, spkfault_handler_default, 0, -1);		
 	}
-
 	// do we want stats
-	char *p = config_alloc_get_default(NVS_TYPE_STR, "stats", "n", 0);
-	monitor_stats = p && (*p == '1' || *p == 'Y' || *p == 'y');
-	FREE_AND_NULL(p);
+	monitor_stats = SYS_SERVICES(services) && services->statistics;
 
 	ESP_LOGI(TAG, "Heap internal:%zu (min:%zu) external:%zu (min:%zu) dma:%zu (min:%zu)",
 			heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
@@ -281,18 +235,4 @@ void monitor_svc_init(void) {
 	static EXT_RAM_ATTR StackType_t xStack[PSEUDO_IDLE_STACK_SIZE] __attribute__ ((aligned (4)));
 	xTaskCreateStatic( (TaskFunction_t) pseudo_idle, "pseudo_idle", PSEUDO_IDLE_STACK_SIZE,
 						NULL, ESP_TASK_PRIO_MIN, xStack, xTaskBuffer );
-}
-
-/****************************************************************************************
- *
- */
- monitor_gpio_t * get_spkfault_gpio(){
-	return &spkfault	;
- }
-
-/****************************************************************************************
- *
- */
- monitor_gpio_t * get_jack_insertion_gpio(){
-	return &jack;
 }

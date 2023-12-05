@@ -16,7 +16,8 @@
 #include "driver/i2c.h"
 #include "esp_log.h"
 #include "messaging.h"
-#include "platform_config.h"
+// #include "Configurator.h"
+#pragma message("fixme: look for TODO below")
 #include "platform_console.h"
 #include "stdio.h"
 #include "string.h"
@@ -520,86 +521,87 @@ static int do_spiconfig_cmd(int argc, char** argv) {
 
 static int do_i2cconfig_cmd(int argc, char** argv) {
     esp_err_t err = ESP_OK;
-    i2c_config_t conf = {.mode = I2C_MODE_MASTER,
-        .sda_io_num = 19,
-        .sda_pullup_en = GPIO_PULLUP_ENABLE,
-        .scl_io_num = 18,
-        .scl_pullup_en = GPIO_PULLUP_ENABLE,
-        .master.clk_speed = 100000};
+    // i2c_config_t conf = {.mode = I2C_MODE_MASTER,
+        // .sda_io_num = 19,
+        // .sda_pullup_en = GPIO_PULLUP_ENABLE,
+        // .scl_io_num = 18,
+        // .scl_pullup_en = GPIO_PULLUP_ENABLE,
+        // .master.clk_speed = 100000};
 
     int nerrors = arg_parse_msg(argc, argv, (struct arg_hdr**)&i2cconfig_args);
     /* Check "--clear" option */
-    if (i2cconfig_args.clear->count) {
-        cmd_send_messaging(argv[0], MESSAGING_WARNING, "i2c config cleared\n");
-        config_set_value(NVS_TYPE_STR, "i2c_config", "");
-        return 0;
-    }
+    // if (i2cconfig_args.clear->count) {
+    //     cmd_send_messaging(argv[0], MESSAGING_WARNING, "i2c config cleared\n");
+    //     config_set_value(NVS_TYPE_STR, "i2c_config", "");
+    //     return 0;
+    // }
+    // TODO: Add support for the commented code
 
-    char* buf = NULL;
-    size_t buf_size = 0;
-    FILE* f = open_memstream(&buf, &buf_size);
-    if (f == NULL) {
-        cmd_send_messaging(argv[0], MESSAGING_ERROR, "Unable to open memory stream.\n");
-        return 1;
-    }
-    if (nerrors > 0) {
-        arg_print_errors(f, i2cconfig_args.end, desc_i2c);
-        fclose(f);
-        return 1;
-    }
-    /* Check "--port" option */
-    if (i2cconfig_args.port->count) {
-        if (i2c_get_port(i2cconfig_args.port->ival[0], &i2c_port) != ESP_OK) {
-            fprintf(f, "Invalid port %u \n", i2cconfig_args.port->ival[0]);
-            nerrors++;
-        }
-    }
-    /* Check "--freq" option */
-    if (i2cconfig_args.freq->count) {
-        conf.master.clk_speed = i2cconfig_args.freq->ival[0];
-    }
+//     char* buf = NULL;
+//     size_t buf_size = 0;
+//     FILE* f = open_memstream(&buf, &buf_size);
+//     if (f == NULL) {
+//         cmd_send_messaging(argv[0], MESSAGING_ERROR, "Unable to open memory stream.\n");
+//         return 1;
+//     }
+//     if (nerrors > 0) {
+//         arg_print_errors(f, i2cconfig_args.end, desc_i2c);
+//         fclose(f);
+//         return 1;
+//     }
+//     /* Check "--port" option */
+//     if (i2cconfig_args.port->count) {
+//         if (i2c_get_port(i2cconfig_args.port->ival[0], &i2c_port) != ESP_OK) {
+//             fprintf(f, "Invalid port %u \n", i2cconfig_args.port->ival[0]);
+//             nerrors++;
+//         }
+//     }
+//     /* Check "--freq" option */
+//     if (i2cconfig_args.freq->count) {
+//         conf.master.clk_speed = i2cconfig_args.freq->ival[0];
+//     }
 
-    nerrors += is_output_gpio(i2cconfig_args.sda, f, &conf.sda_io_num, true);
-    nerrors += is_output_gpio(i2cconfig_args.scl, f, &conf.scl_io_num, true);
+//     nerrors += is_output_gpio(i2cconfig_args.sda, f, &conf.sda_io_num, true);
+//     nerrors += is_output_gpio(i2cconfig_args.scl, f, &conf.scl_io_num, true);
     
-#ifdef CONFIG_I2C_LOCKED
-    if (i2c_port == I2C_NUM_0) {
-        i2c_port = I2C_NUM_1;
-        fprintf(f, "can't use i2c port 0 when locked by config. Changing to port 1.\n");
-    }
-#endif
+// #ifdef CONFIG_I2C_LOCKED
+//     if (i2c_port == I2C_NUM_0) {
+//         i2c_port = I2C_NUM_1;
+//         fprintf(f, "can't use i2c port 0 when locked by config. Changing to port 1.\n");
+//     }
+// #endif
 
-    if (!nerrors) {
-        fprintf(f, "Uninstalling i2c driver from port %u if needed\n", i2c_port);
-        if (is_i2c_started(i2c_port)) {
-            if ((err = i2c_driver_delete(i2c_port)) != ESP_OK) {
-                fprintf(f, "i2c driver delete failed. %s\n", esp_err_to_name(err));
-                nerrors++;
-            }
-        }
-    }
-    if (!nerrors) {
-        if ((err = i2c_master_driver_initialize(argv[0], &conf)) == ESP_OK) {
-            if ((err = i2c_master_driver_install(argv[0])) != ESP_OK) {
-                nerrors++;
-            } else {
-                fprintf(f, "i2c driver successfully started.\n");
-            }
-        } else {
-            nerrors++;
-        }
-    }
-    if (!nerrors) {
-        fprintf(f, "Storing i2c parameters.\n");
-        config_i2c_set(&conf, i2c_port);
-    }
-    if (!nerrors) {
-        fprintf(f, "Done.\n");
-    }
-    fflush(f);
-    cmd_send_messaging(argv[0], nerrors > 0 ? MESSAGING_ERROR : MESSAGING_INFO, "%s", buf);
-    fclose(f);
-    FREE_AND_NULL(buf);
+//     if (!nerrors) {
+//         fprintf(f, "Uninstalling i2c driver from port %u if needed\n", i2c_port);
+//         if (is_i2c_started(i2c_port)) {
+//             if ((err = i2c_driver_delete(i2c_port)) != ESP_OK) {
+//                 fprintf(f, "i2c driver delete failed. %s\n", esp_err_to_name(err));
+//                 nerrors++;
+//             }
+//         }
+//     }
+//     if (!nerrors) {
+//         if ((err = i2c_master_driver_initialize(argv[0], &conf)) == ESP_OK) {
+//             if ((err = i2c_master_driver_install(argv[0])) != ESP_OK) {
+//                 nerrors++;
+//             } else {
+//                 fprintf(f, "i2c driver successfully started.\n");
+//             }
+//         } else {
+//             nerrors++;
+//         }
+//     }
+//     if (!nerrors) {
+//         fprintf(f, "Storing i2c parameters.\n");
+//         config_i2c_set(&conf, i2c_port);
+//     }
+//     if (!nerrors) {
+//         fprintf(f, "Done.\n");
+//     }
+//     fflush(f);
+//     cmd_send_messaging(argv[0], nerrors > 0 ? MESSAGING_ERROR : MESSAGING_INFO, "%s", buf);
+//     fclose(f);
+//     FREE_AND_NULL(buf);
 
     return nerrors;
 }
@@ -971,50 +973,7 @@ static int do_i2cdetect_cmd(int argc, char** argv) {
 
     return 0;
 }
-cJSON* i2c_set_display_cb() {
-    cJSON* values = cJSON_CreateObject();
-    const display_config_t* conf = config_display_get();
-    if (conf) {
-        if (conf->width > 0) {
-            cJSON_AddNumberToObject(values, "width", conf->width);
-        }
-        if (conf->height > 0) {
-            cJSON_AddNumberToObject(values, "height", conf->height);
-        }
-        if (conf->address > 0) {
-            cJSON_AddNumberToObject(values, "address", conf->address);
-        }
-        if (conf->RST_pin >= 0) {
-            cJSON_AddNumberToObject(values, "reset", conf->RST_pin);
-        }
-        if (conf->drivername && strlen(conf->drivername) > 0) {
-            cJSON_AddStringToObject(values, "driver", conf->drivername);
-        }
-        if (conf->CS_pin >= 0) {
-            cJSON_AddNumberToObject(values, "cs", conf->CS_pin);
-        }
-        if (conf->speed > 0) {
-            cJSON_AddNumberToObject(values, "speed", conf->speed);
-        }
-        if (conf->back >= 0) {
-            cJSON_AddNumberToObject(values, "back", conf->back);
-        }
-        if (conf->depth > 0) {
-            cJSON_AddNumberToObject(values, "depth", conf->depth);
-        }
-        if (conf->type && strlen(conf->type)) {
-            cJSON_AddStringToObject(values, "type", conf->type);
-        }
-        cJSON_AddBoolToObject(values, "rotate", conf->rotate);
-        cJSON_AddBoolToObject(values, "hf", conf->hflip);
-        cJSON_AddBoolToObject(values, "vf", conf->vflip);
-        cJSON_AddBoolToObject(values, "invert", conf->invert);
-        if (conf->mode >= 0) {
-            cJSON_AddNumberToObject(values, "mode", conf->mode);
-        }
-    }
-    return values;
-}
+
 
 #if CONFIG_WITH_CONFIG_UI
 static void register_i2c_set_display() {
@@ -1044,7 +1003,6 @@ static void register_i2c_set_display() {
         .hint = NULL,
         .func = &do_i2c_set_display,
         .argtable = &i2cdisp_args};
-    cmd_to_json_with_cb(&i2c_set_display, &i2c_set_display_cb);
     ESP_ERROR_CHECK(esp_console_cmd_register(&i2c_set_display));
 }
 #endif

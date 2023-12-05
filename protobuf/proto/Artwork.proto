@@ -1,0 +1,9 @@
+syntax = "proto3";
+package sys;
+import "nanopb.proto";
+
+message Artwork {
+  option (nanopb_msgopt).msgid  = 1002;
+    bool enabled = 1 ;  // Enable cover art display
+    bool resize = 2 ; // Optional parameter to indicate if the artwork should be resized
+  }

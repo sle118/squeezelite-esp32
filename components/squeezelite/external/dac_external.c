@@ -16,7 +16,9 @@
 #include "esp_log.h"
 #include "gpio_exp.h"
 #include "cJSON.h"
-#include "platform_config.h"
+#include "string.h"
+// #include "Configurator.h"
+#pragma message("fixme: look for TODO below")
 #include "adac.h"
 
 static const char TAG[] = "DAC external";
@@ -29,7 +31,7 @@ static bool init(char *config, int i2c_port_num, i2s_config_t *i2s_config, bool 
 
 static bool i2c_json_execute(char *set);
 
-const struct adac_s dac_external = { "i2s", init, adac_deinit, power, speaker, headset, volume };
+const struct adac_s dac_external = { sys_DACModelEnum_I2S, init, adac_deinit, power, speaker, headset, volume };
 static cJSON *i2c_json;
 static int i2c_addr;
 
@@ -58,34 +60,35 @@ static const struct {
  * init
  */
 static bool init(char *config, int i2c_port_num, i2s_config_t *i2s_config, bool *mck) {	 
-	char *p;	
+	char *p=NULL;	
+	void * dummy = &codecs;
+	// i2c_addr = adac_init(config, i2c_port_num);
+	// if (!i2c_addr) return true;
 	
-	i2c_addr = adac_init(config, i2c_port_num);
-	if (!i2c_addr) return true;
+	// ESP_LOGI(TAG, "DAC on I2C @%d", i2c_addr);
 	
-	ESP_LOGI(TAG, "DAC on I2C @%d", i2c_addr);
-	
-	p = config_alloc_get_str("dac_controlset", CONFIG_DAC_CONTROLSET, NULL);
+	// p = config_alloc_get_str("dac_controlset", CONFIG_DAC_CONTROLSET, NULL);
 
-	if ((!p || !*p) && (p = strcasestr(config, "model")) != NULL) {
-		char model[32] = "";
-		int i;
-		sscanf(p, "%*[^=]=%31[^,]", model);
-		for (i = 0; *model && ((p = codecs[i].controlset) != NULL) && strcasecmp(codecs[i].model, model); i++);
-		if (p) *mck = codecs[i].mclk;
-	}	
+	// if ((!p || !*p) && (p = strcasestr(config, "model")) != NULL) {
+	// 	char model[32] = "";
+	// 	int i;
+	// 	sscanf(p, "%*[^=]=%31[^,]", model);
+	// 	for (i = 0; *model && ((p = codecs[i].controlset) != NULL) && strcasecmp(codecs[i].model, model); i++);
+	//  	if (p) *mck = codecs[i].mclk;
+	//  }	 
 
-	i2c_json = cJSON_Parse(p);
+	// i2c_json = cJSON_Parse(p);
 	
-	if (!i2c_json) {
-		ESP_LOGW(TAG, "no i2c controlset found");
-		return true;
-	}	
+	// if (!i2c_json) {
+	// 	ESP_LOGW(TAG, "no i2c controlset found");
+	// 	return true;
+	// }	
 		
-	if (!i2c_json_execute("init")) {	
-		ESP_LOGE(TAG, "could not intialize DAC");
-		return false;
-	}	
+	// if (!i2c_json_execute("init")) {	
+	// 	ESP_LOGE(TAG, "could not intialize DAC");
+	// 	return false;
+	// }	
+	// TODO: Add support for the commented code
 
 	return true;
 }	

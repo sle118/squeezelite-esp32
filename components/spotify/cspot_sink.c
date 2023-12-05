@@ -2,13 +2,11 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdlib.h>
-
-#include "nvs.h"
 #include "esp_log.h"
 #include "esp_console.h"
 #include "esp_pthread.h"
 #include "esp_system.h"
-#include "platform_config.h"
+#include "Configurator.h"
 #include "audio_controls.h"
 #include "display.h"
 #include "accessors.h"

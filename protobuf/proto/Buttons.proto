@@ -1,0 +1,85 @@
+syntax = "proto3";
+
+package sys;
+import "GPIO.proto";
+import "nanopb.proto";
+option (nanopb_fileopt).enum_to_string = true;
+
+enum ButtonAction {
+  ACTRLS_NONE = 0;
+  ACTRLS_POWER = 1;
+  ACTRLS_VOLUP = 2;
+  ACTRLS_VOLDOWN = 3;
+  ACTRLS_TOGGLE = 4;
+  ACTRLS_PLAY = 5;
+  ACTRLS_PAUSE = 6;
+  ACTRLS_STOP = 7;
+  ACTRLS_REW = 8;
+  ACTRLS_FWD = 9;
+  ACTRLS_PREV = 10;
+  ACTRLS_NEXT = 11;
+  BCTRLS_UP = 12;
+  BCTRLS_DOWN = 13;
+  BCTRLS_LEFT = 14;
+  BCTRLS_RIGHT = 15;
+  BCTRLS_PS1 = 16;
+  BCTRLS_PS2 = 17;
+  BCTRLS_PS3 = 18;
+  BCTRLS_PS4 = 19;
+  BCTRLS_PS5 = 20;
+  BCTRLS_PS6 = 21;
+  BCTRLS_PS7 = 22;
+  BCTRLS_PS8 = 23;
+  BCTRLS_PS9 = 24;
+  BCTRLS_PS10 = 25;
+  KNOB_LEFT = 26;
+  KNOB_RIGHT = 27;
+  KNOB_PUSH = 28;
+  ACTRLS_SLEEP = 29;
+}
+// Message for ButtonActions
+message ButtonActions {
+  option (nanopb_msgopt).msgid  = 10004;
+  ButtonAction pressed = 1 ;
+  ButtonAction released = 2 ;
+}
+message Button {
+  option (nanopb_msgopt).msgid  = 10005;
+  GPIO gpio = 1;
+  bool pull = 2;
+  int32 debounce = 3;
+  GPIO shifter = 4;
+  int32 longduration = 5;
+  ButtonActions normal = 6;
+  ButtonActions longpress = 7;
+  ButtonActions shifted = 8;
+  ButtonActions longshifted = 9;
+}
+message KnobOnly {
+  option (nanopb_msgopt).msgid  = 10006;
+  // This mode attempts to offer a single knob full navigation which is a bit contorded due to LMS UI's 
+  // principles. Left, Right and Press obey to LMS's navigation rules and especially Press always goes to 
+  // lower submenu item, even when navigating in the Music Library. That causes a challenge as there is no 
+  // 'Play', 'Back' or 'Pause' button. Workaround are as of below:
+  // - longpress is 'Play'
+  // - double press is 'Back' (Left in LMS's terminology).
+  // - a quick left-right movement on the encoder is 'Pause'
+  //
+  // The speed of double click (or left-right) can be set using the optional parameter of 'knobonly'. 
+  // This is not a perfect solution, and other ideas are welcome. Be aware that the longer you set double 
+  // click speed, the less responsive the interface will be. The reason is that I need to wait for that 
+  // delay before deciding if it's a single or double click. It can also make menu navigation "hesitations" 
+  // being easily interpreted as 'Pause'
+  bool enable = 1; // Enable/disable
+  int32 delay_ms = 2; // optionally set the delay
+
+}
+message Rotary {
+  option (nanopb_msgopt).msgid  = 10007;
+  GPIO A = 1;
+  GPIO B = 2;
+  GPIO SW = 3;
+  KnobOnly knobonly = 4;
+  bool volume = 5;
+  bool longpress = 6;
+}

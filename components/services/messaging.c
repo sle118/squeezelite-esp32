@@ -11,7 +11,8 @@
 #include "esp_app_trace.h"
 #include "esp_attr.h"
 #include "config.h"
-#include "nvs_utilities.h"
+// #include "nvs_utilities.h"
+
 #include "platform_esp32.h"
 #include "messaging.h"
 #include "tools.h"

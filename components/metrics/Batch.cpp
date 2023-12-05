@@ -6,15 +6,12 @@
 #include "esp_netif.h"
 #include "esp_ota_ops.h"
 #include "esp_tls.h"
-#include "nvs_flash.h"
+
 #if CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
 #include "esp_crt_bundle.h"
 #endif
 #include "esp_system.h"
 #include "http_handlers.h"
-#include "nvs.h"
-#include "nvs_flash.h"
-#include "nvs_utilities.h"
 #include "tools.h"
 #include <algorithm>
 #include <iomanip>
@@ -85,7 +82,7 @@ void Batch::push() {
         _events.clear();
     }
     FREE_AND_NULL(json_str)
-    ESP_LOGD(TAG, "Total duration for metrics call: %lu. ", gettime_ms() - start_time);
+    ESP_LOGD(TAG, "Total duration for metrics call: %u. ", gettime_ms() - start_time);
 }
 
 void Batch::build_guid() {

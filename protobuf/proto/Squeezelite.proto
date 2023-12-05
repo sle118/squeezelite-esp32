@@ -1,0 +1,127 @@
+syntax = "proto3";
+import "customoptions.proto";
+import "nanopb.proto";
+option (nanopb_fileopt).enum_to_string = true;
+
+package sys;
+enum OutputTypeEnum {
+   OUTPUT_UNKNOWN = 0;
+   OUTPUT_I2S = 1;
+   OUTPUT_SPDIF = 2;
+   OUTPUT_Bluetooth = 3;
+}
+message OutputBT {
+    option (nanopb_msgopt).msgid  = 10039;
+    string sink_name = 1 [(nanopb).max_length= 128];
+    string pin = 2 [(nanopb).max_length= 16];
+}
+// Enum for the type of resampling algorithm
+enum ResampleAlgorithm {
+    RA_DISABLED = 0;
+    RA_BASIC_LINEAR = 1; // Basic linear interpolation
+    RA_THIRTEEN_TAPS = 2; // 13 taps
+    RA_TWENTY_ONE_TAPS = 3; // 21 taps
+}
+
+// ResampleOptions represents the resampling options for Squeezelite
+message ResampleOptions {
+    option (nanopb_msgopt).msgid  = 10040;
+    ResampleAlgorithm algorithm = 1; // The resampling algorithm to use
+    bool interpolate_filter_coefficients = 2; // Whether to interpolate filter coefficients
+}
+
+enum SampleRate {
+    SAMPLE_RATE_UNSPECIFIED = 0; // Default value, can be used to represent an unspecified rate
+    SAMPLE_RATE_8000 = 8000;
+    SAMPLE_RATE_11025 = 11025;
+    SAMPLE_RATE_12000 = 12000;
+    SAMPLE_RATE_16000 = 16000;
+    SAMPLE_RATE_22050 = 22050;
+    SAMPLE_RATE_24000 = 24000;
+    SAMPLE_RATE_32000 = 32000;
+    SAMPLE_RATE_44100 = 44100;
+    SAMPLE_RATE_48000 = 48000;
+    SAMPLE_RATE_88200 = 88200;
+    SAMPLE_RATE_96000 = 96000;
+    SAMPLE_RATE_176400 = 176400;
+    SAMPLE_RATE_192000 = 192000;
+    SAMPLE_RATE_352800 = 352800;
+    SAMPLE_RATE_384000 = 384000;
+    SAMPLE_RATE_705600 = 705600;
+    SAMPLE_RATE_768000 = 768000;
+}
+enum DebugLevelEnum {
+    DEFAULT = 0;
+    ERROR = 1;
+    WARN  = 2;
+    INFO = 3;
+    DEBUG = 4;
+    SDEBUG = 5;
+}
+enum CodexEnum {
+    c_undefined = 0;
+    c_alac = 1;
+    c_ogg = 2;
+    c_ops = 3;
+    c_flac = 4;
+    c_pcm = 5;
+    c_mp3 = 6;
+    c_mad = 7;
+    c_mpg = 8;
+}
+message RatesOption {
+    option (nanopb_msgopt).msgid  = 10041;
+    SampleRate min = 1;
+    SampleRate max = 2;
+    repeated SampleRate list = 3 [(nanopb).type = FT_POINTER]; // [(nanopb).max_count= 10];
+}
+message BufferOption {
+    option (nanopb_msgopt).msgid  = 10042;
+    uint32 stream = 1  [(cust_field).v_uint32 = 500];
+    uint32 output = 2  [(cust_field).v_uint32 = 2000];
+}
+message DebugOptions {
+    DebugLevelEnum output = 1 [(cust_field).v_string = "WARN"];
+    DebugLevelEnum stream = 2 [(cust_field).v_string = "WARN"];
+    DebugLevelEnum decode = 3 [(cust_field).v_string = "WARN"];
+    DebugLevelEnum slimproto = 4 [(cust_field).v_string = "WARN"];
+    DebugLevelEnum ir = 5 [(cust_field).v_string = "WARN"];
+}
+
+message Squeezelite {
+    option (nanopb_msgopt).msgid  = 10044;
+      // Output device configuration
+    OutputTypeEnum output_type = 1 [(cust_field).v_string = "OUTPUT_I2S"];
+
+    // Sample rates supported
+    RatesOption rates = 2;
+
+    // Timeout (seconds) for switching off amp GPIO
+    // default is to keep the device 'on' all the time
+    int32 amp_gpio_timeout = 3 [(cust_field).v_int32 = 30];
+
+    // tRead wave and aiff format from header, ignore server parameters
+    bool wav_aiff_header_parsing = 4;
+
+    // Server connection options
+    string server_name_ip = 5 [(nanopb).max_length= 128];
+    uint32 server_port = 6;
+
+    // Allow disabling squeezelite to use the 
+    // device in "detached mode"
+    bool enabled = 7;
+    
+    OutputBT output_bt = 8;
+
+    // enable debugging here
+    DebugOptions log = 9 ;
+
+    // Max sample rate reported to server
+    uint32 max_rate = 10;
+    
+    BufferOption buffers = 11;
+    string resample = 12 [(nanopb).type = FT_POINTER];
+    repeated CodexEnum included_codex = 13 [(nanopb).type = FT_POINTER];
+    repeated CodexEnum excluded_codex = 14 [(nanopb).type = FT_POINTER];
+
+}
