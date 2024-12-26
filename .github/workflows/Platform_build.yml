@@ -86,7 +86,7 @@ jobs:
         git add components/wifi-manager/webapp/*.cmake 
         git add components/wifi-manager/webapp/dist/*
         git commit -m "Update prebuilt objects [skip actions]"
-        git push  https://${{secrets.github_token}}@github.com/sle118/squeezelite-esp32.git
+        git push  https://${{secrets.github_token}}@github.com/isopropilick/squeezelite-esp32.git
     - name: Locally store commonly built objects
       uses: actions/upload-artifact@v4
       with:
