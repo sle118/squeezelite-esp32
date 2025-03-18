@@ -1,3 +1,4 @@
+#!/opt/esp/python_env/idf4.4_py3.8_env/bin/python
 import json
 import os
 import sys
@@ -55,6 +56,7 @@ def main():
     parser.add_argument('--target_dir', help='Target directory for output files')
     parser.add_argument('--include', help='Directory where message python files can be found', default=None,action = 'append' )
     parser.add_argument('--json', help='Source JSON file(s)',action = 'append' )
+    parser.add_argument('--dumpconsole', action='store_true', help='Dump to console')
 
     args = parser.parse_args()
 
@@ -63,22 +65,44 @@ def main():
     proto_module = load_protobuf_module(args.proto_file, args.include)
 
     # Determine the main message class
-    main_message_class = getattr(proto_module, args.main_class)
+    try:
+        main_message_class = getattr(proto_module, args.main_class)
+    except Exception as e:
+        content:list = [entry for entry in dir(proto_module) if not entry.startswith('_') ]
+        logging.error(f'Error getting main class: {e}. Available classes: {", ".join(content)}')
+        sys.exit(1)  # Exit with error status
+
     message = main_message_class()
 
     proto_base_name = Path(args.proto_file).stem
     
     for jsonfile in args.json:
-        output_file_base = os.path.join(args.target_dir, Path(jsonfile).stem+".bin")
+        output_file_base:str = os.path.join(args.target_dir, Path(jsonfile).stem+".bin").lower()
         logging.debug(f'Converting JSON file {jsonfile} to binary format')
         with open(jsonfile, 'r') as json_file:
-            json_data = json.load(json_file)
-        json_format.ParseDict(json_data, message)
-        binary_data = message.SerializeToString()
-        with open(output_file_base, 'wb') as bin_file:
-            bin_file.write(binary_data)
-        logging.info(f'Binary file written to {output_file_base}')
+            try:
+                json_data = json.load(json_file)
 
+                try:
+                    json_format.ParseDict(json_data, message)
+                except json_format.ParseError as e:
+                    logging.error(f'Parse error in JSON file {jsonfile}: {e}')
+                    sys.exit(1)  # Exit with error status
+
+                except Exception as e:
+                    logging.error(f'Error reading JSON file {jsonfile}: {e}')
+                    sys.exit(1)  # Exit with error status
+
+                binary_data = message.SerializeToString()
+                with open(output_file_base, 'wb') as bin_file:
+                    bin_file.write(binary_data)
+                logging.info(f'Binary file written to {output_file_base}')
+                if args.dumpconsole:
+                    escaped_string = ''.join('\\x{:02x}'.format(byte) for byte in binary_data)
+                    print(f'escaped string representation: \nconst char * bin_{Path(jsonfile).stem} = "{escaped_string}";\n')
+            except Exception as e:
+                logging.error(f'Error reading JSON file {jsonfile}: {e}')
+                sys.exit(1)  # Exit with error status
 
 if __name__ == '__main__':
     main()

@@ -1,4 +1,4 @@
-/* 
+/*
  *  Squeezelite for esp32
  *
  *  (c) Sebastien 2019
@@ -8,18 +8,19 @@
  *  https://opensource.org/licenses/MIT
  *
  */
- 
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
-#include <driver/i2s.h>
+#define LOG_LOCAL_LEVEL ESP_LOG_INFO
+#include "Config.h"
+#include "adac.h"
+#include "cJSON.h"
 #include "driver/i2c.h"
 #include "esp_log.h"
+#include "esp_check.h"
 #include "gpio_exp.h"
-#include "cJSON.h"
+#include "inttypes.h"
 #include "string.h"
-// #include "Configurator.h"
-#pragma message("fixme: look for TODO below")
-#include "adac.h"
+#include <driver/i2s.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 static const char TAG[] = "DAC external";
 
@@ -27,159 +28,167 @@ static void speaker(bool active);
 static void headset(bool active);
 static bool volume(unsigned left, unsigned right) { return false; }
 static void power(adac_power_e mode);
-static bool init(char *config, int i2c_port_num, i2s_config_t *i2s_config, bool *mck);
+static bool init(sys_dac_config* config, i2s_config_t* i2s_config, bool* mck);
 
-static bool i2c_json_execute(char *set);
+// static bool i2c_json_execute(char *set);
+static bool i2c_execute_cmd(sys_dac_control_type cmd_type);
 
-const struct adac_s dac_external = { sys_DACModelEnum_I2S, init, adac_deinit, power, speaker, headset, volume };
-static cJSON *i2c_json;
+const struct adac_s dac_external = {sys_dac_models_I2S, init, adac_deinit, power, speaker, headset, volume};
 static int i2c_addr;
-
-static const struct {
-	char *model;
-	bool mclk;
-	char *controlset;
-} codecs[] = {
-	{ "es8388", true,
-		"{\"init\":[ 																						\
-			{\"reg\":8,\"val\":0}, {\"reg\":2,\"val\":243}, {\"reg\":43,\"val\":128}, {\"reg\":0,\"val\":5}, 		\
-			{\"reg\":1,\"val\":64}, {\"reg\":4,\"val\":60},"
-#if BYTES_PER_FRAME == 8
-		   "{\"reg\":23,\"val\":32},"
-#else			
-		   "{\"reg\":23,\"val\":24},"
-#endif
-		   "{\"reg\":24,\"val\":2},		\
-			{\"reg\":26,\"val\":0}, {\"reg\":27,\"val\":0}, {\"reg\":25,\"val\":50}, {\"reg\":38,\"val\":0},		\
-			{\"reg\":39,\"val\":184}, {\"reg\":42,\"val\":184}, {\"reg\":46,\"val\":30}, {\"reg\":47,\"val\":30},	\
-			{\"reg\":48,\"val\":30}, {\"reg\":49,\"val\":30}, {\"reg\":2,\"val\":170}]}" },
-	{ NULL, false, NULL }		
-};
+extern sys_dac_default_sets* default_dac_sets;
+static EXT_RAM_ATTR sys_dac_control_set* i2c_default_controlset = NULL;
+static EXT_RAM_ATTR sys_dac_control_set* i2c_controlset = NULL;
 
 /****************************************************************************************
  * init
  */
-static bool init(char *config, int i2c_port_num, i2s_config_t *i2s_config, bool *mck) {	 
-	char *p=NULL;	
-	void * dummy = &codecs;
-	// i2c_addr = adac_init(config, i2c_port_num);
-	// if (!i2c_addr) return true;
-	
-	// ESP_LOGI(TAG, "DAC on I2C @%d", i2c_addr);
-	
-	// p = config_alloc_get_str("dac_controlset", CONFIG_DAC_CONTROLSET, NULL);
+static bool init(sys_dac_config* config, i2s_config_t* i2s_config, bool* mck) {
 
-	// if ((!p || !*p) && (p = strcasestr(config, "model")) != NULL) {
-	// 	char model[32] = "";
-	// 	int i;
-	// 	sscanf(p, "%*[^=]=%31[^,]", model);
-	// 	for (i = 0; *model && ((p = codecs[i].controlset) != NULL) && strcasecmp(codecs[i].model, model); i++);
-	//  	if (p) *mck = codecs[i].mclk;
-	//  }	 
+#ifdef BYTES_PER_FRAME
+    uint32_t bytes_per_frame = BYTES_PER_FRAME;
+#else
+    uint32_t bytes_per_frame = 4;
+#endif
+    i2c_addr = adac_init(config);
+    if (!i2c_addr) return true;
+    ESP_LOGI(TAG, "DAC on I2C @%d", i2c_addr);
+    ESP_LOGD(TAG, "Checkinf if there's a default control set for DAC %s in the list of %d presets", sys_dac_models_name(config->model),
+        default_dac_sets->sets_count);
 
-	// i2c_json = cJSON_Parse(p);
-	
-	// if (!i2c_json) {
-	// 	ESP_LOGW(TAG, "no i2c controlset found");
-	// 	return true;
-	// }	
-		
-	// if (!i2c_json_execute("init")) {	
-	// 	ESP_LOGE(TAG, "could not intialize DAC");
-	// 	return false;
-	// }	
-	// TODO: Add support for the commented code
+    for (int i = 0; i < default_dac_sets->sets_count; i++) {
+        ESP_LOGD(TAG, "Checkinf if preset #%d (%s[%d]) matches %s[%d]", i + 1, sys_dac_models_name(default_dac_sets->sets[i].model),
+            default_dac_sets->sets[i].bytes_per_frame, sys_dac_models_name(config->model), bytes_per_frame);
+        if (default_dac_sets->sets[i].bytes_per_frame == bytes_per_frame && default_dac_sets->sets[i].model == config->model) {
+            if (!default_dac_sets->sets[i].valid) {
+                ESP_LOGE(TAG, "DAC %s is unsupported with %d bytes per frame", sys_dac_models_name(config->model), bytes_per_frame);
+                return false;
+            }
+            i2c_default_controlset = &default_dac_sets->sets[i].set;
+        }
+    }
 
-	return true;
-}	
+    if (config->has_daccontrolset && config->daccontrolset.commands_count > 0) {
+        i2c_controlset = &config->daccontrolset;
+    }
+    if (!i2c_controlset && !i2c_default_controlset) {
+        ESP_LOGE(TAG, "DAC configuration invalid for %s", sys_dac_models_name(config->model));
+        return false;
+    }
+    if (mck) {
+        *mck = i2c_controlset != NULL ? i2c_controlset->mclk_needed : i2c_default_controlset->mclk_needed;
+        ESP_LOGD(TAG, "Master clock is %s", (*mck) ? "NEEDED" : "NOT NEEDED");
+    }
+    if (!i2c_execute_cmd(sys_dac_control_type_INIT)) {
+        ESP_LOGE(TAG, "could not intialize DAC");
+        return false;
+    }
+
+    return true;
+}
 
 /****************************************************************************************
  * power
  */
 static void power(adac_power_e mode) {
-	if (mode == ADAC_STANDBY || mode == ADAC_OFF) i2c_json_execute("poweroff");
-	else i2c_json_execute("poweron");
+    if (mode == ADAC_STANDBY || mode == ADAC_OFF)
+        i2c_execute_cmd(sys_dac_control_type_POWER_OFF);
+    else
+        i2c_execute_cmd(sys_dac_control_type_POWER_ON);
 }
 
 /****************************************************************************************
  * speaker
  */
 static void speaker(bool active) {
-	if (active) i2c_json_execute("speakeron");
-	else i2c_json_execute("speakeroff");
-} 
+    if (active)
+        i2c_execute_cmd(sys_dac_control_type_SPEAKER_ON);
+    else
+        i2c_execute_cmd(sys_dac_control_type_SPEAKER_OFF);
+}
 
 /****************************************************************************************
  * headset
  */
 static void headset(bool active) {
-	if (active) i2c_json_execute("headseton");
-	else i2c_json_execute("headsetoff");
+    if (active)
+        i2c_execute_cmd(sys_dac_control_type_HEADSET_ON);
+    else
+        i2c_execute_cmd(sys_dac_control_type_HEADSET_OFF);
 }
 
 /****************************************************************************************
- * 
+ *
  */
-bool i2c_json_execute(char *set) {
-	cJSON *json_set = cJSON_GetObjectItemCaseSensitive(i2c_json, set);
-	cJSON *item;
-
-	if (!json_set) return true;
-	
-	cJSON_ArrayForEach(item, json_set) {
-        cJSON *action;
-        
-        // is this a delay
-        if ((action = cJSON_GetObjectItemCaseSensitive(item, "delay")) != NULL) {
-            vTaskDelay(pdMS_TO_TICKS(action->valueint));
-            ESP_LOGI(TAG, "DAC waiting %d ms", action->valueint);
-            continue;
+static const sys_dac_control_itm* i2c_get_controlset_cmd(sys_dac_control_set* set, sys_dac_control_type cmd_type, pb_size_t* items_count) {
+    ESP_RETURN_ON_FALSE(set!=NULL,NULL,TAG,"Invalid set");
+    ESP_RETURN_ON_FALSE(items_count!=NULL,NULL,TAG,"Invalid items count");
+    ESP_LOGD(TAG,"Looking for command %s in control from a list of %d commands",sys_dac_control_type_name(cmd_type),set->commands_count);
+    *items_count = 0;
+    for (int i = 0; i < set->commands_count; i++) {
+        if (set->commands[i].type == cmd_type) {
+            *items_count = set->commands[i].items_count;
+            return set->commands[i].items;
         }
-        
-        // is this a gpio toggle
-        if ((action = cJSON_GetObjectItemCaseSensitive(item, "gpio")) != NULL) {
-            cJSON *level = cJSON_GetObjectItemCaseSensitive(item, "level");
-            ESP_LOGI(TAG, "set GPIO %d at %d", action->valueint, level->valueint);
-            gpio_set_direction_x(action->valueint, GPIO_MODE_OUTPUT);
-            gpio_set_level_x(action->valueint, level->valueint);
-            continue;
+    }
+    ESP_LOGD(TAG,"No control set found for command %s",sys_dac_control_type_name(cmd_type));
+    return NULL;
+}
+
+/****************************************************************************************
+ *
+ */
+bool i2c_execute_cmd(sys_dac_control_type cmd_type) {
+    pb_size_t items_count;
+    const sys_dac_control_itm* cmd = NULL;
+    esp_err_t err = ESP_OK;
+    ESP_LOGD(TAG, "Getting control set for command %s", sys_dac_control_type_name(cmd_type));
+    if(i2c_controlset){
+        cmd = i2c_get_controlset_cmd(i2c_controlset, cmd_type, &items_count);
+    }
+    if (!cmd || items_count == 0) {
+        ESP_LOGD(TAG, "Not found. Checking if defaults are known %s", sys_dac_control_type_name(cmd_type));
+        cmd = i2c_get_controlset_cmd(i2c_default_controlset, cmd_type, &items_count);
+    }
+    if (!cmd || items_count == 0) {
+        ESP_LOGD(TAG, "No commands for %s", sys_dac_control_type_name(cmd_type));
+        return true;
+    }
+    for (pb_size_t i = 0; i < items_count && err==ESP_OK; i++) {
+        switch (cmd->which_item_type) {
+        case sys_dac_control_itm_reg_action_tag:
+            ESP_LOGD(TAG, "Setting reg %d mode %s value %d ", cmd->item_type.reg_action.reg,
+                sys_dac_control_mode_name(cmd->item_type.reg_action.mode), cmd->item_type.reg_action.val);
+            if (cmd->item_type.reg_action.mode == sys_dac_control_mode_NOTHING) {
+                err = adac_write_byte(i2c_addr, cmd->item_type.reg_action.reg, cmd->item_type.reg_action.val);
+            } else if (cmd->item_type.reg_action.mode == sys_dac_control_mode_OR) {
+                uint8_t data = adac_read_byte(i2c_addr, cmd->item_type.reg_action.reg);
+                data |= (uint8_t)cmd->item_type.reg_action.val;
+                err = adac_write_byte(i2c_addr, cmd->item_type.reg_action.reg, data);
+            } else if (cmd->item_type.reg_action.mode == sys_dac_control_mode_AND) {
+                uint8_t data = adac_read_byte(i2c_addr, cmd->item_type.reg_action.reg);
+                data &= (uint8_t)cmd->item_type.reg_action.val;
+                err = adac_write_byte(i2c_addr, cmd->item_type.reg_action.reg, data);
+            }
+
+            break;
+        case sys_dac_control_itm_regs_action_tag:
+            ESP_LOGD(TAG, "Setting reg %d with %d byte(s)", cmd->item_type.regs_action.reg, cmd->item_type.regs_action.vals_count);
+            err = adac_write(i2c_addr, cmd->item_type.regs_action.reg, cmd->item_type.regs_action.vals, cmd->item_type.regs_action.vals_count);
+            break;
+        case sys_dac_control_itm_gpio_action_tag:
+            ESP_LOGI(TAG, "set GPIO %d at %s", cmd->item_type.gpio_action.gpio, sys_dac_control_lvl_name(cmd->item_type.gpio_action.level));
+            err = gpio_set_direction_x(cmd->item_type.gpio_action.gpio, GPIO_MODE_OUTPUT);
+            if(err == ESP_OK) err = gpio_set_level_x(cmd->item_type.gpio_action.gpio, cmd->item_type.gpio_action.level - sys_dac_control_lvl_LV_0);
+            break;
+        case sys_dac_control_itm_delay_action_tag:
+            vTaskDelay(pdMS_TO_TICKS(cmd->item_type.delay_action.delay));
+            ESP_LOGI(TAG, "DAC waiting %" PRIu64 " ms", cmd->item_type.delay_action.delay);
+            break;
+
+        default:
+            break;
         }
-                    
-		action= cJSON_GetObjectItemCaseSensitive(item, "reg");
-		cJSON *val = cJSON_GetObjectItemCaseSensitive(item, "val");
-		
-        // this is gpio register setting or crap
-		if (cJSON_IsArray(val)) {
-			cJSON *value;			
-			uint8_t *data = malloc(cJSON_GetArraySize(val));
-			int count = 0;
-			
-			if (!data) continue;
-			
-			cJSON_ArrayForEach(value, val) {
-				data[count++] = value->valueint;		
-			}
-			
-			adac_write(i2c_addr, action->valueint, data, count);
-			free(data);			
-		} else {
-			cJSON *mode = cJSON_GetObjectItemCaseSensitive(item, "mode");
+    }
 
-			if (!action || !val) continue;
-
-			if (!mode) {
-				adac_write_byte(i2c_addr, action->valueint, val->valueint);
-			} else if (!strcasecmp(mode->valuestring, "or")) {
-				uint8_t data = adac_read_byte(i2c_addr, action->valueint);
-				data |= (uint8_t) val->valueint;
-				adac_write_byte(i2c_addr, action->valueint, data);
-			} else if (!strcasecmp(mode->valuestring, "and")) {
-				uint8_t data = adac_read_byte(i2c_addr, action->valueint);
-				data &= (uint8_t) val->valueint;
-				adac_write_byte(i2c_addr, action->valueint, data);
-			}
-		}
-	}
-	
-	return true;
-}	
+    return (err==ESP_OK);
+}

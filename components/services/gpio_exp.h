@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include "freertos/FreeRTOS.h"
 #include "driver/gpio.h"
+#include "esp_rom_gpio.h"
 
 struct gpio_exp_s;
 
@@ -29,6 +30,8 @@ typedef struct {
 			uint8_t host;	
 			uint8_t cs_pin; 		
 		};
+		int8_t ena_pin; // enable pin
+		int8_t ena_lvl; // enable level
 	} phy;	
 } gpio_exp_config_t;
 
@@ -42,6 +45,7 @@ struct gpio_exp_s*  gpio_exp_get_expander(int gpio);
  For all functions below when <expander> is provided, GPIO's can be numbered from 0. If <expander>
  is NULL, then GPIO must start from base OR be on-chip
 */
+void esp_rom_gpio_pad_select_gpio_x(uint32_t iopad_num);
 esp_err_t	gpio_exp_set_direction(int gpio, gpio_mode_t mode, struct gpio_exp_s *expander);
 esp_err_t   gpio_exp_set_pull_mode(int gpio, gpio_pull_mode_t mode, struct gpio_exp_s *expander);
 int         gpio_exp_get_level(int gpio, int age, struct gpio_exp_s *expander);

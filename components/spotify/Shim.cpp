@@ -10,7 +10,6 @@
 #include <PlainConnection.h>
 #include <memory>
 #include <vector>
-#include <iostream>
 #include <inttypes.h>
 #include <fstream>
 #include <stdarg.h>
@@ -29,9 +28,11 @@
 #include "esp_http_server.h"
 #include "cspot_private.h"
 #include "cspot_sink.h"
-#include "Configurator.h"
+#include "Config.h"
 #include "tools.h"
 #include "accessors.h"
+#include "tools_http_utils.h"
+
 static class cspotPlayer *player;
 
 static const struct {
@@ -69,7 +70,7 @@ private:
     void enableZeroConf(void);
 
     void runTask();
-    sys_Spotify * cspot_config = NULL;
+    sys_spotify_config * cspot_config = NULL;
 
 public:
     typedef enum {TRACK_INIT, TRACK_NOTIFY, TRACK_STREAM, TRACK_END} TrackStatus;
@@ -86,7 +87,7 @@ cspotPlayer::cspotPlayer(const char* name, httpd_handle_t server, int port, cspo
                         serverHandle(server), serverPort(port),
                         cmdHandler(cmdHandler), dataHandler(dataHandler) {
 
-    if(!SYS_SERVICES_SPOTIFY(cspot_config)){
+    if(!sys_services_config_SPOTIFY(cspot_config)){
         return;        
     }
     volume = cspot_config->volume;
@@ -360,8 +361,8 @@ void cspotPlayer::runTask() {
             // we might have been forced to use zeroConf, so store credentials and reset zeroConf usage
             if (!zeroConf) {
                 useZeroConf = false;
-                if(configurator_set_string(&sys_State_msg,sys_State_cspot_credentials_tag,sys_state,credentials.c_str())){
-                    configurator.RaiseStateModified();
+                if(system_set_string(&sys_state_data_msg,sys_state_data_cspot_credentials_tag,sys_state,credentials.c_str())){
+                    config_raise_state_changed();
                 }
             }
 
@@ -416,7 +417,7 @@ void cspotPlayer::runTask() {
                 if (state == DISCO) {
                     // update volume then
                     cspot_config->volume = volume;
-                    configurator_raise_changed();
+                    config_raise_changed(false);
                     // in ZeroConf mod, stay connected (in this loop)
                     if (!zeroConf) state = LINKED;
                 }

@@ -187,8 +187,8 @@ module.exports = (env, options) => (
       plugins: [
         new GrpcToolsNodeProtocPlugin({
           protoPaths: [`${path.join(ComponentsPath, 'spotify/cspot/bell/external/nanopb/generator/proto')}`,
-                      `${path.join(buildCRootPath, 'protobuf')}`],
-          protoSources: [`${path.join(buildCRootPath, 'protobuf/*.proto')}`,
+                      `${path.join(buildCRootPath, 'protobuf/proto')}`],
+          protoSources: [`${path.join(buildCRootPath, 'protobuf/proto/*.proto')}`,
                         `${path.join(ComponentsPath, 'spotify/cspot/bell/external/nanopb/generator/proto/*.proto')}`],
           outputDir: './src/js/proto'
         }
@@ -227,7 +227,7 @@ module.exports = (env, options) => (
         //   deleteOriginalAssets: false
         // }),
         new MiniCssExtractPlugin({
-          filename: "css/[name].[contenthash].css",
+          filename: "css/[name].css",
         }),
         new PurgeCSSPlugin({
           keyframes: false,
@@ -342,7 +342,8 @@ module.exports = (env, options) => (
       },
       output: {
         path: path.resolve(__dirname, 'dist'),
-        filename: './js/[name].[hash:6].bundle.js',
+        // filename: './js/[name].[hash:6].bundle.js',
+        filename: './js/[name].bundle.js',
         clean: true
       },
     }

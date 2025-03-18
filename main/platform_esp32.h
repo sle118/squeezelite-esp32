@@ -16,7 +16,6 @@
 #define CONFIG_SQUEEZELITE_ESP32_RELEASE_URL "https://github.com/sle118/squeezelite-esp32/releases"
 #endif
 
-extern  bool wait_for_wifi();
 extern void console_start();
 extern pthread_cond_t wifi_connect_suspend_cond;
 extern pthread_t wifi_connect_suspend_mutex;

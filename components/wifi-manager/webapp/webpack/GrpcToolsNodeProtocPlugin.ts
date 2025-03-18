@@ -4,6 +4,11 @@ const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const glob = require('glob');
+function ensureOutputDirectory(directory) {
+    if (!fs.existsSync(directory)) {
+        fs.mkdirSync(directory, { recursive: true });
+    }
+}
 
 function clearOutputDirectory(directory:string) {
     if (fs.existsSync(directory)) {

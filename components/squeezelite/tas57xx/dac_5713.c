@@ -39,13 +39,13 @@
 
 static const char TAG[] = "TAS5713";
 
-static bool init(char *config, int i2c_port_num, i2s_config_t *i2s_config, bool *mck);
+static bool init(sys_dac_config *config, i2s_config_t *i2s_config, bool *mck);
 static void speaker(bool active) { };
 static void headset(bool active) { } ;
 static bool volume(unsigned left, unsigned right);
 static void power(adac_power_e mode) { };
 
-const struct adac_s dac_tas5713 = {sys_DACModelEnum_TAS5713, init, adac_deinit, power, speaker, headset, volume};
+const struct adac_s dac_tas5713 = {sys_dac_models_TAS5713, init, adac_deinit, power, speaker, headset, volume};
 
 struct tas5713_cmd_s {
     uint8_t reg;
@@ -65,9 +65,9 @@ typedef enum {
 /****************************************************************************************
  * init
  */
-static bool init(char *config, int i2c_port, i2s_config_t *i2s_config, bool *mck) {	 
+static bool init(sys_dac_config *config, i2s_config_t *i2s_config, bool *mck) {	 
 	/* find if there is a tas5713 attached. Reg 0 should read non-zero but not 255 if so */
-	adac_init(config, i2c_port);
+	adac_init(config);
     if (adac_read_byte(TAS5713, 0x00) == 255) {
         ESP_LOGW(TAG, "No TAS5713 detected");
         adac_deinit();

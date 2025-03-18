@@ -1,0 +1,45 @@
+{
+    "gpios": {
+      "redLED": {
+        "gpio": {
+          "pin": 22,
+          "level": "LOW"
+        },
+        "brightness": 50,
+        "led_type": "GPIO"
+      },
+      "greenLED": {
+        "gpio": {
+          "pin": 19,
+          "level": "LOW"
+        },
+        "brightness": 50,
+        "led_type": "GPIO"
+      },  
+     "amp": {
+        "pin": 21,
+        "level": "HIGH"
+      },
+     "jack": {
+        "pin": 39,
+        "level": "LOW"
+      }
+    },
+    "dev": {
+      "dac": {
+        "bck": 27,
+        "ws": 26,
+        "dout": 25,
+        "din":35,
+        "model": "AC101",
+        "i2c": {
+          "port": "PORT0",
+          "speed": 400000,
+          "sda": 33,
+          "scl": 32
+        },
+        "jack_mutes_amp": false
+      }
+    }
+  }
+  

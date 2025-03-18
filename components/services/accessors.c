@@ -5,15 +5,13 @@
    software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
    CONDITIONS OF ANY KIND, either express or implied.
 */
-#define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
-
+#define LOG_LOCAL_LEVEL ESP_LOG_INFO
 #include <stdio.h>
 #include "esp_log.h"
 #include "driver/gpio.h"
 #include "driver/i2c.h"
 #include "driver/spi_master.h"
-// #include "Configurator.h"
-#pragma message("fixme: look for TODO below")
+#include "Config.h"
 #include "accessors.h"
 #include "globdefs.h"
 #include "display.h"
@@ -94,12 +92,20 @@ bool is_dac_config_locked(){
 }
 
 
-
+const sys_i2c_bus* get_i2c_bus(i2c_port_t port){
+    if(platform->dev.has_i2c && port == platform->dev.i2c.port-sys_i2c_port_PORT0 && platform->dev.i2c.scl>=0){
+        return &platform->dev.i2c;
+    }
+    if(platform->dev.has_dac && platform->dev.dac.has_i2c && platform->dev.dac.i2c.port == port && platform->dev.dac.i2c.scl>=0){
+        return &platform->dev.dac.i2c;
+    }
+    return NULL;
+}
 /****************************************************************************************
  * 
  */
-const i2c_config_t * config_i2c_get(int * i2c_port) {
-	sys_I2CBus * bus = NULL;
+const i2c_config_t * config_i2c_get(sys_i2c_bus * bus) {
+	 
 	static i2c_config_t i2c = {
 		.mode = I2C_MODE_MASTER,
 		.sda_io_num = -1,
@@ -109,38 +115,30 @@ const i2c_config_t * config_i2c_get(int * i2c_port) {
 		.master.clk_speed = 0,
 	};
 
-	if(SYS_I2CBUS(bus)){
-		if(bus->has_scl){
-			i2c.scl_io_num = bus->scl.pin;
+	if(bus && bus->scl >=0  && bus->sda >=0 ){
+		if(bus->scl>=0){
+			i2c.scl_io_num = bus->scl;
 		}
 		else {
 			ESP_LOGE(TAG,"%s missing for i2c","SCL");
 		}
 		
-		if(bus->has_sda){
-			i2c.sda_io_num= bus->sda.pin;
+		if(bus->sda>=0){
+			i2c.sda_io_num= bus->sda;
 		}
 		else {
 			ESP_LOGE(TAG,"%s missing for i2c","SDA");
 		}
 		if(bus->speed>0){
 			i2c.master.clk_speed = bus->speed;
-		}
-		if(bus->port != sys_I2CPortEnum_UNSPECIFIED_PORT){
-			i2c_system_port = bus->port - sys_I2CPortEnum_I2CPort0;
-		}
-		// TODO: untangle i2c system port handling
-		if(i2c_port) {
-			*i2c_port=i2c_system_port;
-		}
-		
+		}		
 	}
 
 	return &i2c;
 }
 
 
-void config_set_gpio(int * pin, sys_GPIO * gpio,bool has_value, const char * name, bool mandatory){
+void config_set_gpio(int * pin, sys_gpio_config * gpio,bool has_value, const char * name, bool mandatory){
 	if(has_value){
 		ESP_LOGD(TAG, "Setting pin %d as %s", gpio->pin, name);
 		if(pin) *pin= gpio->pin;
@@ -166,14 +164,14 @@ const spi_bus_config_t * config_spi_get(spi_host_device_t * spi_host) {
         .quadhd_io_num = -1
     };
 	if(platform->has_dev && platform->dev.has_spi){
-		ESP_LOGI(TAG,"SPI Configuration found");
-		ASSIGN_GPIO(spi.mosi_io_num,platform->dev.spi,mosi,true);
-		ASSIGN_GPIO(spi.miso_io_num,platform->dev.spi,miso,false);
-		ASSIGN_GPIO(spi.sclk_io_num,platform->dev.spi,clk,true);
-		ASSIGN_GPIO(spi_system_dc_gpio,platform->dev.spi,dc,true);
+		ESP_LOGD(TAG,"SPI Configuration found");
+		spi.mosi_io_num = platform->dev.spi.mosi;
+		spi.miso_io_num = platform->dev.spi.miso;
+		spi.sclk_io_num = platform->dev.spi.clk;
+		spi_system_dc_gpio = platform->dev.spi.dc;
 		// only VSPI (1) can be used as Flash and PSRAM run at 80MHz
-		if(platform->dev.spi.host!=sys_HostEnum_UNSPECIFIED_HOST){
-			spi_system_host = platform->dev.spi.host;
+		if(platform->dev.spi.host!=sys_dev_common_hosts_NONE){
+			spi_system_host = platform->dev.spi.host-sys_dev_common_hosts_Host0;
 		}
 	}
 	else {

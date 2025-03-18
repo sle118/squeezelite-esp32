@@ -1,3 +1,26 @@
+/*
+ *
+ *      Sebastien L. 2023, sle118@hotmail.com
+ *      Philippe G. 2023, philippe_44@outlook.com
+ *
+ *  This software is released under the MIT License.
+ *  https://opensource.org/licenses/MIT
+ *
+ *  License Overview:
+ *  ----------------
+ *  The MIT License is a permissive open source license. As a user of this software, you are free to:
+ *  - Use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of this software.
+ *  - Use the software for private, commercial, or any other purposes.
+ *
+ *  Conditions:
+ *  - You must include the above copyright notice and this permission notice in all
+ *    copies or substantial portions of the Software.
+ *
+ *  The MIT License offers a high degree of freedom and is well-suited for both open source and
+ *  commercial applications. It places minimal restrictions on how the software can be used,
+ *  modified, and redistributed. For more details on the MIT License, please refer to the link above.
+ */
+
 #pragma once
 
 #include "esp_system.h"
@@ -22,6 +45,7 @@ extern "C" {
     ADD_EVENT(EN_GOT_IP)\
     ADD_EVENT(EN_ETH_GOT_IP)\
     ADD_EVENT(EN_DELETE)\
+    ADD_EVENT(EN_REMOVE)\
     ADD_EVENT(EN_TIMER)\
     ADD_EVENT(EN_START)\
     ADD_EVENT(EN_SCAN)\
@@ -30,12 +54,15 @@ extern "C" {
     ADD_EVENT(EN_SCAN_DONE)\
     ADD_EVENT(EN_CONNECT)\
     ADD_EVENT(EN_CONNECT_NEW)\
+    ADD_EVENT(EN_ADD)\
     ADD_EVENT(EN_REBOOT)\
     ADD_EVENT(EN_REBOOT_URL)\
     ADD_EVENT(EN_LOST_CONNECTION)\
     ADD_EVENT(EN_ETHERNET_FALLBACK)\
     ADD_EVENT(EN_UPDATE_STATUS)\
-    ADD_EVENT(EN_CONNECTED)
+    ADD_EVENT(EN_CONNECTED)\
+    ADD_EVENT(EN_COMMIT_CHANGES)\
+    ADD_EVENT(EN_EXECUTE_CALLBACK)
 #define ADD_EVENT(name) name,
 #define ADD_FIRST_EVENT(name) name=1,
 typedef enum {
@@ -50,14 +77,33 @@ typedef enum {
     RESTART,
 } reboot_type_t;
 
+typedef void (*network_manager_cb_t)(void * ctx);
+typedef esp_err_t (*network_manager_ret_cb_t)(void * ctx);
+
 typedef struct {
-    network_event_t trigger;
+    void * ctx;
+    network_manager_cb_t cb;
+    network_manager_ret_cb_t ret_cb;
+} callback_ctx_t;
+typedef struct {
     char * ssid;
     char * password;
-    reboot_type_t rtype;
-    char* strval;
-    wifi_event_sta_disconnected_t* disconnected_event;
+} network_credentials_t;
+typedef struct {
+    network_event_t trigger;
+
+    union 
+    {
+        reboot_type_t rtype;
+        char* strval;
+        wifi_event_sta_disconnected_t* disconnected_event;
+        callback_ctx_t cb_ctx;
+        network_credentials_t credentials;
+        ip_event_got_ip_t* got_ip_event_data;
+    } ctx;
+    
     esp_netif_t *netif;
+    
 } queue_message;
 
 typedef struct
@@ -71,6 +117,7 @@ typedef struct
 	int64_t last_connected;
 	uint16_t num_disconnect;
 	uint16_t retries;
+    uint16_t initial_retries;
     bool wifi_connected;
 	esp_netif_t *wifi_netif;
 	esp_netif_t *eth_netif;
@@ -90,23 +137,28 @@ typedef struct
  *  --------------------- External function prototype ---------------------
  */
 
-void network_start();
+void network_initialize_task();
+
+
 network_t * network_get_state_machine();
 void network_event_simple(network_event_t trigger);
 void network_event(network_event_t trigger, void* param);
 void network_async_event(network_event_t trigger, void* param);
 void network_async(network_event_t trigger);
+void network_async_front(network_event_t trigger);
 void network_async_fail();
 void network_async_success();
 void network_async_link_up();
 void network_async_link_down();
 void network_async_configure();
-void network_async_got_ip();
+void network_async_got_ip(network_event_t trigger,ip_event_got_ip_t*event_data);
 void network_async_timer();
-void network_async_start();
+void network_async_add(const char* ssid, const char* password);
+void network_async_commit_protowrapper(void* protoWrapperBase);
 void network_async_scan();
 void network_async_scan_done();
 void network_async_connect(const char * ssid, const char * password);
+void network_async_delete_connection(const char * ssid);
 void network_async_lost_connection(wifi_event_sta_disconnected_t * disconnected_event);
 void network_async_reboot(reboot_type_t rtype);
 void network_reboot_ota(char* url);
@@ -115,58 +167,11 @@ void network_async_update_status();
 void network_async_eth_got_ip();
 void network_ip_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
 bool network_is_interface_connected(esp_netif_t * interface);
-
-
-
-
-
-
-/*
- *  --------------------- Inline functions ---------------------
- */
-
-
-
-
-
-
-/**
- * @brief Defines the maximum size of a SSID name. 32 is IEEE standard.
- * @warning limit is also hard coded in wifi_config_t. Never extend this value.
- */
-#define MAX_SSID_SIZE						32
-
-/**
- * @brief Defines the maximum size of a WPA2 passkey. 64 is IEEE standard.
- * @warning limit is also hard coded in wifi_config_t. Never extend this value.
- */
-#define MAX_PASSWORD_SIZE					64
-#define MAX_COMMAND_LINE_SIZE				201
-
-/**
- * @brief Defines the maximum number of access points that can be scanned.
- *
- * To save memory and avoid nasty out of memory errors,
- * we can limit the number of APs detected in a wifi scan.
- */
-#define MAX_AP_NUM 							15
-
-
-
-/**
- * @brief Defines when a connection is lost/attempt to connect is made, how many retries should be made before giving up.
- * Setting it to 2 for instance means there will be 3 attempts in total (original request + 2 retries)
- */
-#define	WIFI_MANAGER_MAX_RETRY				CONFIG_WIFI_MANAGER_MAX_RETRY
-
-/** @brief Defines the task priority of the wifi_manager.
- *
- * Tasks spawn by the manager will have a priority of WIFI_MANAGER_TASK_PRIORITY-1.
- * For this particular reason, minimum task priority is 1. It it highly not recommended to set
- * it to 1 though as the sub-tasks will now have a priority of 0 which is the priority
- * of freeRTOS' idle task.
- */
-#define WIFI_MANAGER_TASK_PRIORITY			CONFIG_WIFI_MANAGER_TASK_PRIORITY
+void network_check_recovery_running();
+void network_async_callback(void * ctx, network_manager_cb_t cb);
+void network_async_callback_withret(void * ctx, network_manager_ret_cb_t cb);
+const char* network_event_to_string(network_event_t state);
+void network_initialize_state_machine_globals();
 
 /** @brief Defines the auth mode as an access point
  *  Value must be of type wifi_auth_mode_t
@@ -181,11 +186,6 @@ bool network_is_interface_connected(esp_netif_t * interface);
 /** @brief Defines access point's name. Default value: esp32. Run 'make menuconfig' to setup your own value or replace here by a string */
 #define DEFAULT_AP_SSID 					CONFIG_DEFAULT_AP_SSID
 
-/** @brief Defines access point's password.
- *	@warning In the case of an open access point, the password must be a null string "" or "\0" if you want to be verbose but waste one byte.
- *	In addition, the AP_AUTHMODE must be WIFI_AUTH_OPEN
- */
-#define DEFAULT_AP_PASSWORD 				CONFIG_DEFAULT_AP_PASSWORD
 
 
 /** @brief Defines access point's bandwidth.
@@ -195,44 +195,13 @@ bool network_is_interface_connected(esp_netif_t * interface);
  */
 #define DEFAULT_AP_BANDWIDTH 					WIFI_BW_HT20
 
-/** @brief Defines access point's channel.
- *  Channel selection is only effective when not connected to another AP.
- *  Good practice for minimal channel interference to use
- *  For 20 MHz: 1, 6 or 11 in USA and 1, 5, 9 or 13 in most parts of the world
- *  For 40 MHz: 3 in USA and 3 or 11 in most parts of the world
- */
+
 #define DEFAULT_AP_CHANNEL 					CONFIG_DEFAULT_AP_CHANNEL
 
 
-
-/** @brief Defines the access point's default IP address. Default: "10.10.0.1 */
-#define DEFAULT_AP_IP						CONFIG_DEFAULT_AP_IP
-
-/** @brief Defines the access point's gateway. This should be the same as your IP. Default: "10.10.0.1" */
 #define DEFAULT_AP_GATEWAY					CONFIG_DEFAULT_AP_GATEWAY
 
-/** @brief Defines the access point's netmask. Default: "255.255.255.0" */
 #define DEFAULT_AP_NETMASK					CONFIG_DEFAULT_AP_NETMASK
-
-/** @brief Defines access point's maximum number of clients. Default: 4 */
-#define DEFAULT_AP_MAX_CONNECTIONS		 	CONFIG_DEFAULT_AP_MAX_CONNECTIONS
-
-/** @brief Defines access point's beacon interval. 100ms is the recommended default. */
-#define DEFAULT_AP_BEACON_INTERVAL 			CONFIG_DEFAULT_AP_BEACON_INTERVAL
-
-/** @brief Defines if esp32 shall run both AP + STA when connected to another AP.
- *  Value: 0 will have the own AP always on (APSTA mode)
- *  Value: 1 will turn off own AP when connected to another AP (STA only mode when connected)
- *  Turning off own AP when connected to another AP minimize channel interference and increase throughput
- */
-#define DEFAULT_STA_ONLY 					1
-
-/** @brief Defines if wifi power save shall be enabled.
- *  Value: WIFI_PS_NONE for full power (wifi modem always on)
- *  Value: WIFI_PS_MODEM for power save (wifi modem sleep periodically)
- *  Note: Power save is only effective when in STA only mode
- */
-#define DEFAULT_STA_POWER_SAVE 				WIFI_PS_MIN_MODEM
 
 
 void network_reboot_ota(char * url);
@@ -303,7 +272,6 @@ void network_prioritize_wifi(bool activate);
 void initialize_network_handlers(state_machine_t* state_machine);
 void network_manager_format_from_to_states(esp_log_level_t level, const char* prefix, state_t const *  from_state, state_t const* current_state,  network_event_t event,bool show_source, const char * caller );
 void network_manager_format_state_machine(esp_log_level_t level, const char* prefix, state_machine_t * state_machine, bool show_source, const char * caller) ;
-char* network_manager_alloc_get_mac_string(uint8_t mac[6]);
 
 #if defined(LOG_LOCAL_LEVEL) 
 #if LOG_LOCAL_LEVEL >=5
@@ -319,7 +287,8 @@ char* network_manager_alloc_get_mac_string(uint8_t mac[6]);
 #define network_exit_handler_print(State_Machine, begin) if(begin) network_manager_format_state_machine(ESP_LOG_DEBUG,begin?"BEGIN EXIT":"END EXIT",State_Machine,false,"")
 #define network_handler_print(State_Machine, begin) if(begin) network_manager_format_state_machine(ESP_LOG_DEBUG,begin?"HANDLER START":"HANDLER END",State_Machine,false,"")
 
-#define NETWORK_PRINT_TRANSITION(begin, prefix, source,target, event, print_source,caller ) if(begin) network_manager_format_from_to_states(ESP_LOG_DEBUG, prefix, source,target, event, print_source,caller )#define NETWORK_EXECUTE_CB(mch) network_execute_cb(mch,__FUNCTION__);
+#define NETWORK_PRINT_TRANSITION(begin, prefix, source,target, event, print_source,caller ) if(begin) network_manager_format_from_to_states(ESP_LOG_DEBUG, prefix, source,target, event, print_source,caller )
+#define NETWORK_EXECUTE_CB(mch) network_execute_cb(mch,__FUNCTION__);
 #define NETWORK_DEBUG_STATE_MACHINE(begin, cb_prefix,state_machine,print_from,caller) if(begin) network_manager_format_state_machine(ESP_LOG_DEBUG,cb_prefix,state_machine,print_from,caller)
 #endif
 #endif 

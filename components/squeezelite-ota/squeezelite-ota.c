@@ -21,7 +21,7 @@
 #include "esp_err.h"
 #include "squeezelite-ota.h"
 #include "esp_netif.h"
-#include "Configurator.h"
+#include "Config.h"
 #include <time.h>
 #include <sys/time.h>
 #include <stdarg.h>
@@ -40,6 +40,7 @@
 #include "lwip/sockets.h"
 #include "globdefs.h"
 #include "tools.h"
+#include "bootstate.h"
 
 #define IF_DISPLAY(x) if(display) { x; }
 
@@ -685,8 +686,8 @@ esp_err_t process_recovery_ota(const char * bin_url, char * bin_buffer, uint32_t
 	if(bin_url){
 		ESP_LOGI(TAG,"Processing recovery OTA for url %s",STR_OR_ALT(bin_url,"N/A"));
 		ota_thread_parms.url =strdup_psram(bin_url);
-		configurator_set_string(&sys_State_msg,sys_State_ota_url_tag,sys_state,NULL);
-		configurator_raise_state_changed();
+		system_set_string(&sys_state_data_msg,sys_state_data_ota_url_tag,sys_state,NULL);
+		config_raise_state_changed();
 		ESP_LOGD(TAG, "Starting ota on core %u for : %s", OTA_CORE,ota_thread_parms.url);
 	}
 	else {
@@ -769,3 +770,19 @@ in_addr_t discover_ota_server(int max) {
 	return s.sin_addr.s_addr;
 }
 
+
+// Callback to handle ota when an IP address is obtained
+void cb_handle_ota(nm_state_t new_state, int sub_state) {
+    if (sys_state && sys_state->ota_url && strlen(sys_state->ota_url)) {
+        ESP_LOGD(TAG, "Found OTA URL %s", sys_state->ota_url);
+        if (is_recovery_running) {
+            ESP_LOGI(TAG, "Updating firmware from link: %s", sys_state->ota_url);
+#if defined(CONFIG_WITH_METRICS)
+            metrics_event("fw_update");
+#endif
+            start_ota(sys_state->ota_url, NULL, 0);
+        } else {
+            ESP_LOGE(TAG, "Restarted to application partition. We're not going to perform OTA!");
+        }
+    }
+}

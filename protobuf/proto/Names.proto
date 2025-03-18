@@ -1,12 +1,13 @@
 syntax = "proto3";
 
-package sys;
+package sys.names;
 
 import "customoptions.proto";
 import "nanopb.proto";
 // Main system configuration definition. This gets loaded in a pointer
 // named platform-> which is available across the build
-message Names {
+message config {
+  option (nanopb_msgopt).packed_struct  = true;
   option (cust_msg).init_from_mac = true;
   option (cust_msg).const_prefix = "squeezelite-";
   option (nanopb_msgopt).max_length= 128;

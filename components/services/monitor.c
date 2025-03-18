@@ -5,7 +5,7 @@
    software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
    CONDITIONS OF ANY KIND, either express or implied.
 */
-
+#define LOG_LOCAL_LEVEL ESP_LOG_INFO
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -20,8 +20,6 @@
 #include "buttons.h"
 #include "led.h"
 #include "globdefs.h"
-// #include "Configurator.h"
-// TODO: Add support for the commented code: search for TODO in the code below")
 #include "accessors.h"
 #include "messaging.h"
 #include "cJSON.h"
@@ -163,7 +161,7 @@ static void jack_handler_default(void *id, button_event_e event, button_press_e 
  *
  */
 bool jack_inserted_svc (void) {
-	sys_GPIO * jack=NULL;
+	sys_gpio_config * jack=NULL;
 	if(SYS_GPIOS_NAME(jack,jack)){
 		return button_is_pressed(jack->pin, NULL);
 	}
@@ -184,7 +182,7 @@ static void spkfault_handler_default(void *id, button_event_e event, button_pres
  *
  */
 bool spkfault_svc (void) {
-	sys_GPIO * spkfault=NULL;
+	sys_gpio_config * spkfault=NULL;
 	if(SYS_GPIOS_NAME(spkfault,spkfault)){
 		return button_is_pressed(spkfault->pin, NULL);
 	}
@@ -209,10 +207,10 @@ static void pseudo_idle(void *arg) {
  */
 void monitor_svc_init(void) {
  	ESP_LOGI(TAG, "Initializing monitoring");
-	sys_Services * services = NULL;
-	sys_GPIO * gpio=NULL;
+	sys_services_config * services = NULL;
+	sys_gpio_config * gpio=NULL;
 	if(SYS_GPIOS_NAME(jack,gpio) && gpio->pin>=0){
-		ESP_LOGI(TAG,"Adding jack (%s) detection GPIO %d", gpio->level ? "high" : "low", gpio->pin);
+		ESP_LOGI(TAG,"Adding jack (%s) detection GPIO %d",  sys_gpio_lvl_name(gpio->level), gpio->pin);
 		button_create(NULL, gpio->pin, gpio->level ? BUTTON_HIGH : BUTTON_LOW, false, 250, jack_handler_default, 0, -1);
 	}
 	if(SYS_GPIOS_NAME(spkfault,gpio) && gpio->pin>=0){
@@ -220,7 +218,7 @@ void monitor_svc_init(void) {
 		button_create(NULL, gpio->pin, gpio->level ? BUTTON_HIGH : BUTTON_LOW, false, 0, spkfault_handler_default, 0, -1);		
 	}
 	// do we want stats
-	monitor_stats = SYS_SERVICES(services) && services->statistics;
+	monitor_stats = sys_services_config(services) && services->statistics;
 
 	ESP_LOGI(TAG, "Heap internal:%zu (min:%zu) external:%zu (min:%zu) dma:%zu (min:%zu)",
 			heap_caps_get_free_size(MALLOC_CAP_INTERNAL),

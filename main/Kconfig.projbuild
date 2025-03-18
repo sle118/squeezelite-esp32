@@ -26,26 +26,7 @@ menu "Squeezelite-ESP32"
 			help
 				Set logging level info|debug|sdebug
 	endmenu
-	config AMP_LOCKED
-		bool
-	config JACK_LOCKED
-		bool
-	config BAT_LOCKED
-		bool
-	config I2C_LOCKED
-		bool
-	config SPDIF_LOCKED
-		bool
-	config LED_LOCKED
-		bool
-	config SPKFAULT_LOCKED
-		bool
-	config MUTE_GPIO_LEVEL
-		int
-		default 0
-	config TARGET_LOCKED
-		bool
-		default n
+
 	menu "Target"
 		choice OUTPUT_TYPE
 			prompt "Main system"
@@ -54,25 +35,14 @@ menu "Squeezelite-ESP32"
 				   Type of hardware platform
 			config SQUEEZEAMP
 				bool "SqueezeAMP"
-				select JACK_LOCKED
-				select BAT_LOCKED
-				select I2C_LOCKED
-				select LED_LOCKED
-				select SPKFAULT_LOCKED
-				select TARGET_LOCKED
 			config MUSE
 				bool "Muse"
-				select JACK_LOCKED
-				select BAT_LOCKED
-				select I2C_LOCKED
-				select AMP_LOCKED				
-				select TARGET_LOCKED
+			config SQUEEZEIO
+				bool "SqueezeIO"
 			config BASIC_I2C_BT
 				bool "Generic I2S & Bluetooth"				
 			config TWATCH2020	
 				bool "T-WATCH2020 by LilyGo"				
-				select I2C_LOCKED		
-				select TARGET_LOCKED				
 		endchoice	
 		config WITH_CONFIG_UI
 			bool "Enable config UI"
@@ -101,90 +71,18 @@ menu "Squeezelite-ESP32"
 			default "SqueezeAMP" if SQUEEZEAMP
 			default "Squeezelite-TWATCH" if TWATCH2020
 			default "Muse" if MUSE
+			default "SqueezeIO" if SQUEEZEIO
 			default "Squeezelite-ESP32"
+			
 		config FW_PLATFORM_NAME
 			string
 			default "SqueezeAmp" if SQUEEZEAMP
 			default "TWATCH" if TWATCH2020
 			default "Muse" if MUSE
+			default "SqueezeIO" if SQUEEZEIO
 			default "ESP32"
-		# AGGREGATES - begin
-		# these parameters are "aggregates"	that take precedence. They must have a default value
-		config DAC_CONFIG
-			string
-			default "model=TAS57xx,bck=33,ws=25,do=32,sda=27,scl=26,mute=14:0" if SQUEEZEAMP
-			default "model=I2S,bck=26,ws=25,do=33,i2c=53,sda=21,scl=22" if TWATCH2020
-			default "model=I2S,bck=5,ws=25,do=26,di=35,i2c=16,sda=18,scl=23,mck" if MUSE
-			default ""
-		config SPDIF_CONFIG
-			string
-			default "bck=33,ws=25,do=15" if SQUEEZEAMP
-			default	""
-		config GPIO_EXP_CONFIG		
-			string
-			default	""
-		config SPI_CONFIG
-			string
-			default "dc=27,data=19,clk=18" if TWATCH2020	
-			default "mosi=15,miso=2,clk=14"	if MUSE
-			default	""          
-		config DISPLAY_CONFIG
-			string
-			default "SPI,driver=ST7789,width=240,height=240,cs=5,back=12,speed=16000000,HFlip,VFlip" if TWATCH2020
-			default ""
-		config ETH_CONFIG
-			string
-			default ""
-		# AGGREGATES - end		
-		config DAC_CONTROLSET
-			string
-			default "{ \"init\": [ {\"reg\":41, \"val\":128}, {\"reg\":18, \"val\":255} ], \"poweron\": [ {\"reg\":18, \"val\":64, \"mode\":\"or\"} ], \"poweroff\": [ {\"reg\":18, \"val\":191, \"mode\":\"and\"} ] }" if TWATCH2020
-			default "{\"init\":[ {\"reg\":0,\"val\":128}, {\"reg\":0,\"val\":0}, {\"reg\":25,\"val\":4}, {\"reg\":1,\"val\":80}, {\"reg\":2,\"val\":0},	{\"reg\":8,\"val\":0}, {\"reg\":4,\"val\":192},	{\"reg\":0,\"val\":18}, {\"reg\":1,\"val\":0}, {\"reg\":23,\"val\":24}, {\"reg\":24,\"val\":2}, {\"reg\":38,\"val\":9}, {\"reg\":39,\"val\":144}, {\"reg\":42,\"val\":144}, {\"reg\":43,\"val\":128}, {\"reg\":45,\"val\":128}, {\"reg\":27,\"val\":0}, {\"reg\":26,\"val\":0}, {\"reg\":2,\"val\":240}, {\"reg\":2,\"val\":0},	{\"reg\":29,\"val\":28}, {\"reg\":4,\"val\":48}, {\"reg\":25,\"val\":0}, {\"reg\":46,\"val\":33}, {\"reg\":47,\"val\":33} ]}" if MUSE
-			default ""		
-		config AUDIO_CONTROLS
-			string
-			default "[{\"gpio\":32, \"pull\":true, \"long_press\":1000, \"normal\":{\"pressed\":\"ACTRLS_VOLDOWN\"}, \"longpress\":{\"pressed\":\"ACTRLS_PREV\"}}, {\"gpio\":19, \"pull\":true, \"long_press\":1000, \"normal\":{\"pressed\":\"ACTRLS_VOLUP\"}, \"longpress\":{\"pressed\":\"ACTRLS_NEXT\"}}, {\"gpio\":12, \"pull\":true, \"long_press\":1000, \"normal\":{\"pressed\":\"ACTRLS_TOGGLE\"},\"longpress\":{\"pressed\":\"ACTRLS_POWER\"}}]" if MUSE
-			default ""
-		config BAT_CONFIG
-			string
-			default "channel=7,scale=20.24,atten=0" if SQUEEZEAMP
-			default "channel=5,scale=7.00,atten=3,cells=1" if MUSE
-			default ""			
-		config TARGET
-			string
-			default "muse" if MUSE
-			default ""			
-		config AMP_GPIO		
-			int
-			default 21 if MUSE
-			default -1
-		config POWER_GPIO		
-			int
-			default -1			
-		config JACK_GPIO
-			int
-			default 34 if SQUEEZEAMP || MUSE
-			default -1			
-		config SPKFAULT_GPIO
-			int
-			default 2 if SQUEEZEAMP
-			default -1			
-		config BAT_CHANNEL
-			int 
-			default 7 if SQUEEZEAMP
-			default -1
-		config LED_GREEN_GPIO
-			int 
-			default 12 if SQUEEZEAMP
-			default -1
-		config LED_RED_GPIO
-			int
-			default 13 if SQUEEZEAMP
-			default -1
-		config SET_GPIO
-			string
-			default "0=ir" if SQUEEZEAMP
-			default "" if TWATCH2020
+	
+
 	endmenu
 
 	menu "Audio settings"
@@ -239,10 +137,6 @@ menu "Squeezelite-ESP32"
 				default -1
 				help
 					GPIO used to mute DAC (not used mostly, leave it to -1).
-			config MUTE_GPIO_LEVEL
-				int "Mute GPIO active level"
-				depends on MUTE_GPIO != -1
-				default 1
 		endmenu
 
 		menu "SPDIF settings"
@@ -407,7 +301,6 @@ menu "Squeezelite-ESP32"
 	endmenu
 	
     menu "Audio JACK"	
-		visible if !TARGET_LOCKED
 		config JACK_GPIO		
 			int "Jack insertion GPIO"
 			help
@@ -419,7 +312,6 @@ menu "Squeezelite-ESP32"
 	endmenu	
 	
 	menu "External amplifier control"	
-		visible if !AMP_LOCKED
 		config AMP_GPIO		
 			int "Amplifier GPIO"
 			help
@@ -430,31 +322,8 @@ menu "Squeezelite-ESP32"
 			default 1
 	endmenu	
 	
-	menu "Power on/off status"	
-		config POWER_GPIO
-			int "Power on/off GPIO"
-			help
-				GPIO that is switched when LMS turns player one. Set to -1 to disable
-		config POWER_GPIO_LEVEL
-			depends on POWER_GPIO != -1
-			int "Active level(0/1)"
-			default 1
-	endmenu	
-	
-	menu "Speaker Fault"	
-		visible if !TARGET_LOCKED
-		config SPKFAULT_GPIO		
-			int "Speaker fault GPIO"
-			help
-				GPIO to detect speaker fault condition. Set to -1 for no detection.
-		config SPKFAULT_GPIO_LEVEL
-			depends on SPKFAULT_GPIO != -1
-			int "Level when fault (0/1)"
-			default 0
-	endmenu
-	
+		
 	menu "Battery measure"
-		visible if !TARGET_LOCKED
 		config BAT_CONFIG
 			string "Battery acquisition configuration"
 			help

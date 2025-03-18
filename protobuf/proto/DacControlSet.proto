@@ -1,20 +1,17 @@
 syntax = "proto3";
-package sys;
+package sys.dac.control;
 import "nanopb.proto";
 option (nanopb_fileopt).enum_to_string = true;
 
-message DacControlSet {
+message set {
+    option (nanopb_msgopt).packed_struct  = true;
     option (nanopb_msgopt).msgid  = 10009;
-    repeated ControlCommand commands = 1 [(nanopb).type = FT_POINTER]; //[(nanopb).max_count= 10];
+    repeated cmd commands = 1 [(nanopb).type = FT_POINTER]; //[(nanopb).max_count= 10];
+    bool mclk_needed = 2;
+    
 }
 
-message ControlCommand {
-    option (nanopb_msgopt).msgid  = 10010;
-    ControlCommandType type = 1;
-    repeated ControlItem items = 2 [(nanopb).type = FT_POINTER]; //[(nanopb).max_count= 50];
-}
-
-enum ControlCommandType {
+enum type {
     INIT = 0;
     POWER_ON = 1;
     POWER_OFF = 2;
@@ -23,41 +20,63 @@ enum ControlCommandType {
     HEADSET_ON = 5;
     HEADSET_OFF = 6;
 }
+message cmd {
+    option (nanopb_msgopt).packed_struct  = true;
+    option (nanopb_msgopt).msgid  = 10010;
+    type type = 1;
+    repeated itm items = 2 [(nanopb).type = FT_POINTER]; //[(nanopb).max_count= 50];
+    
+}
 
-message ControlItem {
+message itm {
+    option (nanopb_msgopt).packed_struct  = true;
     option (nanopb_msgopt).msgid  = 10011;
     oneof item_type {
-        RegisterAction reg_action = 1;
-        GpioAction gpio_action = 2;
-        DelayAction delay_action = 3;
+        reg reg_action = 1;
+        gpio gpio_action = 2;
+        delay delay_action = 3;
+        regs regs_action = 4;
     }
+    
 }
 
-message RegisterAction {
+message reg {
+    option (nanopb_msgopt).packed_struct  = true;
     option (nanopb_msgopt).msgid  = 10012;
-    int32 reg = 1[(nanopb).int_size = IS_8]; 
-    int32 val = 2 [(nanopb).int_size = IS_8];
-    Mode mode = 3;
+    uint32 reg = 1[(nanopb).int_size = IS_8]; 
+    uint32 val = 2 [(nanopb).int_size = IS_8];
+    mode mode = 3;
+    
+}
+message regs {
+    option (nanopb_msgopt).packed_struct  = true;
+    option (nanopb_msgopt).msgid  = 10060;
+    uint32 reg = 1[(nanopb).int_size = IS_8]; 
+    repeated uint32 vals = 2 [(nanopb).type = FT_POINTER,(nanopb).int_size = IS_8];
+    
 }
 
-enum GpioActionLevel {
-    ACTION_LEVEL_UNDEFINED = 0;
-    ACTION_LEVEL_1 = 1;
-    ACTION_LEVEL_0 = 2;
+enum lvl {
+    LV_UNDEFINED = 0;
+    LV_0 = 1;
+    LV_1 = 2;
 }
-message GpioAction {
+message gpio {
+    option (nanopb_msgopt).packed_struct  = true;
     option (nanopb_msgopt).msgid  = 10013;
-    int32 gpio = 1 [(nanopb).int_size = IS_8];
-    GpioActionLevel level = 2; 
+    int32 gpio = 1 [(nanopb).int_size = IS_16];
+    lvl level = 2; 
+    
 }
 
-message DelayAction {
+message delay {
+    option (nanopb_msgopt).packed_struct  = true;
     option (nanopb_msgopt).msgid  = 10014;
-    int32 delay = 1; // Delay in milliseconds
+    int64 delay = 1; // Delay in milliseconds
 }
 
-enum Mode {
-    REG_MODE_NOTHING = 0;
-    REG_MODE_OR = 1;
-    REG_MODE_AND = 2;
+enum mode {
+    NOTHING = 0;
+    OR = 1;
+    AND = 2;
 }

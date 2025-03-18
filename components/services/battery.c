@@ -16,7 +16,7 @@
 #include "esp_log.h"
 #include "driver/adc.h"
 #include "battery.h"
-#include "Configurator.h"
+#include "Config.h"
 
 /* 
  There is a bug in esp32 which causes a spurious interrupt on gpio 36/39 when
@@ -32,11 +32,11 @@ static const char *TAG = "battery";
 static struct {
 	float sum, avg, scale;
 	int count;
-	sys_Battery * battery_config;
+	sys_battery_config * battery_config;
 	TimerHandle_t timer;
 } battery;
-#define BATTERY_CHANNEL(b) (b.battery_config?b.battery_config->channel - sys_BatteryChannelEnum_CH0:-1)
-#define ATTENUATION(b) (b.battery_config?b.battery_config->atten - sys_BatteryAttenEnum_ATT_0:-1)
+#define BATTERY_CHANNEL(b) (b.battery_config?b.battery_config->channel - sys_battery_channels_CH0:-1)
+#define ATTENUATION(b) (b.battery_config?b.battery_config->atten - sys_battery_atten_ATT_0:-1)
 void (*battery_handler_svc)(float value, int cells);
 
 /****************************************************************************************

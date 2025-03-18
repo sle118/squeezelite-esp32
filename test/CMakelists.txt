@@ -1,35 +1,102 @@
-# This is the project CMakeLists.txt file for the test subproject
+# This file is in the 'test' directory of your project
+
 cmake_minimum_required(VERSION 3.5)
 
+
+set(PROJECT_VER $ENV{PROJECT_VER})
+add_definitions(-DMODEL_NAME=SqueezeESP32)
+
+if(NOT DEFINED DEPTH)
+	set(DEPTH "16")
+endif()	
+
+# State machine hierarchy enabled and logging enabled
+add_definitions(-DSTATE_MACHINE_LOGGER=1)
+add_definitions(-DHIERARCHICAL_STATES=1)
+
+add_definitions(-DTESTPROJECT=1)
+
+
+# Align the nanopb library options across the entire project
+# otherwise this results in nasty structures misalignment 
+# when implementing callbacks
+add_definitions(-DPB_ENABLE_MALLOC -DPB_FIELD_32BIT)
+
+
+
+
+# Include the components directory to make the main components available
+set(EXTRA_COMPONENT_DIRS "../components")
+
+# Register the test components directory
+list(APPEND EXTRA_COMPONENT_DIRS "test_main")
+
+# Include the main ESP-IDF CMakeLists file
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
-# Include the components directory of the main application:
-#
 
 # Set the components to include the tests for.
 # This can be overriden from CMake cache:
 # - when invoking CMake directly: cmake -D TEST_COMPONENTS="xxxxx" ..
 # - when using idf.py: idf.py -T xxxxx build
 #
-set(TEST_COMPONENTS "platform_console" CACHE STRING "List of components to test")
-set(COMPONENTS main)
+set(TEST_COMPONENTS "platform_config" "tools" "wifi-manager" CACHE STRING "List of components to test")
+# manually add the console squeezelite component 
+list(APPEND EXTRA_COMPONENT_DIRS ../components/platform_console/recovery  )
+# Set the project name
+project(squeezelite-esp32-test-project)
 
-# Freertos is included via common components, however, currently only the mock component is compatible with linux
-# target.
-list(APPEND EXTRA_COMPONENT_DIRS "$ENV{IDF_PATH}/tools/mocks/freertos/")
-list(APPEND EXTRA_COMPONENT_DIRS "$ENV{IDF_PATH}/tools/mocks/driver/")
-list(APPEND EXTRA_COMPONENT_DIRS "$ENV{IDF_PATH}/tools/mocks/freertos/")
-list(APPEND EXTRA_COMPONENT_DIRS "$ENV{IDF_PATH}/tools/mocks/spi_flash/")
-list(APPEND EXTRA_COMPONENT_DIRS "$ENV{IDF_PATH}/components/unity/")
-idf_build_set_property(COMPILE_DEFINITIONS "-DNO_DEBUG_STORAGE" APPEND)
-
-# list(APPEND EXTRA_COMPONENT_DIRS "${PROJECT_SOURCE_DIR}/../components")
-# list(APPEND EXTRA_COMPONENT_DIRS "${PROJECT_SOURCE_DIR}/../components/tools")
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../protobuf ${CMAKE_CURRENT_BINARY_DIR}/protobuf)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../spiffs_src ${CMAKE_CURRENT_BINARY_DIR}/spiffs)
 
 
-project(squeezelite_esp32_test)
-# add_definitions(-include "${PROJECT_SOURCE_DIR}/../build/config/sdkconfig.h")
+# get_target_property(BCA recovery.elf LINK_LIBRARIES)
+# list(REMOVE_ITEM BCA "idf::app_squeezelite" "idf::app_recovery" "-Wl,--Map=${BUILD_DIR}/recovery.map" "-Wl,--cref -Wl,--Map=${BUILD_DIR}/recovery.map")
+# set_target_properties(recovery.elf PROPERTIES LINK_LIBRARIES "${BCA};idf::app_recovery;-Wl,--Map=${BUILD_DIR}/recovery.map")
 
-set_property(TARGET squeezelite_esp32_test.elf PROPERTY RECOVERY_PREFIX app_update )
+
+
+
+# TODO: enable gcov. this was attempted, but caused some 
+# tasks to crash with "Cache disabled but cached memory region accessed"
+# when SPIFFS was being used.
+#
+idf_create_coverage_report(${CMAKE_CURRENT_BINARY_DIR}/coverage_report)
+idf_clean_coverage_report(${CMAKE_CURRENT_BINARY_DIR}/coverage_report)
+
+
+
+# # This is the project CMakeLists.txt file for the test subproject
+# cmake_minimum_required(VERSION 3.5)
+
+# include($ENV{IDF_PATH}/tools/cmake/project.cmake)
+# # Include the components directory of the main application:
+# #
+
+# # Set the components to include the tests for.
+# # This can be overriden from CMake cache:
+# # - when invoking CMake directly: cmake -D TEST_COMPONENTS="xxxxx" ..
+# # - when using idf.py: idf.py -T xxxxx build
+# #
+# set(TEST_COMPONENTS "platform_console" CACHE STRING "List of components to test")
+# set(COMPONENTS main)
+
+# # Freertos is included via common components, however, currently only the mock component is compatible with linux
+# # target.
+# list(APPEND EXTRA_COMPONENT_DIRS "$ENV{IDF_PATH}/tools/mocks/freertos/")
+# list(APPEND EXTRA_COMPONENT_DIRS "$ENV{IDF_PATH}/tools/mocks/driver/")
+# list(APPEND EXTRA_COMPONENT_DIRS "$ENV{IDF_PATH}/tools/mocks/freertos/")
+# list(APPEND EXTRA_COMPONENT_DIRS "$ENV{IDF_PATH}/tools/mocks/spi_flash/")
+# list(APPEND EXTRA_COMPONENT_DIRS "$ENV{IDF_PATH}/components/unity/")
+# idf_build_set_property(COMPILE_DEFINITIONS "-DNO_DEBUG_STORAGE" APPEND)
+
+# # list(APPEND EXTRA_COMPONENT_DIRS "${PROJECT_SOURCE_DIR}/../components")
+# # list(APPEND EXTRA_COMPONENT_DIRS "${PROJECT_SOURCE_DIR}/../components/tools")
+
+
+# project(squeezelite_esp32_test)
+# # add_definitions(-include "${PROJECT_SOURCE_DIR}/../build/config/sdkconfig.h")
+
+# set_property(TARGET squeezelite_esp32_test.elf PROPERTY RECOVERY_PREFIX app_update )
 
 add_custom_command(
     OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/build/coverage.info"

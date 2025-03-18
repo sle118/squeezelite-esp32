@@ -1,15 +1,15 @@
 # Append nanopb path to CMAKE_MODULE_PATH for finding the nanopb package
 cmake_minimum_required(VERSION 3.16)
-message(STATUS "==================================================================================")
-message(STATUS "===                    PLATFORM PROTOBUF GENERATION                             ==")
-message(STATUS "==================================================================================")
-include(protobuf_utils.cmake)
+message(STATUS "** PLATFORM PROTOBUF")
+include(../tools/protoc_utils/protobuf_utils.cmake)
 
 configure_env()
-add_subdirectory(proto)
 file(MAKE_DIRECTORY "${GENERATED_DIRECTORY}")
 file(MAKE_DIRECTORY "${GENERATED_PY_DIRECTORY}")
 file(MAKE_DIRECTORY "${GENERATED_JS_DIRECTORY}")
+add_subdirectory(proto)
+
+
 
 
 # Custom command to run protodot when a .proto file changes
@@ -53,17 +53,20 @@ set(PROTOC_PATH_LIST
 # now generate python files 
 set(PROTOC_PYTHON_ARGS
     --python_out=${GENERATED_PY_DIRECTORY}
-    # --js_out=${GENERATED_JS_DIRECTORY}
+    --plugin=protoc-gen-js=${PROTOBUF_JS_BINARY}
+    --js_out=import_style=commonjs,binary:${GENERATED_JS_DIRECTORY}
     ${PROTOC_PATH_LIST}
     ${PROTO_FILES}
 )
+
+message(STATUS "Source generation args: ${PROTOC_PYTHON_ARGS}")
 
 add_custom_command(
     OUTPUT ${GENERATED_PY_FILES} 
     COMMAND ${PROTOC_BINARY}
     ARGS ${PROTOC_PYTHON_ARGS}
     DEPENDS ${PROTO_FILES}
-    COMMENT "Generating Python source ${GENERATED_PY_FILES}"
+    COMMENT "Generating Python source ${GENERATED_PY_FILES} "
 )
 add_custom_target(generate_graph_files DEPENDS ${GENERATED_DOT_FILES} )
 add_custom_target(generate_py_files DEPENDS ${GENERATED_PY_FILES} )
@@ -102,36 +105,27 @@ list(APPEND PROTOC_PATH_LIST "--proto_path=${GENERATED_PY_DIRECTORY}")
 array_to_delimited("?" PROTOC_PATH_LIST )
 string(REPLACE "--proto_path=" "" PROTOC_PATH_LIST_DELIMITED ${PROTOC_PATH_LIST_DELIMITED})
 
-
-# message(STATUS "Encoded bin folder ${GENERATED_BIN_DIRECTORY_ENC}")
-# message(STATUS "Encoded protoc path list ${PROTOC_PATH_LIST_DELIMITED}")
-set(DEFAULTS_OUTPUT "${CMAKE_SOURCE_DIR}/spiffs/Config_defaults_pb.bin")
+set(DEFAULTS_OUTPUT "${GENERATED_SPIFFS_DIRECTORY}/data/defaults/config.bin")
 
 set(PLUGINS_OPT 
     --plugin=protoc-gen-ZZZZ=${PROTOC_UTILS_DIR}/protoc-gen-ZZZZ${PROTOC_PLUGIN_SUFFIX}
-    --ZZZZ_out=main_class=sys.Config!sys.Status!sys.State:${GENERATED_PLUGIN_DIRECTORY}
+    --ZZZZ_out=main_class=sys.config!sys.status.data!sys.state.data:${GENERATED_PLUGIN_DIRECTORY}
     --ZZZZ_opt=options=customoptions
     --ZZZZ_opt=path=${PROTOC_PATH_LIST_DELIMITED}
     --ZZZZ_opt=binpath=${GENERATED_BIN_DIRECTORY}
     --ZZZZ_opt=const_prefix=squeezelite-
-    --ZZZZ_opt=defaultspath=${CMAKE_SOURCE_DIR}/spiffs
+    --ZZZZ_opt=defaultspath=${GENERATED_SPIFFS_DIRECTORY}/data
 )
-
 
 replace_in_list(PLUGINS_OPT "ZZZZ" "dump" DUMP_OUT_OPTS)
 replace_in_list(PLUGINS_OPT "ZZZZ" "json" DUMP_JSON_OPTS)
 replace_in_list(PLUGINS_OPT "ZZZZ" "defaults" DUMP_DEFAULTS_OPTS)
-replace_in_list(PLUGINS_OPT "ZZZZ" "options" DUMP_OPTIONS_OPTS)
-
-
-# print_array("DUMP_OUT_OPTS plugins options:" "${DUMP_OUT_OPTS}" "NEWLINE")
 
 
 set(PROTOC_ARGS
 ${DUMP_OUT_OPTS}
 ${DUMP_JSON_OPTS}
 ${DUMP_DEFAULTS_OPTS}
-${DUMP_OPTIONS_OPTS}
 ${PROTOC_PATH_LIST}
 ${PROTO_FILES}
 )
@@ -140,8 +134,9 @@ ${PROTO_FILES}
 
 SET(PLUGINS_OUTPUT 
     "${GENERATED_BIN_DIRECTORY}/code_generator_request.bin" 
-    "${GENERATED_PLUGIN_DIRECTORY}/Config_pb2.json"
-    "${GENERATED_PLUGIN_DIRECTORY}/Status_pb2.json"
+    "${GENERATED_PLUGIN_DIRECTORY}/sys.config_pb2.json"
+    "${GENERATED_PLUGIN_DIRECTORY}/sys.state.data_pb2.json"
+    "${GENERATED_PLUGIN_DIRECTORY}/sys.status.data_pb2.json"
     "${DEFAULTS_OUTPUT}"
 )
 
@@ -156,40 +151,7 @@ add_custom_command(
 add_dependencies(generate_graph_files generate_system_proto )
 add_custom_target(generate_plugins_files DEPENDS ${PLUGINS_OUTPUT} )
 add_dependencies(generate_plugins_files generate_py_files)
-add_dependencies(__idf_platform_config generate_plugins_files)
 set_source_files_properties( ${PLUGINS_OUTPUT}  PROPERTIES GENERATED TRUE)
+# add_dependencies(generate_spiffs_bin DEPENDS   ${DEFAULTS_OUTPUT})
 
-
-file(GLOB SOURCE_JSON_FILES "${CMAKE_CURRENT_SOURCE_DIR}/targets/*.json")
-set(GENERATED_BIN_DIRECTORY "${CMAKE_SOURCE_DIR}/spiffs/targets")
-file(MAKE_DIRECTORY "${GENERATED_BIN_DIRECTORY}")
-foreach(SOURCE_JSON_FILE IN ITEMS ${SOURCE_JSON_FILES})
-    get_filename_component(TARGET_NAME ${SOURCE_JSON_FILE} NAME_WE)
-    set(GENERATED_BIN "${GENERATED_BIN_DIRECTORY}/${TARGET_NAME}.bin")
-    # Prepare the protodot command and its arguments
-    set(PROTOBIN_COMMAND
-    ${PYTHON_EXECUTABLE}
-    ${TOOLS_DIR}/protoc_utils/generate_bin.py
-    --proto_file "${CMAKE_CURRENT_BINARY_DIR}/py/configuration"
-    --main_class "Config"
-    --target_dir "${GENERATED_BIN_DIRECTORY}"
-    --json ${SOURCE_JSON_FILE}
-    --include "${CMAKE_CURRENT_BINARY_DIR}/proto/nanopb/generator/proto"
-    --include "${CMAKE_CURRENT_BINARY_DIR}/py/"
-    )
-    add_custom_command(
-        OUTPUT ${GENERATED_BIN}
-        COMMAND ${PROTOBIN_COMMAND}
-        DEPENDS ${SOURCE_JSON_FILE} ${PROTO_FILES} ${GENERATED_PY_FILES}
-        COMMENT "Generating BIN file for target ${TARGET_NAME}"
-        VERBATIM
-    )
-    list(APPEND GENERATED_BIN_FILES ${GENERATED_BIN} )
-endforeach()
-
-
-add_custom_target(generate_spiffs_bin DEPENDS  ${GENERATED_BIN_FILES} ${DEFAULTS_OUTPUT})
-set_source_files_properties(${GENERATED_BIN_FILES}  PROPERTIES GENERATED TRUE)
-add_dependencies(generate_spiffs_bin generate_system_proto)
-
-message(STATUS "==================================================================================")
+message(STATUS "**")

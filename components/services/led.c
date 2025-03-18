@@ -5,7 +5,10 @@
    software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
    CONDITIONS OF ANY KIND, either express or implied.
 */
-
+#define LOG_LOCAL_LEVEL ESP_LOG_INFO
+#include "led.h"
+#include "Config.h"
+#include "accessors.h"
 #include "driver/gpio.h"
 #include "driver/ledc.h"
 #include "driver/rmt.h"
@@ -14,17 +17,14 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/timers.h"
+#include "globdefs.h"
+#include "gpio_exp.h"
+#include "services.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include "Configurator.h"
-#include "accessors.h"
-#include "globdefs.h"
-#include "gpio_exp.h"
-#include "led.h"
-#include "services.h"
 
 #define MAX_LED 8
 #define BLOCKTIME 10 // up to portMAX_DELAY
@@ -43,7 +43,7 @@ static int8_t led_rmt_channel = -1;
 static uint32_t scale24(uint32_t bright, uint8_t);
 
 static const struct rmt_led_param_s {
-    sys_LedTypesEnum type;
+    sys_led_types type;
     uint8_t bits;
     // number of ticks in nanoseconds converted in RMT_CLK ticks
     rmt_item32_t bit_0;
@@ -51,7 +51,7 @@ static const struct rmt_led_param_s {
     uint32_t green, red;
     uint32_t (*scale)(uint32_t, uint8_t);
 } rmt_led_param[] = {
-    {sys_LedTypesEnum_LED_TYPE_WS2812, 24, {{{350 / RMT_CLK, 1, 1000 / RMT_CLK, 0}}},
+    {sys_led_types_WS2812, 24, {{{350 / RMT_CLK, 1, 1000 / RMT_CLK, 0}}},
         {{{1000 / RMT_CLK, 1, 350 / RMT_CLK, 0}}}, 0xff0000, 0x00ff00, scale24},
     {.type = -1}};
 
@@ -73,15 +73,9 @@ static struct led_config_s {
     int gpio;
     int color;
     int bright;
-    sys_LedTypesEnum type;
-} green = {.gpio = CONFIG_LED_GREEN_GPIO,
-    .color = 0,
-    .bright = -1,
-    .type = sys_LedTypesEnum_LED_TYPE_GPIO},
-  red = {.gpio = CONFIG_LED_RED_GPIO,
-      .color = 0,
-      .bright = -1,
-      .type = sys_LedTypesEnum_LED_TYPE_GPIO};
+    sys_led_types type;
+} green = {.gpio = -1, .color = 0, .bright = -1, .type = sys_led_types_GPIO},
+  red = {.gpio = -1, .color = 0, .bright = -1, .type = sys_led_types_GPIO};
 
 static int led_max = 2;
 
@@ -127,7 +121,7 @@ static void vCallbackFunction(TimerHandle_t xTimer) {
     if (!led->timer) return;
 
     led->on = !led->on;
-    ESP_EARLY_LOGD(TAG, "led vCallbackFunction setting gpio %d level %d (bright:%d)", led->gpio,
+    ESP_EARLY_LOGV(TAG, "led vCallbackFunction setting gpio %d level %d (bright:%d)", led->gpio,
         led->on, led->bright);
     set_level(led, led->on);
 
@@ -231,12 +225,13 @@ int led_allocate(void) {
 /****************************************************************************************
  *
  */
-bool led_config(int idx, sys_LED* led_config) {
+bool led_config(int idx, sys_led_config* led_config) {
     if (!led_config->has_gpio) {
+        ESP_LOGD(TAG,"No GPIO configured for %s LED",idx == LED_GREEN ? "GREEN" : "RED");
         return false;
     }
     if (led_config->gpio.pin < 0) {
-        ESP_LOGW(TAG, "LED GPIO -1 ignored");
+        ESP_LOGD(TAG,"GPIO -1 ignored for %s LED",idx == LED_GREEN ? "GREEN" : "RED");
         return false;
     }
     if (idx >= MAX_LED) return false;
@@ -247,7 +242,7 @@ bool led_config(int idx, sys_LED* led_config) {
     leds[idx].rmt = NULL;
     leds[idx].bright = -1;
 
-    if (led_config->led_type != sys_LedTypesEnum_LED_TYPE_GPIO) {
+    if (led_config->led_type != sys_led_types_GPIO) {
         // first make sure we have a known addressable led
         for (const struct rmt_led_param_s* p = rmt_led_param; !leds[idx].rmt && p->type >= 0; p++)
             if (p->type == led_config->led_type) leds[idx].rmt = p;
@@ -285,7 +280,7 @@ bool led_config(int idx, sys_LED* led_config) {
 
     set_level(leds + idx, false);
     ESP_LOGI(TAG, "Configuring LED %s %d (on:%d rmt:%s %d%% )", idx == LED_GREEN ? "GREEN" : "RED",
-        led_config->gpio.pin, led_config->gpio.level, sys_LedTypesEnum_name(led_config->led_type),
+        led_config->gpio.pin, led_config->gpio.level, sys_led_types_name(led_config->led_type),
         led_config->brightness);
     return true;
 }
@@ -294,6 +289,7 @@ bool led_config(int idx, sys_LED* led_config) {
  *
  */
 static void led_suspend(void) {
+    ESP_LOGD(TAG,"led_suspend: turning off leds");
     led_off(LED_GREEN);
     led_off(LED_RED);
 }
@@ -316,12 +312,12 @@ void set_led_gpio(int gpio, char* value) {
     while ((p = strchr(p, ':')) != NULL) {
         p++;
         if ((strcasestr(p, "ws2812")) != NULL)
-            config->type = sys_LedTypesEnum_LED_TYPE_WS2812;
+            config->type = sys_led_types_WS2812;
         else
             config->color = atoi(p);
     }
 
-    if (config->type != sys_LedTypesEnum_LED_TYPE_GPIO) {
+    if (config->type != sys_led_types_GPIO) {
         for (const struct rmt_led_param_s* p = rmt_led_param; p->type >= 0; p++) {
             if (p->type == config->type) {
                 if (config == &green)
@@ -335,18 +331,25 @@ void set_led_gpio(int gpio, char* value) {
 }
 
 void led_svc_init(void) {
-    sys_Gpios* gpios = NULL;
+    sys_gpios_config* gpios = NULL;
+    bool found = false;
+    
     if (!platform->has_gpios) {
+        ESP_LOGI(TAG, "No LED configured");
         return;
     }
+    ESP_LOGI(TAG,"Setting up leds");
     gpios = &platform->gpios;
     if (gpios->has_greenLED) {
-        led_config(LED_GREEN, &gpios->greenLED);
+        found = found | led_config(LED_GREEN, &gpios->greenLED);
     }
     if (gpios->has_redLED) {
-        led_config(LED_RED, &gpios->redLED);
+        found = found | led_config(LED_RED, &gpios->redLED);
     }
-
+    ESP_LOGD(TAG,"Done setting up leds");
     // make sure we switch off all leds (useful for gpio expanders)
-    services_sleep_setsuspend(led_suspend);
+    if (found) {
+        ESP_LOGD(TAG,"Switching leds off");
+        services_sleep_setsuspend(led_suspend);
+    }
 }

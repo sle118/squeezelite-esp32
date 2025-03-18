@@ -1,10 +1,11 @@
 syntax = "proto3";
 import "customoptions.proto";
 import "nanopb.proto";
-package sys;
-message Spotify {
+package sys.spotify;
+message config {
+    option (nanopb_msgopt).packed_struct  = true;
     option (nanopb_msgopt).msgid  = 10038;
-    bool enabled = 1;
+    bool enabled = 1 [(cust_field).v_bool = true];
     uint32 bitrate = 2 [(nanopb).int_size = IS_16];
     bool zeroconf = 3 [(cust_field).v_bool = true] ;
     uint32 volume = 4 ;

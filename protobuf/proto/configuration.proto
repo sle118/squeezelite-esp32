@@ -3,7 +3,7 @@ syntax = "proto3";
 package sys;
 
 import "Services.proto";
-import "GPIO.proto";
+import "Gpios.proto";
 import "Devices.proto";
 import "Names.proto";
 import "Network.proto";
@@ -12,7 +12,8 @@ import "nanopb.proto";
 
 
 // Main configuration structure
-message Config   {
+message config   {
+  option (nanopb_msgopt).packed_struct  = true;
 
   // Provides the global name for the pointer to
   // protoc plugins
@@ -20,23 +21,22 @@ message Config   {
   option (nanopb_msgopt).msgid  = 1000;
   
   // GPIO structure definition with leds, etc
-  Gpios gpios = 1;
+  sys.gpios.config gpios = 1;
 
   // Device tree with SPI, I2C, SPDIF, Display, etc
-  Dev dev = 2;
+  dev.config dev = 2;
 
   // Platform services definition with options
-  Services services = 3 ;
+  services.config services = 3 ;
 
   // Main device name used for networking, etc. Services which 
   // need a name typically  has the option to overwrite its own name 
-  Names names = 4;
+  sys.names.config names = 4;
 
-  // Hardware platform (e.g. SqueezeAMP, MUSE, etc.)
-  string platform = 5 [(nanopb).type = FT_POINTER];
-
-  NetworkConfig net = 6;
-  string target = 7 [(nanopb).max_length = 55];
+  // Hardware target (e.g. SqueezeAMP, MUSE, etc.)
+  string target = 5 [(nanopb).type = FT_POINTER];
+  sys.net.config net = 6;  
   
+
 }
 

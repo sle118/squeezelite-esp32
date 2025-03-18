@@ -18,3 +18,10 @@ components/wifi-manager/UML-State-Machine-in-C
 envfile.txt
 artifacts
 web-installer
+esp-idf-vscode-generated.gdb
+.vscode/.espidf.peripherals.state.json
+.vscode/squeezelite-esp32.code-workspace
+debug.log
+components/driver_bt/bt_app_source - Copy.c.old
+components/driver_bt/bt_app_source - Copy.c.old
+components/driver_bt/bt_app_source - Copy.c.old

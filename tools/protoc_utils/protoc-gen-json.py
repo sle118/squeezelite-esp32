@@ -1,4 +1,4 @@
-# !/usr/bin/env python
+#!/opt/esp/python_env/idf4.4_py3.8_env/bin/python
 import os
 
 import logging
@@ -23,7 +23,7 @@ class JsonParser(ProtocParser) :
         super().end_message(message)
         jsonmessage = message.render()    
         respfile = self.response.file.add()
-        respfile.name = f'{message.name}_pb2.json'
+        respfile.name = f'{message.fullname}_pb2.json'
         logger.info(f"Creating new template json file: {respfile.name}")
         respfile.content = json.dumps(jsonmessage, indent=2) + "\r\n"
 
@@ -73,7 +73,7 @@ class JsonParser(ProtocParser) :
 
 if __name__ == '__main__':
     data = ProtocParser.get_data()
-    logger.debug(f"Generating blank json file(s)")
+    logger.info(f"Generating blank json file(s)")
     protocParser:JsonParser = JsonParser(data)
     protocParser.process()
     logger.debug('Done generating JSON file(s)')    

@@ -17,13 +17,13 @@
 #include "esp_wifi.h"
 #include "esp_log.h"
 #include "monitor.h"
-#include "Configurator.h"
+#include "Config.h"
 #include "messaging.h"
 #include "gpio_exp.h"
 #include "accessors.h"
 
 static const char TAG[] = "embedded";
-static sys_GPIO * power=NULL;
+static sys_gpio_config * power=NULL;
 
 extern void sb_controls_init(void);
 extern bool sb_displayer_init(void);
@@ -69,7 +69,9 @@ uint32_t _gettime_ms_(void) {
 
 int embedded_init(void) {
 	mutex_create(slimp_mutex);
+	ESP_LOGI(TAG,"Initializing controls");
 	sb_controls_init();
+	ESP_LOGI(TAG,"Initializing displayer");
 	custom_player_id = sb_displayer_init() ? 100 : 101;
 
 	
@@ -88,10 +90,11 @@ void embedded_exit(int code) {
 }    
 
 void powering(bool on) {
-    if (power->pin != -1) {
+    if (SYS_GPIOS_NAME(power,power) && power->pin != -1) {
         ESP_LOGI(TAG, "powering player %s", on ? "ON" : "OFF");	
         gpio_set_level_x(power->pin, on ? power->level : !power->level);
     }
+
 }
 
 u16_t get_RSSI(void) {

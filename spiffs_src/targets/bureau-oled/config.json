@@ -1,0 +1,58 @@
+{
+    "dev": {
+        "spi": {
+            "mosi": 4,
+            "clk": 5,
+            "dc": 18,
+            "host": "Host1"
+        },
+        "dac": {
+            "bck": 33,
+            "ws": 25,
+            "dout": 32,
+            "model": "I2S"
+        },
+        "display": {
+            "type": "SPI",
+            "common": {
+                "width": 256,
+                "height": 64,
+                "HFlip": false,
+                "VFlip": false,
+                "rotate": false,
+                "driver": "SSD1322",
+                "reset": 21
+            },
+            "spi": {
+                "cs": 19,
+                "speed": 8000000
+                
+            }
+        },
+        "rotary": {
+            "A": 23,
+            "B": 22,
+            "SW": 34,
+            "volume": true,
+            "longpress": true
+        }
+    },
+    "names": {
+        "device": "bureau-oled"
+    },
+    "net": {
+        "credentials": [
+            {
+                "ssid": "iot",
+                "auth_type": "WPA2_PSK",
+                "password": "facedecafe"
+              },
+              {
+                "ssid": "iot2",
+                "auth_type": "WPA2_PSK",
+                "password": "facedecafe"
+              }
+          ]
+    }       
+    
+}

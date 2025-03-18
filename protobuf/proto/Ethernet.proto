@@ -1,52 +1,61 @@
 syntax = "proto3";
 
-package sys;
+package sys.dev.eth;
 import "Common.proto";
-import "GPIO.proto";
 import "nanopb.proto";
 import "customoptions.proto";
+
 option (nanopb_fileopt).enum_to_string = true;
 
-enum EthModelEnum {
-  UNSPECIFIED_ETHMODEL = 0;
+enum models {
+  NONE = 0;
   LAN8720 = 1;
   DM9051 = 2;
   W5500 = 3;
 }
-enum EthType {  // This enum is used to define the union type for Eth
-  UNSPECIFIED_ETH = 0;  // for unspecified type
+enum types {  // This enum is used to define the union type for Eth
+  UNSPECIFIED = 0;  // for unspecified type
   SPI = 1;
   RMII = 2;
 }
-message EthCommon { 
+message common { 
+  option (nanopb_msgopt).packed_struct  = true;
   option (nanopb_msgopt).msgid  = 10025;
-  EthModelEnum model = 1;
-  GPIO rst = 2;
+  models model = 1 [(cust_field).v_enum = "NONE"];
+  int32 rst = 2  [(cust_field).v_int32=-1];
+  uint32 ethtmout_s = 3 [(nanopb).int_size = IS_16, (cust_field).v_uint32 = 30];
+  
 }
 
 // SPI Specific Ethernet definitions
-message EthSPI {
+message spi {
+  option (nanopb_msgopt).packed_struct  = true;
   option (nanopb_msgopt).msgid  = 10026;
-  GPIO cs = 1; // CS pin
-  int32 speed = 2 [(nanopb).int_size = IS_16]; // SPI Bus speed
-  GPIO intr = 3;
-  int32 host = 4  [(nanopb).int_size = IS_8,(cust_field).v_int32 = 2 ];  // Defaults to 2 in your application logic
+  int32 cs = 1  [(cust_field).v_int32=-1]; // CS pin
+  uint32 speed = 2 ;
+  int32 intr = 3  [(cust_field).v_int32=-1];
+  dev.common.hosts host = 4  [(nanopb).int_size = IS_8,(cust_field).v_enum = "Host1" ];  // Defaults to 2 in your application logic
+  
 }
 
 // RMII Specific Ethernet definitions
-message EthRMII {
+message rmii {
+  option (nanopb_msgopt).packed_struct  = true;
   option (nanopb_msgopt).msgid  = 10027;
-  GPIO mdc = 1;
-  GPIO mdio = 2;
+  int32 mdc = 1  [(cust_field).v_int32=-1];
+  int32 mdio = 2  [(cust_field).v_int32=-1];
+  
 }
 
 // Ethernet module configuration
-message Eth {
+message config {
+  option (nanopb_msgopt).packed_struct  = true;
   option (nanopb_msgopt).msgid  = 10028;
-  DeviceTypeEnum type = 1;
-  EthCommon common = 2;
+  dev.common.types type = 1 [(cust_field).v_enum = "UNKNOWN"];
+  common common = 2;
   oneof ethType {
-    EthSPI spi = 3;
-    EthRMII rmii = 4;
+    spi spi = 3;
+    rmii rmii = 4;
   }
+  
 }

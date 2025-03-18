@@ -10,9 +10,10 @@
  */
 #include "squeezelite.h"
 #include "equalizer.h"
-#include "Configurator.h"
-extern log_level log_level_from_sys_level(sys_DebugLevelEnum level);
-static sys_Squeezelite* config = NULL;
+#include "Config.h"
+extern log_level log_level_from_sys_level(sys_squeezelite_debug_levels level);
+extern sys_squeezelite_config* get_profile(const char* name);
+static sys_squeezelite_config* config = NULL;
 
 
 extern unsigned int* get_rates() ;
@@ -76,9 +77,9 @@ static bool handler(u8_t* data, int len) {
 }
 
 void output_init_embedded() {
-    config = &platform->services.squeezelite;
+    config = get_profile(NULL); // get the active profile
     loglevel = log_level_from_sys_level(config->log.output);
-    LOG_INFO("init device: %s", sys_OutputTypeEnum_name(config->output_type));
+    LOG_INFO("init device: %s", sys_squeezelite_outputs_name(config->output_type));
 
     // chain handlers
     slimp_handler_chain = slimp_handler;
@@ -87,15 +88,22 @@ void output_init_embedded() {
     // init equalizer before backends
     equalizer_init();
     memset(&output, 0, sizeof(output));
-
-    output_init_common(loglevel, sys_OutputTypeEnum_name(config->output_type),
-        config->buffers.output, get_rates(), config->amp_gpio_timeout);
+    unsigned int output_buffer = OUTPUTBUF_SIZE;
+    if(config->buffers.output > 0){
+        output_buffer = config->buffers.output *1024;
+        LOG_DEBUG("Found output buffer configuration: %d (%d)",config->buffers.output,output_buffer);
+    }
+    else {
+        LOG_DEBUG("Using default output buffer: %d",output_buffer);
+    }    
+    output_init_common(loglevel, sys_squeezelite_outputs_name(config->output_type),
+        output_buffer, get_rates(), config->amp_gpio_timeout);
     output.start_frames = FRAME_BLOCK;
     #pragma message("Rate delay logic incomplete")
 	output.rate_delay = 0;
 
 #if CONFIG_BT_SINK
-    if (config->output_type == sys_OutputTypeEnum_OUTPUT_Bluetooth) {
+    if (config->output_type == sys_squeezelite_outputs_BT) {
         LOG_INFO("init Bluetooth");
         close_cb = &output_close_bt;
         output_init_bt(get_rates());
@@ -132,7 +140,7 @@ void set_volume(unsigned left, unsigned right) {
 
 bool test_open(const char* device, unsigned rates[], bool userdef_rates) {
     memset(rates, 0, MAX_SUPPORTED_SAMPLERATES * sizeof(unsigned));
-    if (config->output_type == sys_OutputTypeEnum_OUTPUT_I2S) {
+    if (config->output_type == sys_squeezelite_outputs_I2S) {
         unsigned _rates[] = {
 #if BYTES_PER_FRAME == 4
             192000,
@@ -152,7 +160,7 @@ bool test_open(const char* device, unsigned rates[], bool userdef_rates) {
             0
         };
         memcpy(rates, _rates, sizeof(_rates));
-    } else if (config->output_type == sys_OutputTypeEnum_OUTPUT_SPDIF) {
+    } else if (config->output_type == sys_squeezelite_outputs_SPDIF) {
         unsigned _rates[] = {
             96000, 88200, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 0};
         memcpy(rates, _rates, sizeof(_rates));

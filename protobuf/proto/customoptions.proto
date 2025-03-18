@@ -19,6 +19,7 @@ message CustomOptions {
         bool v_bool = 50057;
         string v_enum = 50058 [(nanopb).type = FT_POINTER];
         bytes v_bytes = 50059 [(nanopb).type = FT_POINTER];
+        bytes v_msg = 50060 [(nanopb).type = FT_POINTER];
     }
     
     string global_name = 50005 [(nanopb).type = FT_POINTER];
@@ -26,18 +27,18 @@ message CustomOptions {
 
 
 extend google.protobuf.FileOptions {
-    optional CustomOptions cust_file = 2010;
+    CustomOptions cust_file = 2010;
 }
 
 
 extend google.protobuf.MessageOptions  {
-    optional CustomOptions cust_msg = 2010;
+    CustomOptions cust_msg = 2010;
 }
 
 extend google.protobuf.EnumOptions {
-    optional CustomOptions cust_enum = 2010;
+    CustomOptions cust_enum = 2010;
 }
 
 extend google.protobuf.FieldOptions {
-    optional CustomOptions cust_field = 2010;
+    CustomOptions cust_field = 2010;
 }

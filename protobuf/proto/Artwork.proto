@@ -1,9 +1,12 @@
 syntax = "proto3";
-package sys;
+package sys.artwork;
 import "nanopb.proto";
 
-message Artwork {
+message config {
+  option (nanopb_msgopt).packed_struct  = true;
   option (nanopb_msgopt).msgid  = 1002;
     bool enabled = 1 ;  // Enable cover art display
     bool resize = 2 ; // Optional parameter to indicate if the artwork should be resized
+    
+
   }

@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package sys.exp;
+import "Common.proto";
+import "SPI.proto";
+import "GPIO.proto";
+import "I2CBus.proto";
+import "customoptions.proto";
+import "nanopb.proto";
+option (nanopb_fileopt).enum_to_string = true;
+
+
+
+enum models {
+    UNSPECIFIED_EXP = 0;
+    PCA9535 = 1;
+    PCA85XX = 2;
+    MCP23017 = 3;
+    MCP23S17 = 4;
+  }
+
+  message config {
+    option (nanopb_msgopt).packed_struct  = true;
+    option (nanopb_msgopt).msgid  = 10033;
+    models model = 1;
+    int32 addr = 2 [(nanopb).int_size = IS_8];
+    oneof ExpType {
+      i2c.device i2c = 3;
+      spi.device spi = 4;
+    }
+    int32 base = 5  [(nanopb).int_size=IS_16, (cust_field).v_int32=40];     // Defaults to 40 
+    int32 count = 6  [(nanopb).int_size=IS_16, (cust_field).v_int32=16];    // Defaults to 16 
+    int32 intr = 7  [(nanopb).int_size=IS_16, (cust_field).v_int32=-1];
+    gpio.config ena = 8  [(nanopb).int_size=IS_16, (cust_field).v_int32=-1];
+    
+  
+  }

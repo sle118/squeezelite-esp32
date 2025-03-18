@@ -1,0 +1,85 @@
+{
+  "gpios": {
+    "greenLED": {
+      "gpio": {
+        "pin": 110,
+        "level": "LOW"
+      },
+      "brightness": 50,
+      "led_type": "GPIO"
+    },
+    "redLED": {
+      "gpio": {
+        "pin": 111,
+        "level": "LOW"
+      },
+      "brightness": 50,
+      "led_type": "GPIO"
+    }
+  },
+  "dev": {
+    "spi": {
+      "mosi": 23,
+      "miso": 19,
+      "clk": 18,
+      "dc": 33,
+      "host": "Host1"
+    },    
+    "dac": {
+      "bck": 13,
+      "ws": 14,
+      "dout": 12,
+      "din":15,
+      "mck": "GPIO0",
+      "model": "CS4265",
+      "i2c": {
+        "port": "PORT0",
+        "speed": 250000,
+        "sda": 21,
+        "scl": 22
+      },
+      "jack_mutes_amp": false
+
+    },
+    "gpio_exp": [
+      {
+        "model": "MCP23S17",
+        "addr": 32,
+        "spi": {
+          "speed": 10000000,
+          "cs": 4
+        },
+        "base": 100,
+        "count": 16,
+        "intr": 27,
+        "ena": {
+          "pin": 2,
+          "level": "HIGH"
+        }
+      }
+    ],
+    "eth": {
+      "type": "RMII",
+      "common": {
+        "model": "W5500",
+        "rst": 109,
+        "ethtmout_s": 8
+      },
+      "spi": {
+        "cs": 5,
+        "speed": 10000000,
+        "intr": 25,
+        "host": "Host1"
+      }
+    }
+  },
+  "names": {
+    "device": "SqueezeIO-v0.1",
+    "airplay": "SqueezeIO-v0.1",
+    "spotify": "SqueezeIO-v0.1",
+    "bluetooth": "SqueezeIO-v0.1",
+    "squeezelite": "SqueezeIO-v0.1",
+    "wifi_ap_name": "SqueezeIO-v0.1"
+  },
+  "target": "SqueezeIO"
+}

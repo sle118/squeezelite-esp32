@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package sys.gpios;
+import "GPIO.proto";
+import "Led.proto";
+import "customoptions.proto";
+import "nanopb.proto";
+option (nanopb_fileopt).enum_to_string = true;
+
+
+message config {
+  option (nanopb_msgopt).packed_struct  = true;
+  option (nanopb_msgopt).msgid  = 10030;
+  led.config greenLED = 1;
+  led.config redLED = 2;
+  gpio.config audioJack = 3  [(cust_field).v_msg='{"pin":-1,"level":"LOW"}'];
+  gpio.config amp = 4  [(cust_field).v_msg='{"pin":-1,"level":"LOW"}'];
+  gpio.config power = 5  [(cust_field).v_msg='{"pin":-1,"level":"LOW"}'];
+  gpio.config jack = 6  [(cust_field).v_msg='{"pin":-1,"level":"LOW"}'];
+  gpio.config spkfault = 7 [(cust_field).v_msg='{"pin":-1,"level":"LOW"}'];
+  gpio.config Vcc = 8  [(cust_field).v_msg='{"pin":-1,"level":"LOW"}'];
+  gpio.config GND = 9  [(cust_field).v_msg='{"pin":-1,"level":"LOW"}'];
+}

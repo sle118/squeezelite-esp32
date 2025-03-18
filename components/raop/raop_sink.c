@@ -9,7 +9,7 @@
 #include "esp_pthread.h"
 #include "esp_system.h"
 #include "freertos/timers.h"
-#include "Configurator.h"
+#include "Config.h"
 #include "raop.h"
 #include "audio_controls.h"
 #include "display.h"

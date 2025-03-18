@@ -40,9 +40,10 @@ static bool LoadFont(struct GDS_FontDef ** fontPtr, const char * fileName){
         ESP_LOGE(TAG, "Invalid pointer for LoadFont");
         return false;
     }
-
+    char font_file_name[CONFIG_SPIFFS_OBJ_NAME_LEN+1]={0};
+    snprintf(font_file_name,sizeof(font_file_name),"/spiffs/fonts/%s",fileName);
     // Allocate DMA-capable memory for the font
-    struct GDS_FontDef* loadedFont = load_file_dma(NULL,"fonts",fileName);
+    struct GDS_FontDef* loadedFont = load_file_dma(NULL,font_file_name);
 
     // Check if allocation succeeded
     if (loadedFont == NULL) {

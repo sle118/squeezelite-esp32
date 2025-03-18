@@ -1,0 +1,4 @@
+menu "Test Configuration"
+    rsource "../../main/Kconfig.projbuild"
+
+endmenu

@@ -10,7 +10,12 @@ endif()
 
 # State machine hierarchy enabled and logging enabled
 add_definitions(-DSTATE_MACHINE_LOGGER=1)
-add_definitions(-DHIERARCHICAL_STATES=1)
+#add_definitions(-DHIERARCHICAL_STATES=1)
+
+# Align the nanopb library options across the entire project
+# otherwise this results in nasty structures misalignment 
+# when implementing callbacks
+add_definitions(-DPB_ENABLE_MALLOC -DPB_FIELD_32BIT)
 
 # Uncomment line below to get memory usage trace details
 # add_definitions(-DENABLE_MEMTRACE=1)
@@ -18,9 +23,11 @@ add_definitions(-DHIERARCHICAL_STATES=1)
 #add_definitions(-DNETWORK_ETHERNET_LOG_LEVEL=ESP_LOG_DEBUG)
 #uncomment line below to get network status debug logs
 #add_definitions(-DNETWORK_STATUS_LOG_LEVEL=ESP_LOG_DEBUG)
-#add_definitions(-DNETWORK_HANDLERS_LOG_LEVEL=ESP_LOG_DEBUG)
+add_definitions(-DNETWORK_HANDLERS_LOG_LEVEL=ESP_LOG_DEBUG)
+
 #add_definitions(-DNETWORK_WIFI_LOG_LEVEL=ESP_LOG_DEBUG)
-#add_definitions(-DNETWORK_MANAGER_LOG_LEVEL=ESP_LOG_DEBUG)
+add_definitions(-DNETWORK_MANAGER_LOG_LEVEL=ESP_LOG_DEBUG)
+
 #add_definitions(-DNETWORK_HTTP_SERVER_LOG_LEVEL=ESP_LOG_DEBUG)
 
 # utility to build sizes
@@ -53,7 +60,6 @@ endfunction()
 set(EXTRA_COMPONENT_DIRS components/platform_console/app_recovery components/platform_console/app_squeezelite  )
 
 project(recovery)
-spiffs_create_partition_image(spiffs  spiffs  FLASH_IN_PROJECT DEPENDS generate_spiffs_bin )
 
 # we need own "esp_app_desc" to take precedence
 add_custom_command(
@@ -106,7 +112,7 @@ esptool_py_flash_target_image(flash squeezelite "${otaapp_offset}" "${BUILD_DIR}
 add_custom_target(_jtag_scripts  ALL
 					BYPRODUCTS "flash_dbg_project_args"  
 					POST_BUILD
-					COMMAND ${CMAKE_COMMAND} -P "${CMAKE_CURRENT_SOURCE_DIR}/generate_debug_scripts.cmake"
+					COMMAND ${CMAKE_COMMAND} -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/generate_debug_scripts.cmake"
 )
 
 if(CMAKE_HOST_UNIX)
@@ -136,78 +142,95 @@ endif()
 
 # Include the protocol_buffers.cmake file
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/protobuf ${CMAKE_CURRENT_BINARY_DIR}/protobuf)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/spiffs_src ${CMAKE_CURRENT_BINARY_DIR}/spiffs)
+
 
 
 # ======================= DEBUG FLAGS ============================
 
+# target_compile_definitions(__idf_wifi-manager PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_app_recovery PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_INFO)
+# target_compile_definitions(__idf_esp_event PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_INFO)
+# target_compile_definitions(__idf_esp_netif PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_bt PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_ERROR)
+# target_compile_definitions(__idf_mdns PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_tcpip_adapter PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_tcp_transport PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+
+# target_compile_definitions(__idf_app_squeezelite PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_app_trace PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_app_update PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_asio PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_audio PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_bootloader_support PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_display PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_driver PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_driver_bt PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_platform_config PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_squeezelite PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_squeezelite-ota PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_telnet PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_main PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+
+
+
+
+
+
+
+
+
+
+
+
+
 #target_compile_definitions(__idf_esp_eth PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_INFO)
+# target_compile_definitions(__idf_services PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_driver PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
 
-target_compile_definitions(__idf_services PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
 
-target_compile_definitions(__idf_driver PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_wifi-manager PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_esp_wifi PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_platform_console PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_esp_wifi PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_platform_console PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
 
-target_compile_definitions(__idf_app_recovery PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_INFO)
-target_compile_definitions(__idf_esp_eth PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_INFO)
-target_compile_definitions(__idf_esp_event PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_INFO)
-target_compile_definitions(__idf_esp_netif PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
- 
-target_compile_definitions(__idf_freertos PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_bt PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_ERROR)
-target_compile_definitions(__idf_mdns PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_tcpip_adapter PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_tcp_transport PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
 
-target_compile_definitions(__idf_app_squeezelite PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_app_trace PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_app_update PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_asio PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_audio PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_bootloader_support PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
 
-target_compile_definitions(__idf_cbor PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_cmock PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_coap PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_console PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_cxx PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_display PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_driver PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_driver_bt PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_efuse PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_esp-dsp PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_esp-tls PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_esp32 PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_espcoredump PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_esp_adc_cal PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_esp_common PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_esp_gdbstub PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_esp_hid PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_esp_https_ota PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_esp_http_client PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_esp_http_server PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_esp_hw_support PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_esp_ipc PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_esp_local_ctrl PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_esp_pm PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_esp_ringbuf PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_esp_rom PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_esp_serial_slave_link PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_esp_system PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_esp_timer PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_expat PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_fatfs PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_freemodbus PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_hal PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_heap PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_jsmn PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_json PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+
+# target_compile_definitions(__idf_esp_eth PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_INFO)
+
+
+
+# target_compile_definitions(__idf_freertos PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+
+
+# target_compile_definitions(__idf_cbor PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_cmock PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_coap PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_cxx PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_esp_adc_cal PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_esp_https_ota PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_esp_http_client PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_esp_http_server PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_esp_hw_support PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_esp_ipc PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_esp_local_ctrl PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_esp_pm PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_esp_ringbuf PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_esp_rom PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_esp_serial_slave_link PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_esp_system PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_esp_timer PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_expat PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_fatfs PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_freemodbus PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_hal PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_heap PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_jsmn PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_json PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
 # target_compile_definitions(__idf_libsodium PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
 # target_compile_definitions(__idf_log PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
 # target_compile_definitions(__idf_lwip PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_main PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_mbedtls PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+
+# target_compile_definitions(__idf_mbedtls PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
 # target_compile_definitions(mbedcrypto PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
 # target_compile_definitions(mbedtls PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
 # target_compile_definitions(mbedx509 PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
@@ -217,24 +240,23 @@ target_compile_definitions(__idf_mbedtls PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG
 # target_compile_definitions(__idf_nvs_flash PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
 # target_compile_definitions(__idf_openssl PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
 # target_compile_definitions(__idf_perfmon PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_platform_config PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_protobuf-c PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_protocomm PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_pthread PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_raop PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_sdmmc PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
 
-target_compile_definitions(__idf_soc PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_spiffs PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_spi_flash PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_squeezelite PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_squeezelite-ota PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_telnet PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_tools PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_ulp PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_unity PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+
+# target_compile_definitions(__idf_protobuf-c PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_protocomm PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_pthread PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_raop PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_sdmmc PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+
+# target_compile_definitions(__idf_soc PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_spiffs PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_spi_flash PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+
+# target_compile_definitions(__idf_tools PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_ulp PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_unity PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
 # target_compile_definitions(__idf_vfs PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_wear_levelling PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
-target_compile_definitions(__idf_wifi_provisioning PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_wear_levelling PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
+# target_compile_definitions(__idf_wifi_provisioning PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
 # target_compile_definitions(__idf_wpa_supplicant PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)
 # target_compile_definitions(__idf_xtensa PRIVATE -DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG)

@@ -1,3 +1,26 @@
+/*
+ *
+ *      Sebastien L. 2023, sle118@hotmail.com
+ *      Philippe G. 2023, philippe_44@outlook.com
+ *
+ *  This software is released under the MIT License.
+ *  https://opensource.org/licenses/MIT
+ *
+ *  License Overview:
+ *  ----------------
+ *  The MIT License is a permissive open source license. As a user of this software, you are free to:
+ *  - Use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of this software.
+ *  - Use the software for private, commercial, or any other purposes.
+ *
+ *  Conditions:
+ *  - You must include the above copyright notice and this permission notice in all
+ *    copies or substantial portions of the Software.
+ *
+ *  The MIT License offers a high degree of freedom and is well-suited for both open source and
+ *  commercial applications. It places minimal restrictions on how the software can be used,
+ *  modified, and redistributed. For more details on the MIT License, please refer to the link above.
+ */
+
 #pragma once
 
 #include "esp_netif.h"
@@ -27,6 +50,7 @@ extern "C" {
 #define ALL_WIFI_STATE(PARENT, LEVEL)\
     ADD_LEAF(WIFI_INITIALIZING_STATE,PARENT,LEVEL)\
     ADD_LEAF(WIFI_CONNECTING_STATE,PARENT,LEVEL)\
+    ADD_LEAF(WIFI_CONNECTING_SCAN_STATE,PARENT,LEVEL)\
 	ADD_LEAF(WIFI_CONNECTING_NEW_STATE,PARENT,LEVEL)\
     ADD_LEAF(WIFI_CONNECTING_NEW_FAILED_STATE,PARENT,LEVEL)\
     ADD_LEAF(WIFI_CONNECTED_STATE,PARENT,LEVEL)\

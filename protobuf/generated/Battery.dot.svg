@@ -8,14 +8,14 @@
  viewBox="0.00 0.00 354.00 325.75" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
 <g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 321.75)">
 <title>protodot</title>
-<g id="a_graph0"><a xlink:title="platform">
-<text text-anchor="middle" x="173" y="-6.45" font-family="Times New Roman,serif" font-size="14.00">platform</text>
+<g id="a_graph0"><a xlink:title="sys">
+<text text-anchor="middle" x="173" y="-6.45" font-family="Times New Roman,serif" font-size="14.00">sys</text>
 </a>
 </g>
 <!-- Node_Ja_102 -->
 <g id="node1" class="node">
 <title>Node_Ja_102</title>
-<g id="a_node1"><a xlink:title="platform.Battery">
+<g id="a_node1"><a xlink:title="sys.Battery">
 <polygon fill="#fffaf0" stroke="none" points="8,-121.75 8,-203.75 152,-203.75 152,-121.75 8,-121.75"/>
 <polygon fill="#e31a1c" stroke="none" points="9,-186.75 9,-202.75 151,-202.75 151,-186.75 9,-186.75"/>
 <text text-anchor="start" x="111.5" y="-192.25" font-family="Ubuntu" font-weight="bold" font-size="10.00">Battery</text>

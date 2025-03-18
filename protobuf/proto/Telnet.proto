@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package sys.telnet;
+import "nanopb.proto";
+import "customoptions.proto";
+
+option (nanopb_fileopt).enum_to_string = true;
+
+enum output {
+    SERIAL_ONLY = 0;
+    TELNET = 1;
+    TELNET_SERIAL = 2;
+  }
+
+  message config {
+    option (nanopb_msgopt).packed_struct  = true;
+    output enable = 1 [(cust_field).v_enum = "TELNET_SERIAL"];
+    uint32 block = 2 [(nanopb).int_size = IS_16, (cust_field).v_uint32=500];
+    uint32 buffer = 3 [(nanopb).int_size = IS_16, (cust_field).v_uint32=40000];
+  }

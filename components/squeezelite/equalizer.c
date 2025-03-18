@@ -9,7 +9,7 @@
  */
 
 #include "math.h"
-#include "Configurator.h"
+#include "Config.h"
 #include "squeezelite.h"
 #include "equalizer.h"
 #include "esp_equalizer.h"
@@ -24,7 +24,7 @@ static EXT_RAM_ATTR struct {
     float volume;
 	float loudness_gain[EQ_BANDS];
 	bool update;
-    sys_Equalizer *state; 
+    sys_equalizer_config *state; 
 } equalizer;
 
 
@@ -83,19 +83,18 @@ static void calculate_loudness(void) {
  * initialize equalizer
  */
 void equalizer_init(void) {
-    sys_Services * services;
-    sys_Equalizer blank_eq = sys_Equalizer_init_default;
-
+    sys_services_config * services;
+    sys_equalizer_config blank_eq = sys_equalizer_config_init_default;
     equalizer.state = &sys_state->equalizer;
     if(!sys_state->has_equalizer ){
         sys_state->has_equalizer = true;
-        if(SYS_SERVICES(services) && services->has_equalizer){
-            memcpy(equalizer.state,&services->equalizer,sizeof(sys_Equalizer));
+        if(sys_services_config(services) && services->has_equalizer){
+            memcpy(equalizer.state,&services->equalizer,sizeof(sys_equalizer_config));
         }
         else {
-            memcpy(equalizer.state,&blank_eq,sizeof(sys_Equalizer)); 
+            memcpy(equalizer.state,&blank_eq,sizeof(sys_equalizer_config)); 
         }
-        configurator_raise_state_changed();
+        config_raise_state_changed();
     }
 }
 
@@ -160,7 +159,7 @@ void equalizer_set_gain(int8_t *gain) {
     // update only if something changed
     if (!memcmp(&equalizer.state->gains, gain, EQ_BANDS)) {
         equalizer.update = true;
-        configurator_raise_state_changed();
+        config_raise_state_changed();
     }
 
     LOG_INFO("equalizer gain %s", config);
@@ -178,7 +177,7 @@ void equalizer_set_loudness(uint8_t loudness) {
    // update loudness gains as a factor of loudness and volume
     if (equalizer.state->loudness != loudness / 10.0) {
         equalizer.state->loudness = loudness / 10.0;
-        configurator_raise_state_changed();
+        config_raise_state_changed();
         calculate_loudness();
         equalizer.update = true;
     }

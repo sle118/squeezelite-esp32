@@ -54,13 +54,15 @@ Contains the freeRTOS task for the DNS server that processes the requests.
 #include <byteswap.h>
 #include "squeezelite-ota.h"
 #include "network_manager.h"
+#include "Config.h"
+#include "tools.h"
 
 static const char TAG[] = "dns_server";
 static TaskHandle_t task_dns_server = NULL;
 int socket_fd;
 
 void  dns_server_start(esp_netif_t * netif) {
-    xTaskCreate(&dns_server, "dns_server", 3072, (void *)netif, WIFI_MANAGER_TASK_PRIORITY-1, &task_dns_server);
+    xTaskCreateEXTRAM(&dns_server, "dns_server", 3072, (void *)netif, ESP_TASK_PRIO_MIN+5, &task_dns_server);
 }
 
 void  dns_server_stop(){
@@ -79,7 +81,7 @@ void  dns_server(void *pvParameters) {
     esp_netif_t * netif = (esp_netif_t * )pvParameters;
     /* Set redirection DNS hijack to the access point IP */
     ip4_addr_t ip_resolved;
-    inet_pton(AF_INET, DEFAULT_AP_IP, &ip_resolved);
+    inet_pton(AF_INET, platform->net.ap.ip.ip, &ip_resolved);
 
 
     /* Create UDP socket */

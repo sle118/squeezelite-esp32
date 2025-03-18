@@ -319,12 +319,12 @@ static const struct GDS_Device ILI9341_X = {
 	.Mode = GDS_RGB565, .Depth = 16,
 };		
 
-struct GDS_Device* ILI9341_Detect(sys_Display * Driver, struct GDS_Device* Device) {
+struct GDS_Device* ILI9341_Detect(sys_display_config * Driver, struct GDS_Device* Device) {
 	uint8_t Model;
 	int Depth=16;		// 16bit colordepth
 	
-	if(Driver->common.driver == sys_DisplayDriverEnum_ILI9341) Model = ILI9341;
-	else if(Driver->common.driver == sys_DisplayDriverEnum_ILI9341_24) Model = ILI9341_24;
+	if(Driver->common.driver == sys_display_drivers_ILI9341) Model = ILI9341;
+	else if(Driver->common.driver == sys_display_drivers_ILI9341_24) Model = ILI9341_24;
 	else return NULL;
 	
 	if (!Device) Device = calloc(1, sizeof(struct GDS_Device));

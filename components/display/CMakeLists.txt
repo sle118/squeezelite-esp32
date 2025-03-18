@@ -3,7 +3,7 @@ set(TJPGD tjpgd)
 
 idf_component_register(SRC_DIRS . core core/ifaces 
 						INCLUDE_DIRS . core
-						REQUIRES platform_config tools esp_common spiffs
+						REQUIRES tools platform_config  esp_common spiffs
 						PRIV_REQUIRES services freertos driver ${TJPGD}
 						EMBED_FILES note.jpg )		
 

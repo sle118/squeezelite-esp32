@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package sys;
+import "nanopb.proto";
+
+message message_def{
+    uint32 datasize = 1;
+    bytes data = 2 [(nanopb).type = FT_POINTER];
+}

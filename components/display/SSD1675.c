@@ -224,30 +224,31 @@ static bool Init( struct GDS_Device* Device ) {
 	Update( Device );
 	
 	return true;
-}	
+}
 
 static const struct GDS_Device SSD1675 = {
-	.DrawBitmapCBR = DrawBitmapCBR, .ClearWindow = ClearWindow,
-	.DrawPixelFast = _DrawPixel,
-	.Update = Update, .Init = Init,
-	.Mode = GDS_MONO, .Depth = 1,
-	.Alloc = GDS_ALLOC_NONE,
-};	
+    .DrawBitmapCBR = DrawBitmapCBR,
+    .ClearWindow = ClearWindow,
+    .DrawPixelFast = _DrawPixel,
+    .Update = Update,
+    .Init = Init,
+    .Mode = GDS_MONO,
+    .Depth = 1,
+    .Alloc = GDS_ALLOC_NONE,
+};
 
-struct GDS_Device* SSD1675_Detect(sys_Display * Driver, struct GDS_Device* Device) {
-	if(Driver->common.driver != sys_DisplayDriverEnum_SSD1675) return NULL;
-	
-	if (!Device) Device = calloc(1, sizeof(struct GDS_Device));
-	*Device = SSD1675;	
-	
-	char *p;
-	struct PrivateSpace* Private = (struct PrivateSpace*) Device->Private;
-	Private->ReadyPin = -1;
-	if(Driver->common.has_ready && Driver->common.ready.pin >=0){
-		Private->ReadyPin = Driver->common.ready.pin;
-	}
-	
-	ESP_LOGI(TAG, "SSD1675 driver with ready GPIO %d", Private->ReadyPin);
-	
-	return Device;
+struct GDS_Device* SSD1675_Detect(sys_display_config* Driver, struct GDS_Device* Device) {
+    if (Driver->common.driver != sys_display_drivers_SSD1675) return NULL;
+
+    if (!Device) Device = calloc(1, sizeof(struct GDS_Device));
+    *Device = SSD1675;
+    struct PrivateSpace* Private = (struct PrivateSpace*)Device->Private;
+    Private->ReadyPin = -1;
+    if (Driver->common.ready >= 0) {
+        Private->ReadyPin = Driver->common.ready;
+    }
+
+    ESP_LOGI(TAG, "SSD1675 driver with ready GPIO %d", Private->ReadyPin);
+
+    return Device;
 }

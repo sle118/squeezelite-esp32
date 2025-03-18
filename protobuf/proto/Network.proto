@@ -2,73 +2,139 @@ syntax = "proto3";
 import "google/protobuf/timestamp.proto";
 
 
-package sys;
+package sys.net;
 import "customoptions.proto";
 import "nanopb.proto";
-enum WifiAuthTypeEnum{
+option (nanopb_fileopt).enum_to_string = true;
+enum auth_types{
     AUTH_UNKNOWN = 0;
-    AUTH_OPEN = 1;
-    AUTH_WEP = 2;
-    AUTH_WPA_PSK = 3;
-    AUTH_WPA2_PSK = 4;
-    AUTH_WPA_WPA2_PSK = 5;
-    AUTH_WPA2_ENTERPRISE = 6;
-    AUTH_WPA3_PSK = 7;
-    AUTH_WPA2_WPA3_PSK = 8;
-    AUTH_WAPI_PSK = 9;
+    OPEN = 1;
+    WEP = 2;
+    WPA_PSK = 3;
+    WPA2_PSK = 4;
+    WPA_WPA2_PSK = 5;
+    WPA2_ENTERPRISE = 6;
+    WPA3_PSK = 7;
+    WPA2_WPA3_PSK = 8;
+    WAPI_PSK = 9;
 } 
-enum WifiRadioTypesEnum {
-    PHY_UNKNOWN = 0;
+enum radio_types {
+    UNKNOWN = 0;
     PHY_11B = 1;
     PHY_11G = 2;
     PHY_11N = 3;
-    PHY_LR = 4;
-    PHY_WPS = 5;
-    PHY_FTM_RESPONDER = 6;
-    PHY_FTM_INITIATOR = 7;
+    LR = 4;
+    WPS = 5;
+    FTM_RESPONDER = 6;
+    FTM_INITIATOR = 7;
 }
-
-message IP {
+message wifi_entry {
+    option (nanopb_msgopt).packed_struct  = true;
+    string ssid = 1 [(nanopb).max_length = 32];
+    string bssid = 2 [(nanopb).max_length = 32];
+    uint32 channel = 3 [(nanopb).int_size = IS_8];       /**< channel of target AP. Set to 1~13 to scan starting from the specified channel before connecting to AP. If the channel of AP is unknown, set it to 0.*/
+    auth_types auth_type = 4;
+    repeated radio_types radio_type = 5 [(nanopb).type = FT_POINTER];
+    google.protobuf.Timestamp last_try = 6;
+    google.protobuf.Timestamp last_seen = 7;
+    bool connected = 8;
+    string password = 9 [(nanopb).max_length = 64];
+    uint32 rssi = 10  [(nanopb).max_length = 8];
+} 
+message ip {
+    option (nanopb_msgopt).packed_struct  = true;
     option (nanopb_msgopt).msgid  = 10051;
     string ip = 14 [(nanopb).max_length = 15];
     string netmask = 15 [(nanopb).max_length = 15];
     string gw = 16 [(nanopb).max_length = 15];
   }
 
-  message WifiSTAEntry {
-    string ssid = 1 [(nanopb).max_length = 32];
-    string bssid = 2 [(nanopb).max_length = 32];
-    uint32 channel = 3 [(nanopb).int_size = IS_8];       /**< channel of target AP. Set to 1~13 to scan starting from the specified channel before connecting to AP. If the channel of AP is unknown, set it to 0.*/
-    WifiAuthTypeEnum auth_type = 4;
-    WifiRadioTypesEnum radio_type = 5;
-    google.protobuf.Timestamp last_try = 6;
-    google.protobuf.Timestamp last_seen = 7;
-    bool connected = 8;
-    string password = 9 [(nanopb).max_length = 64];
-    uint32 rssi = 10  [(nanopb).max_length = 8];
-}
-message WifiAP {
-    IP ip = 1;
-    string password = 2 [(nanopb).max_length = 64];
-    uint32 channel = 3 [(nanopb).int_size = IS_8];       /**< channel of Access point AP. */
-    WifiAuthTypeEnum auth_mode = 4 [(cust_field).v_enum = "AUTH_WPA2_PSK"];
-    bool hidden = 5;
+
+
+message ap {
+
+    option (nanopb_msgopt).packed_struct  = true;
+    option (nanopb_msgopt).msgid  = 10059;
+    /** @brief Defines the access point's IP, NETMASK and GATEWAY. The gateway
+     * should be set to the same value as the access point IP address.
+     * Defaults to IP="192.168.4.1", NETMASK="255.255.255.0", GATEWAY= "192.168.4.1"
+     **/
+    ip ip = 1 [(cust_field).v_msg = '{"ip":"192.168.4.1","netmask":"255.255.255.0","gw":"192.168.4.1"}'];
+    string password = 2 [(nanopb).max_length = 64,(cust_field).v_string = "squeezelite"];
+    /** @brief Defines access point's channel.
+    *  Channel selection is only effective when not connected to another AP.
+    *  Good practice for minimal channel interference to use
+    *  For 20 MHz: 1, 6 or 11 in USA and 1, 5, 9 or 13 in most parts of the world
+    *  For 40 MHz: 3 in USA and 3 or 11 in most parts of the world
+    */    
+    uint32 channel = 3 [(nanopb).int_size = IS_8,(cust_field).v_uint32 = 1];       
+    auth_types auth_mode = 4 [(cust_field).v_enum = "WPA2_PSK"];
+    bool hidden = 5 [(cust_field).v_bool=false ];
     // Max allowed connections. 4 is recommended 
-    uint32 max_connection = 6 [(nanopb).int_size = IS_8]; 
+    uint32 max_connection = 6 [(nanopb).int_size = IS_8,(cust_field).v_uint32 = 4]; 
     // Recommended value: 100
-    uint32 beacon_interval = 7 [(nanopb).int_size = IS_16];
+    uint32 beacon_interval = 7 [(nanopb).int_size = IS_16, (cust_field).v_uint32 = 100];
+
 }
-message Server {
+message server {
+    option (nanopb_msgopt).packed_struct  = true;
     option (nanopb_msgopt).msgid  = 10050;
     int32 cport = 1;
     int32 port = 2;
     string ip = 3 [(nanopb).max_length = 15];
   }
-message NetworkConfig {
+message config {
+    enum ps_types {
+        NONE = 0;        /**< No power save */
+        MIN_MODEM = 1;   /**< Minimum modem power saving. In this mode, station wakes up to receive beacon every DTIM period */
+        MAX_MODEM = 2;   /**< Maximum modem power saving. In this mode, interval to receive beacons is determined by the listen_interval parameter in wifi_sta_config_t */
+    } 
+    option (nanopb_msgopt).packed_struct  = true;
     bool disable_dhcp = 1;
-    IP manual_ip = 2;
+    ip manual_ip = 2;
     // Wifi Credentials
-    repeated WifiSTAEntry credentials = 3 [ (nanopb).max_count = 5 ];
-    WifiAP ap = 4;
-    WifiSTAEntry last_connected = 5 ;
+    repeated wifi_entry credentials = 3 [(nanopb).type = FT_CALLBACK, (nanopb).callback_datatype = "sys_net_wifi_entry*"];
+    ap ap = 4;
+    uint32 sta_polling_max_s = 5 [(nanopb).int_size = IS_16, (cust_field).v_uint32 = 600];
+    // access point teardown timer delay (s)
+    uint32 ap_duration_s = 6 [(nanopb).int_size = IS_16, (cust_field).v_uint32 = 20];
+    // background STA polling (s) used, amongst others, when an attempt to connect
+    // to a known AP was made
+    uint32 sta_polling_min_s = 7 [(nanopb).int_size = IS_16, (cust_field).v_uint32 = 15];
+    uint32 dhcp_tmout_s = 8 [(nanopb).int_size = IS_16, (cust_field).v_uint32 = 30];
+    bool eth_boot = 9 [(cust_field).v_bool = false];
+    // number of times to try to connect to wifi when the connection is 
+    // dropped
+    uint32 max_wifi_retry = 10 [(cust_field).v_uint32 = 3];
+    // As input param, it stores max AP number ap_records can hold. As output param, it receives the
+    //  actual AP number this API returns. As a consequence, ap_num MUST be reset to MAX_AP_NUM at
+    //  every scan 
+    uint32 max_ap_num = 11 [(cust_field).v_uint32 = 15];
+    /**
+    * @brief Defines the maximum size of a SSID name. 32 is IEEE standard.
+    * @warning limit is also hard coded in wifi_config_t. Never extend this value.
+    */    
+    uint32 max_ssid_size = 12 [(cust_field).v_uint32 = 32];    
+    /**
+    * @brief Defines the maximum size of a WPA2 passkey. 64 is IEEE standard.
+    * @warning limit is also hard coded in wifi_config_t. Never extend this value.
+    */    
+    uint32 max_password_size = 13 [(cust_field).v_uint32 = 64];        
+
+/** @brief Defines if wifi power save shall be enabled.
+    *  Value: WIFI_PS_NONE for full power (wifi modem always on)
+    *  Value: WIFI_PS_MODEM for power save (wifi modem sleep periodically)
+    *  Note: Power save is only effective when in STA only mode
+    */
+    ps_types power_save_mode = 14 [(cust_field).v_enum = "MIN_MODEM"];
+    // max number of times that a the system will try to connect to a
+    // known access point if it wasn't already connected before
+    uint32 max_initial_wifi_attempt = 15 [(cust_field).v_uint32 = 3];    
+
+    // Connect to the first found access point matching the given SSID
+    // Although this will reduce the boot-to-playback time, use with care
+    // in an environment where several access points are configured with the same
+    // SSID, as this does not guarantee that the AP with the best signal will
+    // be connected to and result in instabilities.
+    bool wifi_connect_fast_scan = 16;
 }

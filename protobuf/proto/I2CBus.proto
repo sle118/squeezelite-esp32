@@ -1,19 +1,26 @@
 syntax = "proto3";
 
-package sys;
-import "GPIO.proto";
+package sys.i2c;
 import "nanopb.proto";
+import "customoptions.proto";
+
 option (nanopb_fileopt).enum_to_string = true;
 
-enum I2CPortEnum {
-  UNSPECIFIED_PORT = 0;
-  I2CPort0 = 1;
-  I2CPort1 = 2;
+enum port {
+  UNSPECIFIED = 0;
+  PORT0 = 1;
+  PORT1 = 2;
 }
-message I2CBus {
+message bus {
+  option (nanopb_msgopt).packed_struct  = true;
   option (nanopb_msgopt).msgid  = 10034;
-  I2CPortEnum port = 1 ;
-  int32 speed = 2  [(nanopb).int_size = IS_16];
-  GPIO sda = 3;
-  GPIO scl = 4;
+  port port = 1 ;
+  int64 speed = 2  [(cust_field).v_int64 = 400000];
+  int32 sda = 3 [(nanopb).int_size=IS_16, (cust_field).v_int32=-1];
+  int32 scl = 4 [(nanopb).int_size=IS_16, (cust_field).v_int32=-1];
+}
+message device {
+  option (nanopb_msgopt).packed_struct  = true;
+  option (nanopb_msgopt).msgid  = 10021;
+  int32 address = 1  [(nanopb).int_size = IS_8];
 }

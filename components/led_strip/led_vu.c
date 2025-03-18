@@ -23,7 +23,7 @@
 #include "globdefs.h"
 #include "monitor.h"
 #include "led_strip.h"
-#include "Configurator.h"
+#include "Config.h"
 #include "accessors.h"
 #include "led_vu.h"
 
@@ -76,22 +76,23 @@ static void battery_svc(float value, int cells) {
  * 
  */
 void led_vu_init()
-{
-    sys_LEDStrip * config = NULL;
+{   
+    sys_dev_led_strip*config;
     if(!SYS_DEV_LEDSTRIP(config)){
+        ESP_LOGI(TAG,"No LED Strip configuration");
         return;
     }
-    if(!!config->has_gpio ){
+    if(config->gpio<0){
+        ESP_LOGI(TAG,"LED Strip has no GPIO configured");
         return;
     }
-    // char* config = config_alloc_get_str("led_vu_config", NULL, "N/A");
-
+    ESP_LOGI(TAG, "Initializing led_vu");    
     // Initialize led VU strip 
     strip.length = config->length;
-    strip.gpio = config->gpio.pin;
+    strip.gpio = config->gpio;
     
     // check for valid configuration
-    if (config->strip_type == sys_LEDStripType_LS_UNKNOWN || !config->has_gpio || config->gpio.pin <0) {
+    if (config->strip_type == sys_dev_strip_types_LS_UNKNOWN || config->gpio <0) {
         ESP_LOGI(TAG, "led_vu configuration invalid");
         return;
     }
@@ -117,7 +118,7 @@ void led_vu_init()
     ESP_LOGI(TAG, "vu meter using length:%d left:%d right:%d status:%d", strip.vu_length, strip.vu_start_l, strip.vu_start_r, strip.vu_status);
 
     // create driver configuration
-    led_strip_config.rgb_led_type = config->strip_type == sys_LEDStripType_LS_WS2812?RGB_LED_TYPE_WS2812:RGB_LED_TYPE_MAX;
+    led_strip_config.rgb_led_type = config->strip_type == sys_dev_strip_types_LS_WS2812?RGB_LED_TYPE_WS2812:RGB_LED_TYPE_MAX;
     led_strip_config.access_semaphore = xSemaphoreCreateBinary();
     led_strip_config.led_strip_length = strip.length;
     led_strip_config.led_strip_working = heap_caps_malloc(strip.length * sizeof(struct led_color_t), MALLOC_CAP_8BIT);

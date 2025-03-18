@@ -1,10 +1,12 @@
 syntax = "proto3";
 
-package sys;
+package sys.equalizer;
 
 import "nanopb.proto";
 
-message Equalizer {
+message config {
+  option (nanopb_msgopt).packed_struct  = true;
   repeated float gains = 1 [(nanopb).max_count = 10];    
   float loudness = 2;
+  
 }

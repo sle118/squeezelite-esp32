@@ -1,33 +1,39 @@
 /*
 Copyright (c) 2017-2021 Sebastien L
 */
-
+#define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
 #include "http_server_handlers.h"
-#include "cJSON.h"
-#include "cmd_system.h"
-#include "esp_http_server.h"
-#include "esp_system.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "squeezelite-ota.h"
-#include <inttypes.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include "Configurator.h"
+#include "Config.h"
+#include "DataRequest.pb.h"
+#include "Locking.h"
+#include "Status.pb.h"
 #include "accessors.h"
 #include "argtable3/argtable3.h"
+#include "cJSON.h"
+#include "cmd_system.h"
 #include "esp_console.h"
+#include "esp_http_server.h"
+#include "esp_system.h"
 #include "esp_vfs.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "messaging.h"
 #include "network_status.h"
 #include "network_wifi.h"
+#include "pb_decode.h"
+#include "pb_encode.h"
 #include "platform_console.h"
 #include "platform_esp32.h"
+#include "squeezelite-ota.h"
 #include "sys/param.h"
 #include "tools.h"
-#include "pb_encode.h"
-#include "pb_decode.h"
-#include "Status.pb.h"
+#include <inttypes.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include "tools_http_utils.h"
+#include "bootstate.h"
+
+
 #define HTTP_STACK_SIZE (5 * 1024)
 const char str_na[] = "N/A";
 #define STR_OR_NA(s) s ? s : str_na
@@ -43,6 +49,7 @@ typedef struct session_context {
     bool authenticated;
     char* sess_ip_address;
     u16_t port;
+    SemaphoreHandle_t signal;
 } session_context_t;
 extern cJSON* get_gpio_list(bool refresh);
 
@@ -124,6 +131,7 @@ char* http_alloc_get_socket_address(httpd_req_t* req, u8_t local, in_port_t* por
     }
     return ipstr;
 }
+
 bool is_captive_portal_host_name(httpd_req_t* req) {
     const char* host_name = NULL;
     const char* ap_host_name = NULL;
@@ -196,6 +204,7 @@ void free_ctx_func(void* ctx) {
 
 session_context_t* get_session_context(httpd_req_t* req) {
     bool newConnection = false;
+    ESP_LOGD_LOC(TAG,"Getting session context for %s",req->uri);
     if (!req->sess_ctx) {
         ESP_LOGD(TAG, "New connection context. Allocating session buffer");
         req->sess_ctx = malloc_init_external(sizeof(session_context_t));
@@ -212,7 +221,36 @@ session_context_t* get_session_context(httpd_req_t* req) {
     }
     return (session_context_t*)req->sess_ctx;
 }
-
+bool is_spiffs_safe_thread(httpd_req_t* req) {
+    session_context_t* ctx_data = get_session_context(req);
+    return ctx_data->signal != NULL;
+}
+void finalize_dispatch(httpd_req_t* req) {
+    ESP_LOGD_LOC(TAG,"Finalizing dispatch");
+    session_context_t* ctx_data = get_session_context(req);
+    if (!ctx_data) {
+        ESP_LOGE(TAG, "Invalid HTTP Context");
+    } else {
+        xSemaphoreGive(ctx_data->signal);
+    }
+}
+void dispatch_response(httpd_req_t* req, network_manager_ret_cb_t cb) {
+    session_context_t* ctx_data = get_session_context(req);
+    if (!ctx_data) {
+        ESP_LOGE(TAG, "Invalid HTTP Context");
+        return;
+    }
+    ctx_data->signal = xSemaphoreCreateBinary();
+    ESP_LOGD_LOC(TAG,"FIRING async task for %s",req->uri);
+    network_async_callback_withret(req, cb);
+    ESP_LOGD_LOC(TAG,"WAITING for async task to complete for %s",req->uri);
+    if (xSemaphoreTake(ctx_data->signal, portMAX_DELAY) != pdTRUE) {
+        ESP_LOGE(TAG, "Async http failed for %s", req->uri);
+    }
+    ESP_LOGD_LOC(TAG,"COMPLETED Async task for %s",req->uri);
+    vSemaphoreDelete(ctx_data->signal);
+    ctx_data->signal = NULL;
+}
 bool is_user_authenticated(httpd_req_t* req) {
     session_context_t* ctx_data = get_session_context(req);
 
@@ -270,41 +308,64 @@ static const char* get_path_from_uri(char* dest, const char* uri, size_t destsiz
     /* Return pointer to path, skipping the base */
     return last_fs ? ++last_fs : dest;
 }
+bool hasFileExtension(const char* filename, const char* ext) {
+    size_t fn_len = strlen(filename);
+    size_t ext_len = strlen(ext);
 
-#define IS_FILE_EXT(filename, ext)                                                                 \
-    (strcasecmp(&filename[strlen(filename) - sizeof(ext) + 1], ext) == 0)
-
-/* Set HTTP response content type according to file extension */
-static esp_err_t set_content_type_from_file(httpd_req_t* req, const char* filename) {
-    if (strlen(filename) == 0) {
-        // for root page, etc.
-        return httpd_resp_set_type(req, HTTPD_TYPE_TEXT);
-    } else if (IS_FILE_EXT(filename, ".pdf")) {
-        return httpd_resp_set_type(req, "application/pdf");
-    } else if (IS_FILE_EXT(filename, ".html")) {
-        return httpd_resp_set_type(req, HTTPD_TYPE_TEXT);
-    } else if (IS_FILE_EXT(filename, ".jpeg")) {
-        return httpd_resp_set_type(req, "image/jpeg");
-    } else if (IS_FILE_EXT(filename, ".png")) {
-        return httpd_resp_set_type(req, "image/png");
-    } else if (IS_FILE_EXT(filename, ".ico")) {
-        return httpd_resp_set_type(req, "image/x-icon");
-    } else if (IS_FILE_EXT(filename, ".css")) {
-        return httpd_resp_set_type(req, "text/css");
-    } else if (IS_FILE_EXT(filename, ".js")) {
-        return httpd_resp_set_type(req, "text/javascript");
-    } else if (IS_FILE_EXT(filename, ".json")) {
-        return httpd_resp_set_type(req, HTTPD_TYPE_JSON);
-    } else if (IS_FILE_EXT(filename, ".map")) {
-        return httpd_resp_set_type(req, "map");
-    } else if (IS_FILE_EXT(filename, ".pro")) {
-        return httpd_resp_set_type(req, "application/octet-stream");
+    if (ext_len > fn_len) {
+        return false;
     }
 
-    /* This is a limited set only */
-    /* For any other type always set as plain text */
-    return httpd_resp_set_type(req, "text/plain");
+    return strcasecmp(&filename[fn_len - ext_len], ext) == 0;
 }
+
+static esp_err_t set_content_type_from_file(httpd_req_t* req, const char* full_name) {
+    char filename[strlen(full_name) + 1];
+    strcpy(filename, full_name);
+    if (hasFileExtension(full_name, ".gz")) {
+        httpd_resp_set_hdr(req, "Content-Encoding", "gzip");
+        // Remove the .gz extension for MIME type detection
+        filename[strlen(full_name) - 3] = '\0';
+    }
+
+    if (hasFileExtension(filename, ".html") || hasFileExtension(filename, ".htm")) {
+        return httpd_resp_set_type(req, "text/html");
+    } else if (hasFileExtension(filename, ".css")) {
+        return httpd_resp_set_type(req, "text/css");
+    } else if (hasFileExtension(filename, ".js")) {
+        return httpd_resp_set_type(req, "application/javascript");
+    } else if (hasFileExtension(filename, ".json")) {
+        return httpd_resp_set_type(req, "application/json");
+    } else if (hasFileExtension(filename, ".xml")) {
+        return httpd_resp_set_type(req, "application/xml");
+    } else if (hasFileExtension(filename, ".jpg") || hasFileExtension(filename, ".jpeg")) {
+        return httpd_resp_set_type(req, "image/jpeg");
+    } else if (hasFileExtension(filename, ".png")) {
+        return httpd_resp_set_type(req, "image/png");
+    } else if (hasFileExtension(filename, ".gif")) {
+        return httpd_resp_set_type(req, "image/gif");
+    } else if (hasFileExtension(filename, ".svg")) {
+        return httpd_resp_set_type(req, "image/svg+xml");
+    } else if (hasFileExtension(filename, ".ico")) {
+        return httpd_resp_set_type(req, "image/x-icon");
+    } else if (hasFileExtension(filename, ".pdf")) {
+        return httpd_resp_set_type(req, "application/pdf");
+    } else if (hasFileExtension(filename, ".txt")) {
+        return httpd_resp_set_type(req, "text/plain");
+    } else if (hasFileExtension(filename, ".bin") || hasFileExtension(filename, ".dat")) {
+        return httpd_resp_set_type(req, "application/octet-stream");
+    } else if (hasFileExtension(filename, ".mp3")) {
+        return httpd_resp_set_type(req, "audio/mpeg");
+    } else if (hasFileExtension(filename, ".mp4")) {
+        return httpd_resp_set_type(req, "video/mp4");
+    } else if (hasFileExtension(filename, ".avi")) {
+        return httpd_resp_set_type(req, "video/x-msvideo");
+    }
+
+    // Default MIME type for unknown files
+    return httpd_resp_set_type(req, "application/octet-stream");
+}
+
 static esp_err_t set_content_type_from_req(httpd_req_t* req) {
     char filepath[FILE_PATH_MAX];
     const char* filename = get_path_from_uri(filepath, req->uri, sizeof(filepath));
@@ -372,54 +433,88 @@ static bool resolve_file_path(const char* uri, char* resolvedpath, size_t resolv
     // Neither uncompressed nor compressed file exists
     return false;
 }
-esp_err_t file_get_handler(httpd_req_t* req) {
-    size_t sz;
-    char filepath[FILE_PATH_MAX];
-    struct stat file_stat={};
+esp_err_t send_file_chunked(httpd_req_t* req, const char* filename) {
+    struct stat file_stat = {};
+    if (stat(filename, &file_stat) == -1) {
+        ESP_LOGE(TAG, "Failed to stat file : %s", filename);
+        /* Respond with 404 Not Found */
+        httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "File does not exist");
+        return ESP_FAIL;
+    }
 
-    httpd_resp_set_hdr(req, "Content-Encoding", "gzip");
-
-    ESP_LOGD_LOC(TAG, "Serving file from [%s]", req->uri);
-    const char* filename = get_path_from_uri(filepath, req->uri, sizeof(filepath));
-    if (!filename) {
-        ESP_LOGE_LOC(TAG, "Filename is too long");
+    FILE* fd = fopen(filename, "r");
+    if (!fd) {
+        ESP_LOGE(TAG, "Failed to read existing file : %s", filename);
         /* Respond with 500 Internal Server Error */
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Filename too long");
-        return ESP_FAIL;
-    }
-	   /* If name has trailing '/', respond with directory contents */
-    if (filename[strlen(filename) - 1] == '/') {
-        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Browsing files forbidden.");
-        return ESP_FAIL;
-    }
-	if (strlen(filename) != 0 && IS_FILE_EXT(filename, ".map")) {
-        return httpd_resp_sendstr(req, "");
-    }
-    if (!resolve_file_path(filename, filepath, sizeof(filepath))) {
-        httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "File not found");
-        return ESP_FAIL;
-    }
-    esp_err_t err = set_content_type_from_file(req, filepath);
-    if (err != ESP_OK) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to read existing file");
         return ESP_FAIL;
     }
 
-    char* buffer = load_file(&sz,filepath);
-    if (buffer) {
-        if (sz == file_stat.st_size) {
-            httpd_resp_send(req, buffer, sz);
-        } else {
-            ESP_LOGE(TAG, "Failed to read full file : %s", filepath);
-            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to read full file");
-            err = ESP_FAIL;
+    ESP_LOGD_LOC(TAG, "Setting content type for %s (%ld bytes)...", filename, file_stat.st_size);
+    set_content_type_from_file(req, filename);
+    ESP_LOGI(TAG, "Sending file : %s (%ld bytes)...", filename, file_stat.st_size);
+
+    /* Retrieve the pointer to scratch buffer for temporary storage */
+    char* chunk = ((rest_server_context_t*)(req->user_ctx))->scratch;
+    size_t chunksize;
+    do {
+        ESP_LOGD_LOC(TAG,"More data to send");
+        /* Read file in chunks into the scratch buffer */
+        chunksize = fread(chunk, 1, SCRATCH_BUFSIZE, fd);
+        ESP_LOGD_LOC(TAG,"Read chunk size: %d",chunksize);
+        if (chunksize > 0) {
+            /* Send the buffer contents as HTTP response chunk */
+            if (httpd_resp_send_chunk(req, chunk, chunksize) != ESP_OK) {
+                fclose(fd);
+                ESP_LOGE(TAG, "File sending failed!");
+                /* Abort sending file */
+                ESP_LOGD_LOC(TAG,"Sending NULL chunk");
+                httpd_resp_sendstr_chunk(req, NULL);
+                ESP_LOGD_LOC(TAG,"Sending 500 internal error");
+                /* Respond with 500 Internal Server Error */
+                httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to send file");
+                ESP_LOGD_LOC(TAG,"returning");
+                return ESP_FAIL;
+            }
         }
-        free(buffer);
-    } else {
-        ESP_LOGE(TAG, "Failed to allocate memory for file : %s", filepath);
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Server out of memory");
+
+        /* Keep looping till the whole file is sent */
+    } while (chunksize != 0);
+    /* Close file after sending complete */
+    fclose(fd);
+    ESP_LOGI(TAG, "File sending complete for %s", req->uri);
+    /* Respond with an empty chunk to signal HTTP response completion */
+    ESP_LOGD_LOC(TAG,"Closing connection");
+    httpd_resp_send_chunk(req, NULL, 0);
+
+
+    return ESP_OK;
+}
+esp_err_t file_get_handler(httpd_req_t* req) {
+    esp_err_t err = ESP_OK;
+    char filepath[FILE_PATH_MAX];
+    if (!is_spiffs_safe_thread(req)) {
+        dispatch_response(req, (network_manager_ret_cb_t)file_get_handler);
+        return ESP_OK;
+    }
+
+    // const char* filename = get_path_from_uri(filepath, req->uri, sizeof(filepath));
+    ESP_LOGD_LOC(TAG, "Serving file from [%s]", req->uri);
+    if (err == ESP_OK && req->uri[strlen(req->uri) - 1] == '/') {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Browsing files forbidden.");
         err = ESP_FAIL;
     }
-    return ESP_OK;
+    if (err == ESP_OK && strlen(req->uri) != 0 && hasFileExtension(req->uri, ".map")) {
+        err = httpd_resp_sendstr(req, "");
+    } else {
+        if (err == ESP_OK && !resolve_file_path(req->uri, filepath, sizeof(filepath))) {
+            httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "File not found");
+            err = ESP_FAIL;
+        }
+        err = send_file_chunked(req, filepath);
+    }
+    finalize_dispatch(req);
+    return err;
 }
 
 esp_err_t root_get_handler(httpd_req_t* req) {
@@ -428,55 +523,33 @@ esp_err_t root_get_handler(httpd_req_t* req) {
     esp_err_t err = ESP_OK;
     ESP_LOGD(TAG, "Serving [%s]", req->uri);
 
-    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
-    httpd_resp_set_hdr(req, "Accept-Encoding", "identity");
+    if (!is_spiffs_safe_thread(req)) {
+        dispatch_response(req, (network_manager_ret_cb_t)root_get_handler);
+        return ESP_OK;
+    }
 
     if (!is_user_authenticated(req)) {
         // TODO: Send password entry page and return
     }
-    if (!resolve_file_path("index.html", filepath, sizeof(filepath))) {
-        httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "File not found");
-        return ESP_FAIL;
-    }
-    err = set_content_type_from_file(req, filepath);
-    if (err != ESP_OK) {
-        return ESP_FAIL;
-    }
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_set_hdr(req, "Accept-Encoding", "identity");
 
-    char* buffer = load_file(&sz,filepath);
-    if (buffer) {
-        httpd_resp_send(req, buffer, sz);
-        free(buffer);
-    } else {
-        ESP_LOGE(TAG, "Failed to allocate memory for file : %s", filepath);
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Server out of memory");
+    if (!resolve_file_path("/index.html", filepath, sizeof(filepath))) {
+        httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "File not found");
         err = ESP_FAIL;
     }
-
-    ESP_LOGD(TAG, "Done serving [%s]", req->uri);
+    err = send_file_chunked(req, filepath);
+    finalize_dispatch(req);
     return err;
 }
 
 esp_err_t resource_filehandler(httpd_req_t* req) {
     ESP_LOGD_LOC(TAG, "serving [%s]", req->uri);
-	esp_err_t err = file_get_handler(req);
-     ESP_LOGD_LOC(TAG, "Resource sending complete");
+    esp_err_t err = file_get_handler(req);
+    ESP_LOGD_LOC(TAG, "Resource sending complete");
     return err;
 }
-esp_err_t ap_scan_handler(httpd_req_t* req) {
-    const char empty[] = "{}";
-    ESP_LOGD_LOC(TAG, "serving [%s]", req->uri);
-    if (!is_user_authenticated(req)) {
-        // todo:  redirect to login page
-        // return ESP_OK;
-    }
-    network_async_scan();
-    esp_err_t err = set_content_type_from_req(req);
-    if (err == ESP_OK) {
-        httpd_resp_send(req, (const char*)empty, HTTPD_RESP_USE_STRLEN);
-    }
-    return err;
-}
+
 
 esp_err_t console_cmd_get_handler(httpd_req_t* req) {
     ESP_LOGD_LOC(TAG, "serving [%s]", req->uri);
@@ -553,40 +626,6 @@ esp_err_t console_cmd_post_handler(httpd_req_t* req) {
     return err;
 }
 
-
-esp_err_t config_get_handler(httpd_req_t* req) {
-    ESP_LOGD_LOC(TAG, "serving [%s]", req->uri);
-    if (!is_user_authenticated(req)) {
-        // todo:  redirect to login page
-        // return ESP_OK;
-    }
-    esp_err_t err = ESP_OK;
-
-// err= set_content_type_from_req(req);
-// if(err == ESP_OK){
-// 	char * json = config_alloc_get_json(false);
-// 	if(json==NULL){
-// 		ESP_LOGD_LOC(TAG,  "Error retrieving config json string. ");
-// 		httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Error retrieving configuration
-// object"); 		err=ESP_FAIL;
-// 	}
-// 	else {
-// 		ESP_LOGD_LOC(TAG,  "config json : %s",json );
-// 		cJSON * gplist=get_gpio_list(false);
-// 		char * gpliststr=cJSON_PrintUnformatted(gplist);
-// 		httpd_resp_sendstr_chunk(req,"{ \"gpio\":");
-// 		httpd_resp_sendstr_chunk(req,gpliststr);
-// 		httpd_resp_sendstr_chunk(req,", \"config\":");
-// 		httpd_resp_sendstr_chunk(req, (const char *)json);
-// 		httpd_resp_sendstr_chunk(req,"}");
-// 		httpd_resp_sendstr_chunk(req,NULL);
-// 		free(gpliststr);
-// 		free(json);
-// 	}
-// }
-// TODO: Add support for the commented code
-    return err;
-}
 esp_err_t post_handler_buff_receive(httpd_req_t* req) {
     esp_err_t err = ESP_OK;
 
@@ -617,302 +656,101 @@ esp_err_t post_handler_buff_receive(httpd_req_t* req) {
     }
     return err;
 }
-
-esp_err_t configurator_post_handler(httpd_req_t* req) {
-    ESP_LOGD_LOC(TAG, "serving [%s]", req->uri);
-    bool bOTA = false;
-    char* otaURL = NULL;
-    esp_err_t err = post_handler_buff_receive(req);
-    if (err != ESP_OK) {
-        return err;
-    }
-    if (!is_user_authenticated(req)) {
-        // todo:  redirect to login page
-        // return ESP_OK;
-    }
-    err = set_content_type_from_req(req);
-    if (err != ESP_OK) {
-        return err;
-    }
-
-    char* buf = ((rest_server_context_t*)(req->user_ctx))->scratch;
-    cJSON* root = cJSON_Parse(buf);
-    if (root == NULL) {
-        ESP_LOGE_LOC(TAG, "Parsing config json failed. Received content was: %s", buf);
-        httpd_resp_send_err(
-            req, HTTPD_400_BAD_REQUEST, "Malformed config json.  Unable to parse content.");
-        return ESP_FAIL;
-    }
-
-    char* root_str = cJSON_Print(root);
-    if (root_str != NULL) {
-        ESP_LOGD(TAG, "Processing config item: \n%s", root_str);
-        free(root_str);
-    }
-
-    cJSON* item = cJSON_GetObjectItemCaseSensitive(root, "config");
-    if (!item) {
-        ESP_LOGE_LOC(TAG, "Parsing config json failed. Received content was: %s", buf);
-        httpd_resp_send_err(
-            req, HTTPD_400_BAD_REQUEST, "Malformed config json.  Unable to parse content.");
+esp_err_t send_response(httpd_req_t* req, sys_request_response* response) {
+    esp_err_t err = ESP_OK;
+    pb_ostream_t http_stream = PB_OSTREAM_SIZING;
+    http_stream.callback = &out_http_binding;
+    http_stream.state = req;
+    http_stream.max_size = SIZE_MAX;
+    if (!pb_encode(&http_stream, &sys_request_response_msg, response)) {
         err = ESP_FAIL;
-    } else {
-        // navigate to the first child of the config structure
-        if (item->child) item = item->child;
     }
-
-    // while (item && err == ESP_OK)
-    // {
-    // 	cJSON *prev_item = item;
-    // 	item=item->next;
-    // 	char * entry_str = cJSON_Print(prev_item);
-    // 	if(entry_str!=NULL){
-    // 		ESP_LOGD_LOC(TAG, "Processing config item: \n%s", entry_str);
-    // 		free(entry_str);
-    // 	}
-
-    // 	if(prev_item->string==NULL) {
-    // 		ESP_LOGD_LOC(TAG,"Config value does not have a name");
-    // 		httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Malformed config json.  Value does not
-    // have a name."); 		err = ESP_FAIL;
-    // 	}
-    // 	if(err == ESP_OK){
-    // 		ESP_LOGD_LOC(TAG,"Found config value name [%s]", prev_item->string);
-    // 	nvs_type_t item_type=  config_get_item_type(prev_item);
-    // 	if(item_type!=0){
-    // 		void * val = config_safe_alloc_get_entry_value(item_type, prev_item);
-    // 		if(val!=NULL){
-    // 			if(strcmp(prev_item->string, "fwurl")==0) {
-    // 				if(item_type!=NVS_TYPE_STR){
-    // 					ESP_LOGE_LOC(TAG,"Firmware url should be type %d. Found type %d
-    // instead.",NVS_TYPE_STR,item_type ); 					httpd_resp_send_err(req,
-    // HTTPD_400_BAD_REQUEST,
-    // "Malformed config json.  Wrong type for firmware URL."); 					err = ESP_FAIL;
-    // 				}
-    // 				else {
-    // 					// we're getting a request to do an OTA from that URL
-    // 					ESP_LOGW_LOC(TAG,   "Found OTA request!");
-    // 					otaURL=strdup_psram(val);
-    // 					bOTA=true;
-    // 				}
-    // 			}
-    // 			else {
-    // 				if(config_set_value(item_type, prev_item->string , val) != ESP_OK){
-    // 					ESP_LOGE_LOC(TAG,"Unable to store value for [%s]", prev_item->string);
-    // 					httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR , "Unable to store
-    // config value"); 					err = ESP_FAIL;
-    // 				}
-    // 				else {
-    // 					ESP_LOGD_LOC(TAG,"Successfully set value for [%s]",prev_item->string);
-    // 				}
-    // 			}
-    // 			free(val);
-    // 		}
-    // 		else {
-    // 			char messageBuffer[101]={};
-    // 			ESP_LOGE_LOC(TAG,"Value not found for [%s]", prev_item->string);
-    // 			snprintf(messageBuffer,sizeof(messageBuffer),"Malformed config json.  Missing value
-    // for entry %s.",prev_item->string); 			httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST,
-    // messageBuffer); 			err = ESP_FAIL;
-    // 		}
-    // 	}
-    // 	else {
-    // 		ESP_LOGE_LOC(TAG,"Unable to determine the type of config value [%s]",
-    // prev_item->string); 		httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Malformed config
-    // json. Missing value for entry."); 		err = ESP_FAIL;
-    // 	}
-    // }
-    // }
-
-    cJSON_Delete(root);
-    if (bOTA) {
-
-        if (is_recovery_running) {
-            ESP_LOGW_LOC(TAG, "Starting process OTA for url %s", otaURL);
-        } else {
-            ESP_LOGW_LOC(TAG, "Restarting system to process OTA for url %s", otaURL);
-        }
-
-        network_reboot_ota(otaURL);
-        free(otaURL);
-    }
+    /* Respond with an empty chunk to signal HTTP response completion */
+    httpd_resp_send_chunk(req, NULL, 0);
     return err;
 }
-esp_err_t configurator_get_handler(httpd_req_t* req) {
+esp_err_t data_post_handler(httpd_req_t* req) {
     ESP_LOGD_LOC(TAG, "serving [%s]", req->uri);
+    sys_request_payload payload;
+    sys_request_response response;
+    response.result = sys_request_result_SUCCESS;
+    response.message = "";
+    char* otaURL = NULL;
     if (!is_user_authenticated(req)) {
         // todo:  redirect to login page
         // return ESP_OK;
     }
-    esp_err_t err = ESP_OK;
-    void* config = NULL;
-    size_t datalen;
+    esp_err_t err = set_content_type_from_req(req);
+    if (err != ESP_OK) {
+        return err;
+    }
+    pb_istream_t http_stream = PB_ISTREAM_EMPTY;
+    http_stream.callback = &in_http_binding;
+    http_stream.state = req;
+    http_stream.bytes_left = req->content_len;
 
-    err = set_content_type_from_req(req);
+    if (!pb_decode(&http_stream, &sys_request_payload_msg, &payload)) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, http_stream.errmsg);
+        return ESP_FAIL;
+    }
+    ESP_LOGI(TAG, "Received Payload");
+    dump_structure(&sys_request_payload_msg, &payload);
 
-    if (err == ESP_OK) {
-        config = configurator_alloc_get_config(&datalen);
-        if (!config) {
-            ESP_LOGE_LOC(TAG, "Unable to serialize configuration");
-            httpd_resp_send_err(
-                req, HTTPD_500_INTERNAL_SERVER_ERROR, "Unable to serialize configuration");
+    switch (payload.type) {
+    case sys_request_type_CONFIG:
+        if (payload.action == sys_request_action_GET) {
+            if (!config_http_send_config(req)) {
+                err = ESP_FAIL;
+            }
+        } else {
+            // we are setting a config object
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Not implemented");
+            err = ESP_FAIL;
+        }
+        break;
+    case sys_request_type_STATUS:
+        if (payload.action == sys_request_action_GET) {
+            if(!network_status_send_object(req)){
+                err = ESP_FAIL;
+            }
+        }
+        else {
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Invalid request type");
+            err = ESP_FAIL;
+        }
+    break;        
+    case sys_request_type_SCAN:
+        if (payload.action == sys_request_action_GET) {
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "SCAN List should be retrieved with request type STATUS");
             err = ESP_FAIL;
         } else {
-            httpd_resp_send(req, (const char*)config, datalen);
-            free(config);
+            network_async_scan();
         }
-    }
-
-// if(err == ESP_OK){
-// 	char * json = config_alloc_get_json(false);
-// 	if(json==NULL){
-// 		ESP_LOGD_LOC(TAG,  "Error retrieving config json string. ");
-// 		httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Error retrieving configuration
-// object"); 		err=ESP_FAIL;
-// 	}
-// 	else {
-// 		ESP_LOGD_LOC(TAG,  "config json : %s",json );
-// 		cJSON * gplist=get_gpio_list(false);
-// 		char * gpliststr=cJSON_PrintUnformatted(gplist);
-// 		httpd_resp_sendstr_chunk(req,"{ \"gpio\":");
-// 		httpd_resp_sendstr_chunk(req,gpliststr);
-// 		httpd_resp_sendstr_chunk(req,", \"config\":");
-// 		httpd_resp_sendstr_chunk(req, (const char *)json);
-// 		httpd_resp_sendstr_chunk(req,"}");
-// 		httpd_resp_sendstr_chunk(req,NULL);
-// 		free(gpliststr);
-// 		free(json);
-// 	}
-// }
-// TODO: Add support for the commented code
-    return err;
-}
-
-esp_err_t config_post_handler(httpd_req_t* req) {
-    ESP_LOGD_LOC(TAG, "serving [%s]", req->uri);
-    bool bOTA = false;
-    char* otaURL = NULL;
-    esp_err_t err = post_handler_buff_receive(req);
-    if (err != ESP_OK) {
-        return err;
-    }
-    if (!is_user_authenticated(req)) {
-        // todo:  redirect to login page
-        // return ESP_OK;
-    }
-    err = set_content_type_from_req(req);
-    if (err != ESP_OK) {
-        return err;
-    }
-
-    char* buf = ((rest_server_context_t*)(req->user_ctx))->scratch;
-    cJSON* root = cJSON_Parse(buf);
-    if (root == NULL) {
-        ESP_LOGE_LOC(TAG, "Parsing config json failed. Received content was: %s", buf);
-        httpd_resp_send_err(
-            req, HTTPD_400_BAD_REQUEST, "Malformed config json.  Unable to parse content.");
-        return ESP_FAIL;
-    }
-
-    char* root_str = cJSON_Print(root);
-    if (root_str != NULL) {
-        ESP_LOGD(TAG, "Processing config item: \n%s", root_str);
-        free(root_str);
-    }
-
-    cJSON* item = cJSON_GetObjectItemCaseSensitive(root, "config");
-    if (!item) {
-        ESP_LOGE_LOC(TAG, "Parsing config json failed. Received content was: %s", buf);
-        httpd_resp_send_err(
-            req, HTTPD_400_BAD_REQUEST, "Malformed config json.  Unable to parse content.");
-        err = ESP_FAIL;
-    } else {
-        // navigate to the first child of the config structure
-        if (item->child) item = item->child;
-    }
-
-    // while (item && err == ESP_OK)
-    // {
-    // 	cJSON *prev_item = item;
-    // 	item=item->next;
-    // 	char * entry_str = cJSON_Print(prev_item);
-    // 	if(entry_str!=NULL){
-    // 		ESP_LOGD_LOC(TAG, "Processing config item: \n%s", entry_str);
-    // 		free(entry_str);
-    // 	}
-
-    // 	if(prev_item->string==NULL) {
-    // 		ESP_LOGD_LOC(TAG,"Config value does not have a name");
-    // 		httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Malformed config json.  Value does not
-    // have a name."); 		err = ESP_FAIL;
-    // 	}
-    // 	if(err == ESP_OK){
-    // 		ESP_LOGD_LOC(TAG,"Found config value name [%s]", prev_item->string);
-    // 	nvs_type_t item_type=  config_get_item_type(prev_item);
-    // 	if(item_type!=0){
-    // 		void * val = config_safe_alloc_get_entry_value(item_type, prev_item);
-    // 		if(val!=NULL){
-    // 			if(strcmp(prev_item->string, "fwurl")==0) {
-    // 				if(item_type!=NVS_TYPE_STR){
-    // 					ESP_LOGE_LOC(TAG,"Firmware url should be type %d. Found type %d
-    // instead.",NVS_TYPE_STR,item_type ); 					httpd_resp_send_err(req,
-    // HTTPD_400_BAD_REQUEST,
-    // "Malformed config json.  Wrong type for firmware URL."); 					err = ESP_FAIL;
-    // 				}
-    // 				else {
-    // 					// we're getting a request to do an OTA from that URL
-    // 					ESP_LOGW_LOC(TAG,   "Found OTA request!");
-    // 					otaURL=strdup_psram(val);
-    // 					bOTA=true;
-    // 				}
-    // 			}
-    // 			else {
-    // 				if(config_set_value(item_type, prev_item->string , val) != ESP_OK){
-    // 					ESP_LOGE_LOC(TAG,"Unable to store value for [%s]", prev_item->string);
-    // 					httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR , "Unable to store
-    // config value"); 					err = ESP_FAIL;
-    // 				}
-    // 				else {
-    // 					ESP_LOGD_LOC(TAG,"Successfully set value for [%s]",prev_item->string);
-    // 				}
-    // 			}
-    // 			free(val);
-    // 		}
-    // 		else {
-    // 			char messageBuffer[101]={};
-    // 			ESP_LOGE_LOC(TAG,"Value not found for [%s]", prev_item->string);
-    // 			snprintf(messageBuffer,sizeof(messageBuffer),"Malformed config json.  Missing value
-    // for entry %s.",prev_item->string); 			httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST,
-    // messageBuffer); 			err = ESP_FAIL;
-    // 		}
-    // 	}
-    // 	else {
-    // 		ESP_LOGE_LOC(TAG,"Unable to determine the type of config value [%s]",
-    // prev_item->string); 		httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Malformed config
-    // json. Missing value for entry."); 		err = ESP_FAIL;
-    // 	}
-    // }
-    // }
-// TODO: Add support for the commented code
-
-    if (err == ESP_OK) {
-        httpd_resp_sendstr(req, "{ \"result\" : \"OK\" }");
-        messaging_post_message(MESSAGING_INFO, MESSAGING_CLASS_SYSTEM, "Save Success");
-    }
-    cJSON_Delete(root);
-    if (bOTA) {
-
-        if (is_recovery_running) {
-            ESP_LOGW_LOC(TAG, "Starting process OTA for url %s", otaURL);
+        break;
+    case sys_request_type_OTA:
+        if (payload.which_data != sys_request_payload_URL_tag) {
+            response.result = sys_request_result_ERROR;
+            response.message = "Missing URL";
         } else {
-            ESP_LOGW_LOC(TAG, "Restarting system to process OTA for url %s", otaURL);
+            otaURL = strdup_psram(payload.data.URL);
+            if (is_recovery_running) {
+                ESP_LOGW_LOC(TAG, "Starting process OTA for url %s", otaURL);
+            } else {
+                ESP_LOGW_LOC(TAG, "Restarting system to process OTA for url %s", otaURL);
+            }
+            network_reboot_ota(otaURL);
         }
+        break;
 
-        network_reboot_ota(otaURL);
-        free(otaURL);
+    default:
+        break;
     }
+    send_response(req, &response);
+
+    pb_release(&sys_request_payload_msg, &payload);
     return err;
 }
+
 esp_err_t connect_post_handler(httpd_req_t* req) {
     ESP_LOGD_LOC(TAG, "serving [%s]", req->uri);
     char success[] = "{}";
@@ -955,14 +793,15 @@ esp_err_t connect_post_handler(httpd_req_t* req) {
     }
     cJSON_Delete(root);
 
-// if(host_name!=NULL){
-// 	if(config_set_value(NVS_TYPE_STR, "host_name", host_name) != ESP_OK){
-// 		ESP_LOGW_LOC(TAG,  "Unable to save host name configuration");
-// 	}
-// }
-// TODO: Add support for the commented code
+    // if(host_name!=NULL){
+    // 	if(config_set_value(NVS_TYPE_STR, "host_name", host_name) != ESP_OK){
+    // 		ESP_LOGW_LOC(TAG,  "Unable to save host name configuration");
+    // 	}
+    // }
 
-    if (ssid != NULL && strlen(ssid) <= MAX_SSID_SIZE && strlen(password) <= MAX_PASSWORD_SIZE) {
+#pragma message("Update this to protocol buffers")
+    if (ssid != NULL && strlen(ssid) <= platform->net.max_ssid_size &&
+        strlen(password) <= platform->net.max_password_size) {
         network_async_connect(ssid, password);
         httpd_resp_send(req, (const char*)success, strlen(success));
     } else {
@@ -970,10 +809,10 @@ esp_err_t connect_post_handler(httpd_req_t* req) {
             req, HTTPD_400_BAD_REQUEST, "Malformed json. Missing or invalid ssid/password.");
         err = ESP_FAIL;
     }
-// FREE_AND_NULL(ssid);
-// FREE_AND_NULL(password);
-// FREE_AND_NULL(host_name);
-// TODO: Add support for the commented code
+    // FREE_AND_NULL(ssid);
+    // FREE_AND_NULL(password);
+    // FREE_AND_NULL(host_name);
+    // TODO: Add support for the commented code
     return err;
 }
 esp_err_t connect_delete_handler(httpd_req_t* req) {
@@ -1080,8 +919,8 @@ esp_err_t flash_post_handler(httpd_req_t* req) {
                     /* Retry if timeout occurred */
                     continue;
                 }
-// FREE_RESET(binary_buffer);
-// TODO: Add support for the commented code
+                // FREE_RESET(binary_buffer);
+                // TODO: Add support for the commented code
                 ESP_LOGE(TAG, "File reception failed!");
                 /* Respond with 500 Internal Server Error */
                 httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to receive file");
@@ -1208,13 +1047,7 @@ esp_err_t redirect_processor(httpd_req_t* req, httpd_err_code_t error) {
     remote_ip = http_alloc_get_socket_address(req, 0, &port);
 
     ESP_LOGW_LOC(TAG, "%s requested invalid URL: [%s]", remote_ip, req->uri);
-    if (network_status_lock_structure(portMAX_DELAY)) {
-        sta_ip_address = strdup_psram(status.net.ip.ip);
-        network_status_unlock_structure();
-    } else {
-        ESP_LOGE(TAG, "Unable to obtain local IP address from WiFi Manager.");
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, NULL);
-    }
+    sta_ip_address = strdup_psram(sys_status->net.ip.ip);
 
     ESP_LOGV_LOC(TAG, "Getting host name from request");
     char* req_host = alloc_get_http_header(req, "Host");
@@ -1326,25 +1159,7 @@ esp_err_t status_get_handler(httpd_req_t* req) {
     if (err != ESP_OK) {
         return err;
     }
-
-    ESP_LOGD(TAG, "Creating binding");
-    pb_ostream_t filestream = {&out_http_binding, req, SIZE_MAX, 0};
-    ESP_LOGD(TAG, "Starting encode");
-    if (!pb_encode(&filestream, sys_Config_fields, (void*)&status)) {
-        ESP_LOGE(TAG, "Encoding failed: %s\n", PB_GET_ERROR(&filestream));
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, PB_GET_ERROR(&filestream));
-    }
-    else {
-        ESP_LOGD(TAG, "Encoded size: %d", filestream.bytes_written);
-        if (filestream.bytes_written == 0) {
-            ESP_LOGE(TAG, "Empty status!");
-            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Empty status!");
-        }
-    }
-
-    // update status for next status call
-    network_async_update_status();
-
+    network_status_send_object(req);
     return ESP_OK;
 }
 

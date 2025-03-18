@@ -1,4 +1,4 @@
-# !/usr/bin/env python
+#!/opt/esp/python_env/idf4.4_py3.8_env/bin/python
 from functools import partial
 import sys
 import json
@@ -28,11 +28,13 @@ class ProtocParser(ABC) :
     response:plugin.CodeGeneratorResponse
     elements:List[ProtoElement] = []
     comments: Dict[str, str] = {}
+    positions={}
     json_content = {}
     main_class_list:List[str] = []
     param_dict:Dict[str,str] = {}
     pool:descriptor_pool.DescriptorPool
     factory:message_factory
+    message_type_names:set = set()
 
     @abstractmethod
     def render(self,element: ProtoElement):
@@ -63,7 +65,7 @@ class ProtocParser(ABC) :
     def __init__(self,data):
         self.request = plugin.CodeGeneratorRequest.FromString(data)
         self.response = plugin.CodeGeneratorResponse()
-        logger.info(f'Received ${self.get_name()} parameter(s): {self.request.parameter}')
+        logger.debug(f'Received ${self.get_name()} parameter(s): {self.request.parameter}')
         params = self.request.parameter.split(',')
         self.param_dict = {p.split('=')[0]: parse.unquote(p.split('=')[1]) for p in params if '=' in p}
         if not 'const_prefix' in self.param_dict:
@@ -165,7 +167,19 @@ class ProtocParser(ABC) :
                 self.comments[f"{element_identifier}.trailing"] = trailing_comments
                 self.comments[f"{element_identifier}.detached"] = leading_detached_comments
                 
-
+    def extract_positions(self, proto_file: FileDescriptorProto):
+        for location in proto_file.source_code_info.location:
+            # The path is a sequence of integers identifying the syntactic location
+            path = tuple(location.path)
+            # Interpret the path and map it to a specific element
+            element_identifier = self.interpret_path(path, proto_file)
+            if element_identifier is not None and not element_identifier.endswith('.'):
+                # Extracting span information for position
+                if len(location.span) >= 3:  # Ensure span has at least start line, start column, and end line
+                    start_line, start_column, end_line = location.span[:3]
+                    # Adjusting for 1-indexing and storing the position
+                    self.positions[element_identifier] = (start_line + 1, start_column + 1, end_line + 1)
+            
 
     def get_comments(self,field: FieldDescriptorProto, proto_file: FileDescriptorProto,message: DescriptorProto):
         if hasattr(field,'name') :
@@ -212,7 +226,29 @@ class ProtocParser(ABC) :
         return list(set([proto_file.package for proto_file in self.request.proto_file if proto_file.package]))
     @property
     def file_set(self)->List[FileDescriptor]:
-        return list(set([ self.pool.FindMessageTypeByName(message).file for message in self.main_class_list if self.pool.FindMessageTypeByName(message)]))
+        file_set = []
+        missing_messages = []
+        for message in self.main_class_list:
+            try:
+                message_descriptor = self.pool.FindMessageTypeByName(message)
+                if message_descriptor:
+                    file_set.append(message_descriptor.file)
+                else:
+                    missing_messages.append(message)
+            except Exception as e:
+                missing_messages.append(message)
+
+        if missing_messages:
+            sortedstring="\n".join(sorted(self.message_type_names))
+            logger.error(f'Error retrieving message definitions for: {", ".join(missing_messages)}. Valid messages are: \n{sortedstring}')
+            raise Exception(f"Invalid message(s) {missing_messages}")
+
+        # Deduplicate file descriptors
+        unique_file_set = list(set(file_set))
+
+        return unique_file_set
+            
+
    
     @property
     def proto_files(self)->List[FileDescriptorProto]:
@@ -232,32 +268,46 @@ class ProtocParser(ABC) :
             return
         self.setup()
         logger.info(f'Processing message(s) {", ".join([name for name in self.main_class_list ])}')
-
-        for fileObj in self.file_set :
-            self.start_file(fileObj)
-            for message in self.get_main_messages_from_file(fileObj):
-                element = ProtoElement( descriptor=message )
-                self.start_message(element)
-                self.process_message(element)
-                self.end_message(element)
-            self.end_file(fileObj)
-        sys.stdout.buffer.write(self.response.SerializeToString())
+        try:
+            for fileObj in self.file_set :
+                self.start_file(fileObj)
+                for message in self.get_main_messages_from_file(fileObj):
+                    element = ProtoElement( descriptor=message )
+                    self.start_message(element)
+                    self.process_message(element)
+                    self.end_message(element)
+                self.end_file(fileObj)
+            sys.stdout.buffer.write(self.response.SerializeToString())
+        except Exception as e:
+            # Log the error and exit gracefully
+            error_message = str(e)
+            logger.error(f'Failed to process protocol buffer files: {error_message}')
+            sys.stderr.write(error_message + '\n')
+            sys.exit(1)  # Exit with a non-zero status code to indicate failure            
 
     def setup(self):
 
         for proto_file in self.proto_files:
             logger.debug(f"Extracting comments from : {proto_file.name}")
+            self.extract_positions(proto_file)
             self.extract_comments(proto_file)
         self.pool = descriptor_pool.DescriptorPool()
         self.factory = message_factory.MessageFactory(self.pool)
         for proto_file in self.request.proto_file:
             logger.debug(f'Adding {proto_file.name} to pool')
             self.pool.Add(proto_file)
+            # Iterate over all message types in the proto file and add them to the list
+            for message_type in proto_file.message_type:
+                # Assuming proto_file.message_type gives you message descriptors or similar
+                # You may need to adjust based on how proto_file is structured
+                self.message_type_names.add(f"{proto_file.package}.{message_type.name}")
+        
         self.messages = GetMessageClassesForFiles([f.name for f in self.request.proto_file], self.pool)                        
         ProtoElement.set_pool(self.pool)
         ProtoElement.set_render(self.render)
         ProtoElement.set_logger(logger)
         ProtoElement.set_comments_base(self.comments)        
+        ProtoElement.set_positions_base(self.positions)        
         ProtoElement.set_prototypes(self.messages)
 
     @property

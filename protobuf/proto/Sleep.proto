@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package sys.sleep;
+import "GPIO.proto";
+import "nanopb.proto";
+import "customoptions.proto";
+
+option (nanopb_fileopt).enum_to_string = true;
+
+// Configuration for sleep service
+message config {
+  option (nanopb_msgopt).packed_struct  = true;
+  option (nanopb_msgopt).msgid  = 10035;
+    // Inactivity in minutes before going to sleep
+    uint32 delay = 1;
+  
+    // Inactivity delay in minutes after which sleep resumes
+    int32 spurious = 2 [(nanopb).int_size = IS_16];
+  
+    // pinfor sleep
+    gpio.config sleep = 3  [(cust_field).v_msg='{"pin":-1,"level":"LOW"}'];
+  
+    // List of GPIOs that will cause the system to wake up
+    repeated gpio.config wake = 4 [(nanopb).type = FT_POINTER]; //[(nanopb).max_count= 10];
+  
+    // List of RTC GPIOs to keep active
+    repeated gpio.config rtc = 5 [(nanopb).type = FT_POINTER]; //[(nanopb).max_count= 10];
+  
+    // Threshold in volts under which the system will enter into sleep
+    float batt = 6;
+  }

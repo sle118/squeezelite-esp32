@@ -20,13 +20,12 @@
 #include "cJSON.h"
 #include "freertos/timers.h"
 #include "network_manager.h"
-// #include "Configurator.h"
+// #include "Config.h"
 #pragma message("fixme: search for TODO below")
 
 static const char* TAG = "metrics";
 
 #if CONFIG_WITH_METRICS
-extern bool is_network_connected();
 #define METRICS_CLIENT_ID_LEN 50
 #define MAX_HTTP_RECV_BUFFER 512
 

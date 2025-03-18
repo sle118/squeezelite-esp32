@@ -2,7 +2,7 @@ from __future__ import annotations
 from functools import partial
 from typing import ClassVar, List, Any, Dict
 from typing import Callable
-from google.protobuf import message
+from google.protobuf import message, descriptor_pb2
 from google.protobuf.descriptor import Descriptor, FieldDescriptor, FileDescriptor
 from google.protobuf.descriptor_pb2 import FieldDescriptorProto,DescriptorProto,EnumDescriptorProto
 import google.protobuf.descriptor_pool as descriptor_pool
@@ -23,6 +23,8 @@ class ProtoElement:
     package:str
     file:FileDescriptor
     message:str
+    _positions: Dict[str,tuple]
+    position: tuple
     options:Dict[str,any]
     _message_instance:ClassVar
     @classmethod
@@ -31,6 +33,9 @@ class ProtoElement:
     @classmethod
     def set_comments_base(cls,comments:Dict[str,str]):
         cls._comments = comments
+    @classmethod
+    def set_positions_base(cls,positions:Dict[str,tuple]):
+        cls._positions = positions
     @classmethod 
     def set_pool(cls,pool:descriptor_pool.DescriptorPool):
         cls.pool = pool
@@ -82,6 +87,8 @@ class ProtoElement:
 
         self.render = partial(self.render_class, self)
         self.comments = {comment.split('.')[-1]:self._comments[comment] for comment in self._comments.keys() if comment.startswith(self.path)}
+        self.position = self._positions.get(self.path)
+
     @property 
     def cpp_type(self)->str:
         return f'{self.package}_{self.descriptor.containing_type.name}'
@@ -118,8 +125,34 @@ class ProtoElement:
     def cpp_child(self):
         return f'{self.cpp_type}_CHILD'
     @property
+    def proto_file_line(self):
+        # Accessing file descriptor to get source code info, adjusted for proper context
+        if self.position:
+            start_line, start_column, end_line = self.position
+            return f"{self.file.name}:{start_line}"
+        else:
+            return f"{self.file.name}"
+
+        
+        
+    @property
     def message_instance(self):
         return getattr(self,'_message_instance',getattr(self.parent,'message_instance',None))
+    @property
+    def new_message_instance(self):
+        if self.type == FieldDescriptor.TYPE_MESSAGE:
+            try:
+                # Try to create a new instance using the full name of the message type
+                return self.prototypes[self.descriptor.message_type.full_name]()
+            except KeyError:
+                # If the above fails, use an alternative method to create a new instance
+                # Log the error if necessary
+                # self.logger.error(f'Could not find instance for {self.descriptor.full_name}')
+                return self.prototypes[self.descriptor.full_name]()
+        else:
+            # Return None or raise an exception if the type is not a message
+            return None
+
     @property
     def tree(self):
         childs = '->('+', '.join(c.tree for c in self.childs ) + ')' if len(self.childs)>0 else ''

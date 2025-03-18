@@ -3,19 +3,19 @@ if(IDF_TARGET STREQUAL "esp32")
 	set(target_requires "driver_bt" "platform_config")
 endif()
 
-idf_component_register( SRC_DIRS . external ac101 tas57xx wm8978
+idf_component_register( SRC_DIRS . external ac101 tas57xx wm8978 cs4265
 						INCLUDE_DIRS .  ac101 
 						PRIV_REQUIRES 	
 									codecs
 									newlib 
 									esp_common 
 									esp-dsp
+									tools
 						  			platform_config 
 						 			services 
 									spotify
 						 			raop   
 						 			display
-						 			tools
 						 			audio
 									led_strip
 									_override

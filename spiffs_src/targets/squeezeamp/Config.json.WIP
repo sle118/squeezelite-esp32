@@ -1,0 +1,161 @@
+{
+  "gpios": {
+    "greenLED": {
+      "gpio": 12,
+      "brightness": 50,
+      "led_type": "LED_TYPE_GPIO"
+    },
+    "redLED": {
+      "gpio": 13,
+      "brightness": 50,
+      "led_type": "LED_TYPE_GPIO"
+    },
+    "jack": 34,
+    "spkfault": 2
+  },
+  "dev": {
+    "i2c": {
+      "__values_port": "UNSPECIFIED_PORT, PORT0, PORT1",
+      "port": "UNSPECIFIED_PORT",
+      "speed": 0,
+      "sda": 0,
+      "scl": 0
+    },
+    "dac": {
+      "bck": 33,
+      "ws": 25,
+      "dout": 32,
+      "mck": "MCK0",
+      "mute": 14,
+      "model": "TAS57xx",
+      "i2c": {
+        "__values_port": "UNSPECIFIED_PORT, , PORT1",
+        "port": "PORT0",
+        "speed": 250000,
+        "sda": 27,
+        "scl": 26
+      },
+      "daccontrolset": {
+        "commands": [
+          {
+            "__values_type": "INIT, POWER_ON, POWER_OFF, SPEAKER_ON, SPEAKER_OFF, HEADSET_ON, HEADSET_OFF",
+            "type": "INIT",
+            "items": [
+              {
+                "reg_action": {
+                  "__one_of_reg_action": "Choose only one structure for sys.ControlItem.item_type",
+                  "reg": 0,
+                  "val": 0,
+                  "__values_mode": "REG_MODE_NOTHING, REG_MODE_OR, REG_MODE_AND",
+                  "mode": "REG_MODE_NOTHING"
+                },
+                "gpio_action": {
+                  "__one_of_gpio_action": "Choose only one structure for sys.ControlItem.item_type",
+                  "gpio": 0,
+                  "__values_level": "ACTION_LEVEL_UNDEFINED, ACTION_LEVEL_1, ACTION_LEVEL_0",
+                  "level": "ACTION_LEVEL_UNDEFINED"
+                },
+                "delay_action": {
+                  "__one_of_delay_action": "Choose only one structure for sys.ControlItem.item_type",
+                  "delay": 0,
+                  "__comments2_delay": "Delay in milliseconds"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "jack_mutes_amp": false
+    },
+    "spdif": {
+      "ws": 25,
+      "data": 15,
+      "clk": 33
+    },
+    "battery": {
+      "channel": "CH7",
+      "scale": 20.24,
+      "atten": "ATT_0"
+    },
+    "ir": {
+      "gpio": 0
+    }
+  },
+  "cspot": {
+    "enabled": true,
+    "bitrate": 0,
+    "zeroconf": false,
+    "volume": 0
+  },
+  "airplay": {
+    "enabled": false,
+    "port": 0
+  },
+  "squeezelite": {
+    "output_type": "OUTPUT_I2S",
+    "__comments_amp_gpio_timeout": "Timeout (seconds) for switching off amp GPIO\n default is to keep the device 'on' all the time",
+    "amp_gpio_timeout": 0,
+    "__comments_wav_aiff_header_parsing": "tRead wave and aiff format from header, ignore server parameters",
+    "wav_aiff_header_parsing": false,
+    "__comments_server_name_ip": "Server connection options",
+    "server_name_ip": "",
+    "server_port": 0,
+    "__comments_enabled": "Allow disabling squeezelite to use the \n device in \"detached mode\"",
+    "enabled": false,
+    "output_bt": {
+      "sink_name": "",
+      "pin": ""
+    },
+    "log": {
+      "__values_output": "DEFAULT, ERROR, WARN, INFO, DEBUG, SDEBUG",
+      "output": "DEFAULT",
+      "__values_stream": "DEFAULT, ERROR, WARN, INFO, DEBUG, SDEBUG",
+      "stream": "DEFAULT",
+      "__values_decode": "DEFAULT, ERROR, WARN, INFO, DEBUG, SDEBUG",
+      "decode": "DEFAULT",
+      "__values_slimproto": "DEFAULT, ERROR, WARN, INFO, DEBUG, SDEBUG",
+      "slimproto": "DEFAULT",
+      "__values_ir": "DEFAULT, ERROR, WARN, INFO, DEBUG, SDEBUG",
+      "ir": "DEFAULT"
+    },
+    "__comments_max_rate": "Max sample rate reported to server",
+    "max_rate": 0,
+    "buffers": {
+      "stream": 0,
+      "output": 0
+    },
+    "resample": ""
+  },
+  "release_url": "",
+  "bt_sink": {
+    "enabled": false,
+    "volume": 0,
+    "pin": ""
+  },
+  "statistics": false,
+  "telnet": {
+    "enable": false,
+    "block": 0,
+    "buffer": 0
+  },
+  "equalizer": {
+    "loudness": 0.0
+  }
+},
+"names": {
+  "__comments_device": "Network device name",
+  "device": "",
+  "__comments_airplay": "AirPlay device name",
+  "airplay": "",
+  "__comments_spotify": "Spotify device name",
+  "spotify": "",
+  "__comments_bluetooth": "Bluetooth player name advertized",
+  "bluetooth": "",
+  "__comments_squeezelite": "Player name reported to the Logitech Media Server",
+  "squeezelite": "",
+  "__comments_wifi_ap_name": "Wifi Access Point name",
+  "wifi_ap_name": ""
+},
+"target": "SqueezeAMP"
+}
+}

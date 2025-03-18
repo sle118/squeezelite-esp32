@@ -1,7 +1,7 @@
 
 idf_component_register(SRC_DIRS .
 						INCLUDE_DIRS .
-						REQUIRES platform_config tools esp_common
+						REQUIRES tools platform_config  esp_common
 						PRIV_REQUIRES services freertos driver           
 )
 

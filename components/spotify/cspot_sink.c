@@ -6,7 +6,7 @@
 #include "esp_console.h"
 #include "esp_pthread.h"
 #include "esp_system.h"
-#include "Configurator.h"
+#include "Config.h"
 #include "audio_controls.h"
 #include "display.h"
 #include "accessors.h"
@@ -15,6 +15,7 @@
 #include "tools.h"
 #include "cspot_private.h"
 #include "cspot_sink.h"
+#include "tools_http_utils.h"
 
 char EXT_RAM_ATTR deviceId[16];
 

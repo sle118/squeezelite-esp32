@@ -17,6 +17,24 @@
 #include "pb_decode.h"
 #include "pb_common.h"
 #include <stdio.h>
+#include <inttypes.h> // Include this header for PRIu64
+
+
+// Macros for debugging encode/decode
+// #define DUMP_PB_ENABLE 1
+#ifdef DUMP_PB_ENABLE
+#define DUMP_PB_FIELD(iter,msg) dump_pb_field(iter,msg, __FUNCTION__, __LINE__)
+#define DUMP_PB_HEAD(iter,msg) dump_pb_head(iter,msg, __FUNCTION__, __LINE__)
+#define DUMP_PB_MARK(msg) printf("MRK\t%-30s\t%-20s\t%-5d\n",msg, __FUNCTION__, __LINE__)
+#define WRITE_DEBUG_HEADER() write_debug_header()
+#else
+#define DUMP_PB_FIELD(iter,msg)
+#define DUMP_PB_HEAD(iter,msg) 
+#define DUMP_PB_MARK(msg) 
+#define WRITE_DEBUG_HEADER()
+#endif
+
+
 /**************************************
  * Declarations internal to this file *
  **************************************/
@@ -122,13 +140,13 @@ void dump_pb_field(const pb_field_iter_t* iter, const char* msg, const char* fun
            "| %-20s"
            "| %-20s"
            "| %-20s"
-           "| %-10zu|\n",
+           "| %-10zu| %-20zu|\n",
         "FLD", msg, func, line, 
         "","","",
         iter->submessage_index,iter->index, iter->field_info_index, iter->required_field_index, 
         iter->tag, iter->data_size, iter->array_size, 
         pb_ltype_description(iter->type), pb_htype_description(iter->type), pb_atype_description(iter->type), 
-        iter->type);
+        iter->type,PB_LTYPE(iter->type)==PB_LTYPE_STRING && iter->pData && strlen(iter->pData)>0?iter->pData:"");
 }
 void dump_pb_head(const pb_msgdesc_t* desc, const char* msg, const char* func, int line) {
     if (!desc) {
@@ -160,18 +178,7 @@ void dump_pb_head(const pb_msgdesc_t* desc, const char* msg, const char* func, i
         "");
 }
 
-// Macros for convenience
-#ifdef DUMP_PB_ENABLE
-#define DUMP_PB_FIELD(iter,msg) dump_pb_field(iter,msg, __FUNCTION__, __LINE__)
-#define DUMP_PB_HEAD(iter,msg) dump_pb_head(iter,msg, __FUNCTION__, __LINE__)
-#define DUMP_PB_MARK(msg) printf("MRK\t%-30s\t%-20s\t%-5d\n",msg, __FUNCTION__, __LINE__)
-#define WRITE_DEBUG_HEADER write_debug_header()
-#else
-#define DUMP_PB_FIELD(iter,msg)
-#define DUMP_PB_HEAD(iter,msg) 
-#define DUMP_PB_MARK(msg) 
-#define WRITE_DEBUG_HEADER()
-#endif
+
 
 static bool checkreturn buf_read(pb_istream_t *stream, pb_byte_t *buf, size_t count);
 static bool checkreturn pb_decode_varint32_eof(pb_istream_t *stream, uint32_t *dest, bool *eof);
@@ -1282,7 +1289,7 @@ static bool checkreturn pb_decode_inner(pb_istream_t *stream, const pb_msgdesc_t
         if (PB_HTYPE(iter.type) == PB_HTYPE_REQUIRED
             && iter.required_field_index < PB_MAX_REQUIRED_FIELDS)
         {
-            DUMP_PB_FIELD("Mark field as seen",&iter);
+            DUMP_PB_FIELD(&iter,"Mark field as seen");
             uint32_t tmp = ((uint32_t)1 << (iter.required_field_index & 31));
             fields_seen.bitfield[iter.required_field_index >> 5] |= tmp;
         }
@@ -1595,6 +1602,7 @@ static bool checkreturn pb_dec_bool(pb_istream_t *stream, const pb_field_iter_t 
     return pb_decode_bool(stream, (bool*)field->pData);
 }
 
+
 static bool checkreturn pb_dec_varint(pb_istream_t *stream, const pb_field_iter_t *field)
 {
     if (PB_LTYPE(field->type) == PB_LTYPE_UVARINT)
@@ -1615,8 +1623,11 @@ static bool checkreturn pb_dec_varint(pb_istream_t *stream, const pb_field_iter_
         else
             PB_RETURN_ERROR(stream, "invalid data_size");
 
-        if (clamped != value)
-            PB_RETURN_ERROR(stream, "integer too large");
+if (clamped != value) {
+    printf("Clamped value: %" PRIu64 ", Original value: %" PRIu64 "\n", clamped, value);
+    PB_RETURN_ERROR(stream, "integer too large");
+}
+
 
         return true;
     }
@@ -1660,8 +1671,10 @@ static bool checkreturn pb_dec_varint(pb_istream_t *stream, const pb_field_iter_
         else
             PB_RETURN_ERROR(stream, "invalid data_size");
 
-        if (clamped != svalue)
+        if (clamped != svalue){
+            printf("Clamped value: %" PRIi64 ", Original value: %" PRIi64 "\n", clamped, svalue);
             PB_RETURN_ERROR(stream, "integer too large");
+        }
 
         return true;
     }
@@ -1749,12 +1762,11 @@ static bool checkreturn pb_dec_string(pb_istream_t *stream, const pb_field_iter_
 
     if (!pb_read(stream, dest, (size_t)size))
         return false;
-
 #ifdef PB_VALIDATE_UTF8
     if (!pb_validate_utf8((const char*)dest))
         PB_RETURN_ERROR(stream, "invalid utf8");
 #endif
-
+    DUMP_PB_FIELD(field,"String");
     return true;
 }
 

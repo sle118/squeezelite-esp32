@@ -60,41 +60,39 @@ void register_common_handlers(httpd_handle_t server){
 void register_regular_handlers(httpd_handle_t server){
 	httpd_uri_t root_get = { .uri = "/", .method = HTTP_GET, .handler = root_get_handler, .user_ctx = rest_context };
 	httpd_register_uri_handler(server, &root_get);
-	httpd_uri_t scan_get = { .uri = "/scan.json", .method = HTTP_GET, .handler = ap_scan_handler, .user_ctx = rest_context };
-	httpd_register_uri_handler(server, &scan_get);
-	httpd_uri_t config_get = { .uri = "/config.json", .method = HTTP_GET, .handler = config_get_handler, .user_ctx = rest_context };
-	httpd_register_uri_handler(server, &config_get);
-	httpd_uri_t status_get = { .uri = "/status.json", .method = HTTP_GET, .handler = status_get_handler, .user_ctx = rest_context };
-	httpd_register_uri_handler(server, &status_get);
-	httpd_uri_t messages_get = { .uri = "/messages.json", .method = HTTP_GET, .handler = messages_get_handler, .user_ctx = rest_context };
-	httpd_register_uri_handler(server, &messages_get);
+	// httpd_uri_t scan_get = { .uri = "/scan.bin", .method = HTTP_GET, .handler = ap_scan_handler, .user_ctx = rest_context };
+	// httpd_register_uri_handler(server, &scan_get);
+	// httpd_uri_t status_get = { .uri = "/status.bin", .method = HTTP_GET, .handler = status_get_handler, .user_ctx = rest_context };
+	// httpd_register_uri_handler(server, &status_get);
+	// httpd_uri_t messages_get = { .uri = "/messages.bin", .method = HTTP_GET, .handler = messages_get_handler, .user_ctx = rest_context };
+	// httpd_register_uri_handler(server, &messages_get);
 
-	httpd_uri_t commands_get = { .uri = "/commands.json", .method = HTTP_GET, .handler = console_cmd_get_handler, .user_ctx = rest_context };
-	httpd_register_uri_handler(server, &commands_get);
-	httpd_uri_t commands_post = { .uri = "/commands.json", .method = HTTP_POST, .handler = console_cmd_post_handler, .user_ctx = rest_context };
-	httpd_register_uri_handler(server, &commands_post);
+	// httpd_uri_t commands_get = { .uri = "/commands.bin", .method = HTTP_GET, .handler = console_cmd_get_handler, .user_ctx = rest_context };
+	// httpd_register_uri_handler(server, &commands_get);
+	// httpd_uri_t commands_post = { .uri = "/commands.bin", .method = HTTP_POST, .handler = console_cmd_post_handler, .user_ctx = rest_context };
+	// httpd_register_uri_handler(server, &commands_post);
 
-	httpd_uri_t config_post = { .uri = "/config.json", .method = HTTP_POST, .handler = config_post_handler, .user_ctx = rest_context };
-	httpd_register_uri_handler(server, &config_post);
-	httpd_uri_t connect_post = { .uri = "/connect.json", .method = HTTP_POST, .handler = connect_post_handler, .user_ctx = rest_context };
-	httpd_register_uri_handler(server, &connect_post);
+	// httpd_uri_t connect_post = { .uri = "/connect.bin", .method = HTTP_POST, .handler = connect_post_handler, .user_ctx = rest_context };
+	// httpd_register_uri_handler(server, &connect_post);
 
-	httpd_uri_t reboot_ota_post = { .uri = "/reboot_ota.json", .method = HTTP_POST, .handler = reboot_ota_post_handler, .user_ctx = rest_context };
-	httpd_register_uri_handler(server, &reboot_ota_post);
+	// httpd_uri_t reboot_ota_post = { .uri = "/reboot_ota.bin", .method = HTTP_POST, .handler = reboot_ota_post_handler, .user_ctx = rest_context };
+	// httpd_register_uri_handler(server, &reboot_ota_post);
 
-	httpd_uri_t reboot_post = { .uri = "/reboot.json", .method = HTTP_POST, .handler = reboot_post_handler, .user_ctx = rest_context };
-	httpd_register_uri_handler(server, &reboot_post);
+	// httpd_uri_t reboot_post = { .uri = "/reboot.bin", .method = HTTP_POST, .handler = reboot_post_handler, .user_ctx = rest_context };
+	// httpd_register_uri_handler(server, &reboot_post);
 
-	httpd_uri_t recovery_post = { .uri = "/recovery.json", .method = HTTP_POST, .handler = recovery_post_handler, .user_ctx = rest_context };
-	httpd_register_uri_handler(server, &recovery_post);
+	// httpd_uri_t recovery_post = { .uri = "/recovery.bin", .method = HTTP_POST, .handler = recovery_post_handler, .user_ctx = rest_context };
+	// httpd_register_uri_handler(server, &recovery_post);
 
-	httpd_uri_t connect_delete = { .uri = "/connect.json", .method = HTTP_DELETE, .handler = connect_delete_handler, .user_ctx = rest_context };
-	httpd_register_uri_handler(server, &connect_delete);
+	// httpd_uri_t connect_delete = { .uri = "/connect.bin", .method = HTTP_DELETE, .handler = connect_delete_handler, .user_ctx = rest_context };
+	// httpd_register_uri_handler(server, &connect_delete);
 
-	if(is_recovery_running){
-		httpd_uri_t flash_post = { .uri = "/flash.json", .method = HTTP_POST, .handler = flash_post_handler, .user_ctx = rest_context };
-		httpd_register_uri_handler(server, &flash_post);
-	}
+	// if(is_recovery_running){
+	// 	httpd_uri_t flash_post = { .uri = "/flash.bin", .method = HTTP_POST, .handler = flash_post_handler, .user_ctx = rest_context };
+	// 	httpd_register_uri_handler(server, &flash_post);
+	// }
+
+	
 	// from https://github.com/tripflex/wifi-captive-portal/blob/master/src/mgos_wifi_captive_portal.c
 	// https://unix.stackexchange.com/questions/432190/why-isnt-androids-captive-portal-detection-triggering-a-browser-window
 	 // Known HTTP GET requests to check for Captive Portal
@@ -120,10 +118,9 @@ void register_regular_handlers(httpd_handle_t server){
 	httpd_uri_t connect_redirect_8 = { .uri = "/success.txt", .method = HTTP_GET, .handler = redirect_ev_handler, .user_ctx = rest_context }; // OSX
 	httpd_register_uri_handler(server, &connect_redirect_8);
 
-	httpd_uri_t configurator_post = { .uri = "/config.pro", .method = HTTP_POST, .handler = configurator_post_handler, .user_ctx = rest_context };
-	httpd_register_uri_handler(server, &configurator_post);
-	httpd_uri_t configurator_get = { .uri = "/config.pro", .method = HTTP_POST, .handler = configurator_get_handler, .user_ctx = rest_context };
-	httpd_register_uri_handler(server, &configurator_get);	
+	httpd_uri_t config_post = { .uri = "/data.bin", .method = HTTP_POST, .handler = data_post_handler, .user_ctx = rest_context };
+	httpd_register_uri_handler(server, &config_post);
+
 	
 
 	ESP_LOGD(TAG,"Registering default error handler for 404");
@@ -136,10 +133,8 @@ esp_err_t http_server_start()
 {
 	
 	ESP_LOGI(TAG, "Initializing HTTP Server");
-	MEMTRACE_PRINT_DELTA_MESSAGE("Registering messaging subscriber");
-	messaging = messaging_register_subscriber(10, "http_server");
-	MEMTRACE_PRINT_DELTA_MESSAGE("Allocating RAM for server context");
-    rest_context = malloc_init_external( sizeof(rest_server_context_t));
+		messaging = messaging_register_subscriber(10, "http_server");
+	    rest_context = malloc_init_external( sizeof(rest_server_context_t));
     if(rest_context==NULL){
     	ESP_LOGE(TAG,"No memory for http context");
     	return ESP_FAIL;
@@ -150,26 +145,23 @@ esp_err_t http_server_start()
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.max_uri_handlers = 30;
     config.max_open_sockets = 3;
-	config.lru_purge_enable = true;
+	config.lru_purge_enable = false;
 	config.backlog_conn = 1;
     config.uri_match_fn = httpd_uri_match_wildcard;
 	config.task_priority = ESP_TASK_PRIO_MIN;
 	_port = config.server_port;
+
     //todo:  use the endpoint below to configure session token?
     // config.open_fn
 
-    MEMTRACE_PRINT_DELTA_MESSAGE( "Starting HTTP Server");
-    esp_err_t err= httpd_start(&_server, &config);
+        esp_err_t err= httpd_start(&_server, &config);
     if(err != ESP_OK){
     	ESP_LOGE_LOC(TAG,"Start server failed");
     }
     else {
-		MEMTRACE_PRINT_DELTA_MESSAGE( "HTTP Server started. Registering common handlers");
-    	register_common_handlers(_server);
-		MEMTRACE_PRINT_DELTA_MESSAGE("Registering regular handlers");
-    	register_regular_handlers(_server);
-		MEMTRACE_PRINT_DELTA_MESSAGE("HTTP Server regular handlers registered");
-    }
+		    	register_common_handlers(_server);
+		    	register_regular_handlers(_server);
+		    }
 
     return err;
 }

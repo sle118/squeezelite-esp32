@@ -273,11 +273,11 @@ static const struct GDS_Device ST77xx = {
 	.Mode = GDS_RGB565, .Depth = 16,
 };		
 
-struct GDS_Device* ST77xx_Detect(sys_Display * Driver, struct GDS_Device* Device) {
+struct GDS_Device* ST77xx_Detect(sys_display_config * Driver, struct GDS_Device* Device) {
 	uint8_t Model;
 	int Depth;
-	if(Driver->common.driver == sys_DisplayDriverEnum_ST7735)  Model = ST7735;
-	else if(Driver->common.driver == sys_DisplayDriverEnum_ST7789)  Model = ST7789;
+	if(Driver->common.driver == sys_display_drivers_ST7735)  Model = ST7735;
+	else if(Driver->common.driver == sys_display_drivers_ST7789)  Model = ST7789;
 	else return NULL;
 		
 	if (!Device) Device = calloc(1, sizeof(struct GDS_Device));

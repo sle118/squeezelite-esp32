@@ -1,76 +1,44 @@
 syntax = "proto3";
 
-package sys;
+package sys.services;
 
-import "GPIO.proto";
-import "Artwork.proto";
-import "Spotify.proto";
 import "AirPlay.proto";
-import "Squeezelite.proto";
 import "Equalizer.proto";
+import "Metadata.proto";
+import "Sleep.proto";
+import "Spotify.proto";
+import "Squeezelite.proto";
+import "Telnet.proto";
+
 import "nanopb.proto";
 import "customoptions.proto";
 
-// Configuration for sleep service
-message SleepService {
-  option (nanopb_msgopt).msgid  = 10035;
-    // Inactivity in minutes before going to sleep
-    uint32 delay = 1;
-  
-    // Inactivity delay in minutes after which sleep resumes
-    int32 spurious = 2 [(nanopb).int_size = IS_16];
-  
-    // GPIO for sleep
-    GPIO sleep = 3;
-  
-    // List of GPIOs that will cause the system to wake up
-    repeated GPIO wake = 4 [(nanopb).type = FT_POINTER]; //[(nanopb).max_count= 10];
-  
-    // List of RTC GPIOs to keep active
-    repeated GPIO rtc = 5 [(nanopb).type = FT_POINTER]; //[(nanopb).max_count= 10];
-  
-    // Threshold in volts under which the system will enter into sleep
-    float batt = 6;
-  }
-message Telnet {
-  bool enable = 1;
-  uint32 block = 2 [(nanopb).int_size = IS_16];
-  uint32 buffer = 3 [(nanopb).int_size = IS_16];
 
-}
-  message Metadata {
-    option (nanopb_msgopt).msgid  = 10036;
-    // Optional parameters controlling bluetooth and airplay
-    // Display format with optional keywords %artist%, %album%, %title%
-    string format = 1 [(nanopb).max_length= 50];
   
-    // Scrolling speed in ms
-    uint32 speed = 2 ;
-  
-    // Pause time between scrolls in ms
-    uint32 pause = 3;
-  
-    // Cover art display configuration
-    Artwork artwork = 4;
-  }
-  
-  message BluetoothSink {
-    bool enabled = 1;
+  message bt_sink {
+    option (nanopb_msgopt).packed_struct  = true;
+    bool enabled = 1 [(cust_field).v_bool = true];
     uint32 volume =  2;
-    string pin = 3 [(nanopb).max_length = 16,(cust_field).v_string = "0000" ];
-
+    string pin= 3 [(nanopb).max_length = 16,(cust_field).v_string = "0000" ];
   }
 
-  message Services {
+  message config {
+    option (nanopb_msgopt).packed_struct  = true;
     option (nanopb_msgopt).msgid  = 10037;
-    Metadata metadata = 1;
-    SleepService sleep = 2;
-    Spotify cspot = 4;
-    AirPlay airplay = 5;
-    Squeezelite squeezelite = 6;
+    metadata.config metadata = 1;
+    sleep.config sleep = 2;
+    spotify.config cspot = 4;
+    airplay.config airplay = 5;
+    repeated squeezelite.profile squeezelite_profiles = 6 [(nanopb).max_count = 5, 
+                                                          (cust_field).v_msg = '[{"name":"i2s","profile":{"output_type":"I2S","log":{"output":"DEBUG","stream":"DEBUG","decode":"DEBUG","slimproto":"DEBUG","ir":"DEBUG"},"buffers":{"stream":500,"output":2000},"max_rate":96000,"enabled":true,"amp_gpio_timeout":30,"wav_aiff_header_parsing":true}},{"name":"spdif","profile":{"output_type":"SPDIF","log":{"output":"DEBUG","stream":"DEBUG","decode":"DEBUG","slimproto":"DEBUG","ir":"DEBUG"},"buffers":{"stream":500,"output":2000},"max_rate":48000,"enabled":true,"amp_gpio_timeout":30,"wav_aiff_header_parsing":true}},{"name":"bluetooth","profile":{"output_type":"BT","log":{"output":"DEBUG","stream":"DEBUG","decode":"DEBUG","slimproto":"DEBUG","ir":"DEBUG"},"buffers":{"stream":500,"output":2000},"max_rate":44100,"enabled":true,"amp_gpio_timeout":30,"wav_aiff_header_parsing":true}}]'] ;
     string release_url = 7 [(nanopb).max_length = 256, (cust_field).v_string = "https://api.github.com/repos/sle118/squeezelite-esp32/releases"];
-    BluetoothSink bt_sink = 8;
+    bt_sink bt_sink = 8;
     bool statistics = 9 [(cust_field).v_bool = false];
-    Telnet telnet = 10;
-    Equalizer equalizer = 11;
-  }
+    telnet.config telnet = 10;
+    equalizer.config equalizer = 11;
+    string current_profile = 12 [(nanopb).type = FT_POINTER, (cust_field).v_string = "i2s"];
+    // default time zone is Montreal.
+    // see https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+    // or for a handy list: https://gist.github.com/alwynallan/24d96091655391107939
+    string timezone = 13 [(nanopb).type = FT_POINTER, (cust_field).v_string = "EST5EDT,M3.2.0,M11.1.0"];
+  } 

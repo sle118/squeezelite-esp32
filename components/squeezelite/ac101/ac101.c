@@ -32,7 +32,7 @@
 #include <driver/i2s.h>
 #include "adac.h"
 #include "ac101.h"
-#include "Configurator.h"
+#include "Config.h"
 static const char TAG[] = "AC101";
 
 #define SPKOUT_EN ((1 << 9) | (1 << 11) | (1 << 7) | (1 << 5))
@@ -48,13 +48,13 @@ static const char TAG[] = "AC101";
         return b;\
     }
 	
-static bool init(char *config, int i2c_port, i2s_config_t *i2s_config, bool *mck);
+static bool init(sys_dac_config *config, i2s_config_t *i2s_config, bool *mck);
 static void speaker(bool active);
 static void headset(bool active);
 static bool volume(unsigned left, unsigned right);
 static void power(adac_power_e mode);
 
-const struct adac_s dac_ac101 = { sys_DACModelEnum_AC101, init, adac_deinit, power, speaker, headset, volume };
+const struct adac_s dac_ac101 = { sys_dac_models_AC101, init, adac_deinit, power, speaker, headset, volume };
 
 static void ac101_start(ac_module_t mode);
 static void ac101_stop(void);
@@ -64,11 +64,11 @@ static void ac101_set_spk_volume(uint8_t volume);
 /****************************************************************************************
  * init
  */
-static bool init(char *config, int i2c_port, i2s_config_t *i2s_config, bool *mck) {	 
-	adac_init(config, i2c_port);
+static bool init(sys_dac_config *config, i2s_config_t *i2s_config, bool *mck) {	 
+	adac_init(config);
 	if (adac_read_word(AC101_ADDR, CHIP_AUDIO_RS) == 0xffff) {
 		ESP_LOGW(TAG, "No AC101 detected");
-		i2c_driver_delete(i2c_port);
+		i2c_driver_delete(config->i2c.port-sys_i2c_port_PORT0);
 		return false;		
 	}
 	

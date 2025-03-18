@@ -1,73 +1,17 @@
 syntax = "proto3";
 
-package sys;
-import "Common.proto";
-import "customoptions.proto";
+package sys.gpio;
 import "nanopb.proto";
 option (nanopb_fileopt).enum_to_string = true;
 
-enum LevelsEnum { 
-  L_LOW = 0;
-  L_HIGH = 1;
+enum lvl { 
+  LOW = 0;
+  HIGH = 1;
 }
-// GPIO to use for the specified function
-message GPIO {
+// GPIO  to use for the specified function
+message config {
+  option (nanopb_msgopt).packed_struct  = true;
   option (nanopb_msgopt).msgid  = 10130;
-  int32 pin = 1 [(nanopb).int_size = IS_8, (cust_field).v_int32 = -1]; // a valid esp32 gpio pin that supports the intended mode
-  LevelsEnum level = 2 [(cust_field).v_enum = "L_HIGH"]; // 0 or 1
-}
-enum LedTypesEnum { 
-  UNKNOWN = 0;
-  LED_TYPE_GPIO = 1;
-  LED_TYPE_WS2812 = 2;
-}
-message LED {
-  option (nanopb_msgopt).msgid  = 10029;
-  GPIO gpio = 1 [(nanopb).int_size = IS_8]; // a valid esp32 gpio pin that supports the intended mode
-  int32 brightness = 2 [(nanopb).int_size = IS_8]; // 0 to 100%
-  LedTypesEnum led_type = 3;
-}
-message Gpios {
-  option (nanopb_msgopt).msgid  = 10030;
-  LED greenLED = 1;
-  LED redLED = 2;
-  GPIO audioJack = 3;
-  GPIO amp = 4;
-  GPIO power = 5 ;
-  GPIO jack = 6;
-  GPIO spkfault = 7;
-  GPIO Vcc = 8;
-  GPIO GND = 9;
-}
-enum GPIOExpModelEnum {
-  UNSPECIFIED_EXP = 0;
-  PCA9535 = 1;
-  PCA85XX = 2;
-  MCP23017 = 3;
-  MCP23S17 = 4;
-}
-
-message GPIOExpI2C {
-  option (nanopb_msgopt).msgid  = 10032;
-  PortEnum port = 5 [(cust_field).v_string = "SYSTEM"];  // Defaults to system  
-}
-message GPIOExpSPI {
-  option (nanopb_msgopt).msgid  = 10031;
-  int32 speed = 1 [(nanopb).int_size = IS_16];
-  HostEnum host = 2;
-  GPIO cs = 3;
-}
-message GPIOExp {
-  option (nanopb_msgopt).msgid  = 10033;
-  GPIOExpModelEnum model = 1;
-  int32 addr = 2 [(nanopb).int_size = IS_8];
-  oneof ExpType {
-    GPIOExpI2C i2c = 3;
-    GPIOExpSPI spi = 4;
-  }
-  int32 base = 5 [(cust_field).v_int32 = 40];     // Defaults to 40 
-  int32 count = 6 [(cust_field).v_int32 = 16];    // Defaults to 16 
-  GPIO intr = 7;
-  
-  
+  int32 pin = 1 [(nanopb).int_size = IS_8]; // a valid esp32 gpio pin that supports the intended mode
+  lvl level = 2 ; // 0 or 1
 }

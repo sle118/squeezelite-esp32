@@ -16,7 +16,7 @@
 #include "driver/i2c.h"
 #include "esp_log.h"
 #include "messaging.h"
-// #include "Configurator.h"
+// #include "Config.h"
 #pragma message("fixme: look for TODO below")
 #include "platform_console.h"
 #include "stdio.h"
@@ -41,19 +41,18 @@ const char* desc_spiconfig = "SPI Bus Parameters";
 const char* desc_i2c = "I2C Bus Parameters";
 const char* desc_display = "Display";
 
-#ifdef CONFIG_I2C_LOCKED
-static i2c_port_t i2c_port = I2C_NUM_1;
-#else
-static i2c_port_t i2c_port = I2C_NUM_0;
-#endif
 
 static struct {
+    struct arg_int* port;
     struct arg_int* chip_address;
     struct arg_int* register_address;
     struct arg_int* data_length;
     struct arg_end* end;
 } i2cget_args;
-
+static struct {
+    struct arg_int* port;
+    struct arg_end* end;
+} i2cdetect_args;
 static struct {
     struct arg_int* chip_address;
     struct arg_int* port;
@@ -288,31 +287,31 @@ static esp_err_t i2c_get_port(int port, i2c_port_t* i2c_port) {
     }
     return ESP_OK;
 }
-static esp_err_t i2c_master_driver_install(const char* cmdname) {
-    esp_err_t err = ESP_OK;
-    cmd_send_messaging(cmdname, MESSAGING_INFO, "Installing i2c driver on port %u\n", i2c_port);
-    if ((err = i2c_driver_install(i2c_port, I2C_MODE_MASTER, I2C_MASTER_RX_BUF_DISABLE,
-             I2C_MASTER_TX_BUF_DISABLE, 0)) != ESP_OK) {
-        cmd_send_messaging(
-            cmdname, MESSAGING_ERROR, "Driver install failed! %s\n", esp_err_to_name(err));
-    }
-    return err;
-}
+// static esp_err_t i2c_master_driver_install(const char* cmdname) {
+//     esp_err_t err = ESP_OK;
+//     cmd_send_messaging(cmdname, MESSAGING_INFO, "Installing i2c driver on port %u\n", i2c_port);
+//     if ((err = i2c_driver_install(i2c_port, I2C_MODE_MASTER, I2C_MASTER_RX_BUF_DISABLE,
+//              I2C_MASTER_TX_BUF_DISABLE, 0)) != ESP_OK) {
+//         cmd_send_messaging(
+//             cmdname, MESSAGING_ERROR, "Driver install failed! %s\n", esp_err_to_name(err));
+//     }
+//     return err;
+// }
 
-static esp_err_t i2c_master_driver_initialize(const char* cmdname, i2c_config_t* conf) {
-    esp_err_t err = ESP_OK;
-    cmd_send_messaging(cmdname, MESSAGING_INFO,
-        "Initializing i2c driver configuration.\n   mode = I2C_MODE_MASTER, \n   scl_pullup_en = "
-        "GPIO_PULLUP_ENABLE, \n   i2c port = %u, \n   sda_io_num = %u, \n   sda_pullup_en = "
-        "GPIO_PULLUP_ENABLE, \n   scl_io_num = %u, \n   scl_pullup_en = GPIO_PULLUP_ENABLE, \n   "
-        "master.clk_speed = %u\n",
-        i2c_port, conf->sda_io_num, conf->scl_io_num, conf->master.clk_speed);
-    if ((err = i2c_param_config(i2c_port, conf)) != ESP_OK) {
-        cmd_send_messaging(
-            cmdname, MESSAGING_ERROR, "i2c driver config load failed. %s\n", esp_err_to_name(err));
-    }
-    return err;
-}
+// static esp_err_t i2c_master_driver_initialize(const char* cmdname, i2c_config_t* conf) {
+//     esp_err_t err = ESP_OK;
+//     cmd_send_messaging(cmdname, MESSAGING_INFO,
+//         "Initializing i2c driver configuration.\n   mode = I2C_MODE_MASTER, \n   scl_pullup_en = "
+//         "GPIO_PULLUP_ENABLE, \n   i2c port = %u, \n   sda_io_num = %u, \n   sda_pullup_en = "
+//         "GPIO_PULLUP_ENABLE, \n   scl_io_num = %u, \n   scl_pullup_en = GPIO_PULLUP_ENABLE, \n   "
+//         "master.clk_speed = %u\n",
+//         i2c_port, conf->sda_io_num, conf->scl_io_num, conf->master.clk_speed);
+//     if ((err = i2c_param_config(i2c_port, conf)) != ESP_OK) {
+//         cmd_send_messaging(
+//             cmdname, MESSAGING_ERROR, "i2c driver config load failed. %s\n", esp_err_to_name(err));
+//     }
+//     return err;
+// }
 
 #if CONFIG_WITH_CONFIG_UI
 static int do_i2c_set_display(int argc, char** argv) {
@@ -763,12 +762,9 @@ static int do_i2cget_cmd(int argc, char** argv) {
     if (i2cget_args.data_length->count) {
         len = i2cget_args.data_length->ival[0];
     }
-    i2c_port_t loc_i2c_port = i2c_port;
-    if (i2cset_args.port->count &&
-        i2c_get_port(i2cset_args.port->ival[0], &loc_i2c_port) != ESP_OK) {
-        return 1;
-    }
-
+    i2c_port_t loc_i2c_port = i2cget_args.port->ival[0];
+    const sys_i2c_bus*i2c = get_i2c_bus(loc_i2c_port);
+    #pragma message("TODO: Fix this!")
     char* buf = NULL;
     size_t buf_size = 0;
     FILE* f = open_memstream(&buf, &buf_size);
@@ -897,18 +893,21 @@ esp_err_t cmd_i2ctools_scan_bus(FILE* f, int sda, int scl) {
 
     return 0;
 }
+
 static int do_i2cdetect_cmd(int argc, char** argv) {
 #ifdef CONFIG_WITH_CONFIG_UI
     uint8_t matches[128] = {};
     int last_match = 0;
 #endif
     esp_err_t ret = ESP_OK;
-    i2c_port_t loc_i2c_port = i2c_port;
+    i2c_port_t loc_i2c_port = i2cdetect_args.port->ival[0];
+    
     // if (i2cset_args.port->count && i2c_get_port(i2cset_args.port->ival[0], &loc_i2c_port) !=
     // ESP_OK) { 	return 1;
     // }
-    int i2c_port;
-    const i2c_config_t* i2c = config_i2c_get(&i2c_port);
+
+    const sys_i2c_bus*i2c = get_i2c_bus(loc_i2c_port);
+
 
     uint8_t address;
     char* buf = NULL;
@@ -919,8 +918,7 @@ static int do_i2cdetect_cmd(int argc, char** argv) {
         return 1;
     }
 
-    if (!GPIO_IS_VALID_OUTPUT_GPIO(i2c->scl_io_num) || !GPIO_IS_VALID_GPIO(i2c->scl_io_num) ||
-        !GPIO_IS_VALID_OUTPUT_GPIO(i2c->sda_io_num) || !GPIO_IS_VALID_GPIO(i2c->sda_io_num)) {
+    if (!i2c) {
         fprintf(f, "I2C bus configuration invalid.\r\n");
     } else {
 
@@ -1007,12 +1005,13 @@ static void register_i2c_set_display() {
 }
 #endif
 static void register_i2cdectect(void) {
+    i2cdetect_args.port = arg_int1(NULL,NULL, "<0|1>", "Specify the i2c port number");
+    i2cdetect_args.end = arg_end(1);
     const esp_console_cmd_t i2cdetect_cmd = {.command = "i2cdetect",
         .help = "Scan I2C bus for devices",
         .hint = NULL,
         .func = &do_i2cdetect_cmd,
-        .argtable = NULL};
-    cmd_to_json(&i2cdetect_cmd);
+        .argtable = &i2cdetect_args};
     ESP_ERROR_CHECK(esp_console_cmd_register(&i2cdetect_cmd));
 }
 
@@ -1023,6 +1022,7 @@ static void register_i2cget(void) {
         "r", "register", "<register_addr>", "Specify the address on that chip to read from");
     i2cget_args.data_length =
         arg_int0("l", "length", "<length>", "Specify the length to read from that data address");
+    i2cget_args.port = arg_int1(NULL,NULL, "<0|1>", "Specify the i2c port number");
     i2cget_args.end = arg_end(1);
     const esp_console_cmd_t i2cget_cmd = {.command = "i2cget",
         .help = "Read registers visible through the I2C bus",
@@ -1070,8 +1070,7 @@ static void register_i2cdump(void) {
 
 cJSON* i2config_cb() {
     cJSON* values = cJSON_CreateObject();
-    int i2c_port;
-    const i2c_config_t* i2c = config_i2c_get(&i2c_port);
+    const i2c_config_t* i2c = config_i2c_get(&platform->dev.i2c);
     if (i2c->scl_io_num > 0) {
         cJSON_AddNumberToObject(values, "scl", i2c->scl_io_num);
     }
@@ -1081,8 +1080,8 @@ cJSON* i2config_cb() {
     if (i2c->master.clk_speed > 0) {
         cJSON_AddNumberToObject(values, "speed", i2c->master.clk_speed);
     }
-    if (i2c_port >= 0) {
-        cJSON_AddNumberToObject(values, "port", i2c_port);
+    if (platform->dev.i2c.port-sys_i2c_port_PORT0 >= 0) {
+        cJSON_AddNumberToObject(values, "port", platform->dev.i2c.port-sys_i2c_port_PORT0);
     }
     return values;
 }

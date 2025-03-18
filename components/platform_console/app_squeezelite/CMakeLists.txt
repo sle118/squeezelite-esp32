@@ -1,7 +1,7 @@
 idf_build_get_property(idf_path IDF_PATH)
 idf_component_register( SRCS cmd_squeezelite.c 
 						INCLUDE_DIRS . 
-						PRIV_REQUIRES spi_flash bootloader_support  partition_table bootloader_support console codecs squeezelite newlib pthread tools platform_config display tools services)
+						PRIV_REQUIRES spi_flash bootloader_support  partition_table bootloader_support console codecs squeezelite newlib pthread tools platform_config display  services)
 						
 
 target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--undefined=feof")

@@ -22,6 +22,7 @@ typedef cJSON * parm_values_fn_t(void);
 esp_err_t cmd_to_json(const esp_console_cmd_t *cmd);
 esp_err_t cmd_to_json_with_cb(const esp_console_cmd_t *cmd, parm_values_fn_t parm_values_fn);
 int arg_parse_msg(int argc, char **argv, struct arg_hdr ** args);
+void initialize_console();
 cJSON * get_cmd_list();
 #ifdef __cplusplus
 }

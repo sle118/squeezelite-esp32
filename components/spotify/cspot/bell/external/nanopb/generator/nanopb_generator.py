@@ -1754,6 +1754,9 @@ class ProtoFile:
             for extension in self.extensions:
                 yield extension.extension_decl()
             yield '\n'
+        yield '#ifdef __cplusplus\n'
+        yield 'extern "C" {\n'
+        yield '#endif\n\n'
 
         if self.enums:
                 yield '/* Helper constants for enums */\n'
@@ -1761,9 +1764,6 @@ class ProtoFile:
                     yield enum.auxiliary_defines() + '\n'
                 yield '\n'
 
-        yield '#ifdef __cplusplus\n'
-        yield 'extern "C" {\n'
-        yield '#endif\n\n'
 
         if self.messages:
             yield '/* Initializer values for message structs */\n'

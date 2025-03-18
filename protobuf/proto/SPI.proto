@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package sys.spi;
+import "Common.proto";
+import "nanopb.proto";
+
+import "customoptions.proto";
+  // +-----+----------------+--------------+------------------------+--------------------+
+  // |SPI  | Clock polarity | Clock phase  | Data is shifted out on | Data is sampled on |
+  // |mode | (CPOL)  	      | (CPHA)		   |                        |                    |
+  // +-----+----------------+--------------+------------------------+--------------------+
+  // | 0   | 0              | 0	           | falling SCLK, and when | rising SCLK        |
+  // |     |                |              | CS activates	          |                    |
+  // +-----+----------------+--------------+------------------------+--------------------+
+  // | 1   | 0              | 1	           | rising SCLK	          | falling SCLK	     |
+  // +-----+----------------+--------------+------------------------+--------------------+
+  // | 2   | 1              | 0	           | rising SCLK, and when 	| falling SCLK	     |
+  // |     |                |              | CS activates	          |                    |
+  // +-----+----------------+--------------+------------------------+--------------------+
+  // | 3   | 1              | 1	           | falling SCLK	          | rising SCLK	       |
+  // +-----+----------------+--------------+------------------------+--------------------+
+enum mode {
+    M_0 = 0;
+    M_1 = 1;
+    M_2 = 2;
+    M_3 = 3;
+  }
+message bus {
+    option (nanopb_msgopt).packed_struct  = true;
+    option (nanopb_msgopt).msgid  = 10016;
+    int32 mosi = 1 [(cust_field).v_int32=-1];
+    int32 miso = 2 [(cust_field).v_int32=-1];
+    int32 clk = 3 [(cust_field).v_int32=-1];
+    int32 dc = 4 [(cust_field).v_int32=-1];
+    dev.common.hosts host = 5;  // Defaults to Host1 in your application logic
+    
+}
+message device {
+    option (nanopb_msgopt).packed_struct  = true;
+    option (nanopb_msgopt).msgid  = 10022;
+      int32 cs = 1 [(nanopb).int_size=IS_16, (cust_field).v_int32=-1];
+      int32 speed = 4;
+      mode mode = 5;
+    }

@@ -23,15 +23,12 @@
 } while (0)
 
 static const char TAG[] = "DAC core";
-static int i2c_port = -1;
-
+i2c_port_t i2c_port = -1;
 /****************************************************************************************
  * init
  */
-int adac_init(char *config, int i2c_port_num) {	 
+int adac_init(sys_dac_config *config) {	 
 	int i2c_addr = 0;
-
-	i2c_port = i2c_port_num;
 
 	// configure i2c
 	i2c_config_t i2c_config = {
@@ -42,17 +39,19 @@ int adac_init(char *config, int i2c_port_num) {
 			.scl_pullup_en = GPIO_PULLUP_ENABLE,
 			.master.clk_speed = 250000,
 		};
-
-	PARSE_PARAM(config, "i2c", '=', i2c_addr);
-	PARSE_PARAM(config, "sda", '=', i2c_config.sda_io_num);
-	PARSE_PARAM(config, "scl", '=', i2c_config.scl_io_num);
+	i2c_addr = config->addr;
+	if(config->has_i2c){
+		i2c_config.sda_io_num = config->i2c.sda;
+		i2c_config.scl_io_num = config->i2c.scl;
+		i2c_config.master.clk_speed =  config->i2c.speed>0?config->i2c.speed:i2c_config.master.clk_speed;
+	}
 
 	if (i2c_config.sda_io_num == -1 || i2c_config.scl_io_num == -1) {
 		ESP_LOGW(TAG, "DAC does not use i2c");
 		return i2c_addr;
 	}	
-	
-	ESP_LOGI(TAG, "DAC uses I2C port:%d, sda:%d, scl:%d", i2c_port, i2c_config.sda_io_num, i2c_config.scl_io_num);
+	i2c_port = config->i2c.port-sys_i2c_port_PORT0;
+	ESP_LOGI(TAG, "DAC uses I2C port:%s, sda:%d, scl:%d", sys_i2c_port_name(config->i2c.port), i2c_config.sda_io_num, i2c_config.scl_io_num);
 	
 	// we have an I2C configured	
 	i2c_param_config(i2c_port, &i2c_config);

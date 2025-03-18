@@ -23,13 +23,13 @@
 
 static const char TAG[] = "TAS575x/8x";
 
-static bool init(char *config, int i2c_port_num, i2s_config_t *i2s_config, bool *mck);
+static bool init(sys_dac_config *config, i2s_config_t *i2s_config, bool *mck);
 static void speaker(bool active);
 static void headset(bool active);
 static bool volume(unsigned left, unsigned right);
 static void power(adac_power_e mode);
 
-const struct adac_s dac_tas57xx = { sys_DACModelEnum_TAS57xx, init, adac_deinit, power, speaker, headset, volume };
+const struct adac_s dac_tas57xx = { sys_dac_models_TAS57xx, init, adac_deinit, power, speaker, headset, volume };
 
 struct tas57xx_cmd_s {
 	uint8_t reg;
@@ -71,9 +71,9 @@ static int tas57_detect(void);
 /****************************************************************************************
  * init
  */
-static bool init(char *config, int i2c_port, i2s_config_t *i2s_config, bool *mck) {	 
+static bool init(sys_dac_config *config, i2s_config_t *i2s_config, bool *mck) {	 
 	// find which TAS we are using (if any)
-	tas57_addr = adac_init(config, i2c_port);
+	tas57_addr = adac_init(config);
 	if (!tas57_addr) tas57_addr = tas57_detect();
 	
 	if (!tas57_addr) {
@@ -93,7 +93,7 @@ static bool init(char *config, int i2c_port, i2s_config_t *i2s_config, bool *mck
 	}
 
 	i2c_master_stop(i2c_cmd);	
-	esp_err_t res = i2c_master_cmd_begin(i2c_port, i2c_cmd, 500 / portTICK_RATE_MS);
+	esp_err_t res = i2c_master_cmd_begin(config->i2c.port-sys_i2c_port_PORT0, i2c_cmd, 500 / portTICK_RATE_MS);
     i2c_cmd_link_delete(i2c_cmd);
 	
 	if (res != ESP_OK) {

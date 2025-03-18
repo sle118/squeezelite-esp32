@@ -3,10 +3,7 @@ var he = require('he');
 
 // @ts-ignore
 import Cookies from 'js-cookie';
-var protobuf = require("protobufjs");
 import * as bootstrap from 'bootstrap';
-
-
 
 
 
@@ -55,13 +52,7 @@ interface ArgTableEntry {
   datatype?: string;
   shortopts?: string;
 }
-type MessageEntry = {
-  type: string;
-  message: string;
-  class: string;
-  sent_time:number;
-  current_time:number;
-};
+
 interface CommandEntry {
   help: string;
   hascb: boolean;
@@ -93,15 +84,15 @@ interface ConfigPayload {
 }
 interface NetworkConnection {
   urc: number;
-  auth: number ;
-  pwd: string ;
-  dhcpname: string ;
-  Action: number ;
-  ip: string ;
-  ssid: string ;
-  rssi: number ;
-  gw: string ;
-  netmask: string ;
+  auth: number;
+  pwd: string;
+  dhcpname: string;
+  Action: number;
+  ip: string;
+  ssid: string;
+  rssi: number;
+  gw: string;
+  netmask: string;
 }
 interface StatusObject {
   project_name?: string;
@@ -249,6 +240,7 @@ function handleNVSVisible() {
 }
 function concatenateOptions(options: object): string {
   let commandLine = ' ';
+
   for (const [option, value] of Object.entries(options)) {
     if (option !== 'n' && option !== 'o') {
       commandLine += `-${option} `;
@@ -260,9 +252,9 @@ function concatenateOptions(options: object): string {
   return commandLine;
 }
 
-function isEnabled(val:string) {
+function isEnabled(val: string) {
   const matchResult = val && typeof val === 'string' && val.match("[Yy1]");
-  return matchResult  && matchResult !== null  && matchResult.length > 0;
+  return matchResult && matchResult !== null && matchResult.length > 0;
 }
 
 enum NVSType {
@@ -436,7 +428,7 @@ let flashState = {
     // Reboot system to recovery mode
     this.SetStatusText('Starting recovery mode.')
     $.ajax({
-      url: '/recovery.json',
+      url: '/recovery.zzz',
       context: this,
       dataType: 'text',
       method: 'POST',
@@ -590,7 +582,7 @@ let flashState = {
         }
       }
     };
-    xhttp.open('POST', '/flash.json', true);
+    xhttp.open('POST', '/flash.zzz', true);
     xhttp.send(this.flashFileName);
   },
   TargetReadyStartOTA: function () {
@@ -663,7 +655,7 @@ function post_config(data: object) {
     config: data
   };
   $.ajax({
-    url: '/config.json',
+    url: '/config.zzz',
     dataType: 'text',
     method: 'POST',
     cache: false,
@@ -807,14 +799,7 @@ function handleTemplateTypeRadio(outtype: OutputType): void {
   }
 }
 
-function handleExceptionResponse(xhr: JQuery.jqXHR<any>
-  , _ajaxOptions: JQuery.Ajax.ErrorTextStatus, thrownError: string) {
-  console.log(xhr.status);
-  console.log(thrownError);
-  if (thrownError !== '') {
-    showLocalMessage(thrownError, 'MESSAGING_ERROR');
-  }
-}
+
 function HideCmdMessage(cmdname: string) {
   $('#toast_' + cmdname)
     .removeClass('table-success')
@@ -877,8 +862,8 @@ let validOptions = {
 let apList = null;
 //let selectedSSID = '';
 //let checkStatusInterval = null;
-let messagecount = 0;
-let messageseverity:string = 'MESSAGING_INFO';
+
+
 let SystemConfig: any;
 let LastCommandsState: number = NaN;
 var output = '';
@@ -890,7 +875,6 @@ let depth = 16;
 let board_model = '';
 let platform_name = versionName;
 let preset_name = '';
-let btSinkNamesOptSel = '#cfg-audio-bt_source-sink_name';
 let ConnectedTo: NetworkConnection;
 let ConnectingToSSID: NetworkConnection;
 let lmsBaseUrl: string = "";
@@ -949,7 +933,7 @@ function getConfigJson(slimMode: boolean): Config {
 
 
 
-function handleHWPreset(allfields:  NodeListOf<HTMLInputElement>, reboot: boolean): void {
+function handleHWPreset(allfields: NodeListOf<HTMLInputElement>, reboot: boolean): void {
   const selJson = JSON.parse(allfields[0].value);
   const cmd = allfields[0].getAttribute("cmdname");
   console.log(`selected model: ${selJson.name}`);
@@ -980,7 +964,7 @@ function handleHWPreset(allfields:  NodeListOf<HTMLInputElement>, reboot: boolea
   );
 
   $.ajax({
-    url: '/config.json',
+    url: '/config.zzz',
     dataType: 'text',
     method: 'POST',
     cache: false,
@@ -1099,7 +1083,7 @@ function saveAutoexec1(apply: boolean) {
   };
 
   $.ajax({
-    url: '/config.json',
+    url: '/config.zzz',
     dataType: 'text',
     method: 'POST',
     cache: false,
@@ -1136,7 +1120,7 @@ function saveAutoexec1(apply: boolean) {
 }
 function handleDisconnect() {
   $.ajax({
-    url: '/connect.json',
+    url: '/connect.zzz',
     dataType: 'text',
     method: 'DELETE',
     cache: false,
@@ -1161,7 +1145,7 @@ function handleConnect() {
   $('#ssid-wait').text(ConnectingToSSID.ssid);
   $('.connecting').show();
   $.ajax({
-    url: '/connect.json',
+    url: '/connect.zzz',
     dataType: 'text',
     method: 'POST',
     cache: false,
@@ -1438,7 +1422,7 @@ $(function () {
     ConnectedTo = resetNetworkConnection();
     refreshAPHTML2();
     $.ajax({
-      url: '/connect.json',
+      url: '/connect.zzz',
       dataType: 'text',
       method: 'DELETE',
       cache: false,
@@ -1686,9 +1670,54 @@ function refreshAP() {
   $.ajaxSetup({
     timeout: 3000 //Time in milliseconds
   });
-  $.getJSON('/scan.json', async function () {
+
+
+    // Create an instance of Payload and set values
+    var payload = new proto.sys.request.Payload();
+    payload.setType(proto.sys.request.Type.SCAN); // Example: Setting the type field
+    payload.setAction(proto.sys.request.Action.SET);
+
+    // Serialize the Payload to binary
+    var serializedPayload = payload.serializeBinary();
+
+    $.ajax({
+        url: '/data.bin', // URL to send the POST request
+        method: 'POST',
+        contentType: 'application/octet-stream', // Indicate that the content is binary
+        processData: false, // Prevent jQuery from converting the binary data to string
+        data: serializedPayload, // The binary data
+        success: function(data) {
+            console.log('Response received:', data);
+            try {
+              // Assuming 'proto.sys.Config.decode' is the method to deserialize your data
+              var ConfigMessage = proto.sys.Config; // Replace with your actual message class
+              var config = ConfigMessage.deserializeBinary(new Uint8Array(data));
+              console.log('Config received:', config);
+              document.title = config.getNames().getDevice();
+              hostName = config.getNames().getDevice();
+              releaseURL = config.getServices().getReleaseUrl();
+              $("#s_airplay").css({ display: config.getServices().getAirplay().getEnabled() ? 'inline' : 'none' })
+              $("#s_cspot").css({ display: config.getServices().getCspot().getEnabled() ? 'inline' : 'none' })
+      
+            } catch (error) {
+              console.error('Error decoding protobuf message:', error);
+            }
+        },
+        error: function(jqXHR, textStatus, errorThrown) {
+            console.error('Error initiating scan:', textStatus, errorThrown);
+        }
+    }).fail(function (xhr, ajaxOptions, thrownError) {
+      handleExceptionResponse(xhr, ajaxOptions, thrownError);
+    });
+
+
+
+
+
+  
+  $.getJSON('/scan.bin', async function () {
     await sleep(2000);
-    $.getJSON('/ap.json', function (data: NetworkConnection[]) {
+    $.getJSON('/ap.bin', function (data: NetworkConnection[]) {
       if (data.length > 0) {
         // sort by signal strength
         data.sort(function (a, b) {
@@ -1767,14 +1796,15 @@ function showTask(task: TaskDetails) {
 function btExists(name: string) {
   return getBTSinkOpt(name).length > 0;
 }
-function getBTSinkOpt(name: string) {
-  return $(`${btSinkNamesOptSel} option:contains('${name}')`);
+function getBTSinkOpt(name: string):string {
+  // return $(`${btSinkNamesOptSel} option:contains('${name}')`);
+  return "";
 }
 function getMessages() {
   $.ajaxSetup({
     timeout: messageInterval //Time in milliseconds
   });
-  $.getJSON('/messages.json', async function (data) {
+  $.getJSON('/messages.zzz', async function (data) {
     for (const msg of data) {
       const msgAge = msg.current_time - msg.sent_time;
       var msgTime = new Date();
@@ -1818,52 +1848,50 @@ function getMessages() {
           showCmdMessage(msgparts[1], msg.type, msgparts[2], true);
           break;
         case 'MESSAGING_CLASS_BT':
-          if ($(btSinkNamesOptSel).is('input')) {
-            const sinkNameCtrl = $(btSinkNamesOptSel)[0] as HTMLInputElement;
-            var attr = sinkNameCtrl.attributes;
-            var attrs = '';
-            for (var j = 0; j < attr.length; j++) {
-              if (attr.item(j).name != "type") {
-                attrs += `${attr.item(j).name} = "${attr.item(j).value}" `;
-              }
-            }
-            var curOpt = sinkNameCtrl.value;
-            $(btSinkNamesOptSel).replaceWith(`<select id="cfg-audio-bt_source-sink_name" ${attrs}><option value="${curOpt}" data-bs-description="${curOpt}">${curOpt}</option></select> `);
-          }
+          // if ($(btSinkNamesOptSel).is('input')) {
+          //   const sinkNameCtrl = $(btSinkNamesOptSel)[0] as HTMLInputElement;
+          //   var attr = sinkNameCtrl.attributes;
+          //   var attrs = '';
+          //   for (var j = 0; j < attr.length; j++) {
+          //     if (attr.item(j).name != "type") {
+          //       attrs += `${attr.item(j).name} = "${attr.item(j).value}" `;
+          //     }
+          //   }
+          //   var curOpt = sinkNameCtrl.value;
+          //   $(btSinkNamesOptSel).replaceWith(`<select id="cfg-audio-bt_source-sink_name" ${attrs}><option value="${curOpt}" data-bs-description="${curOpt}">${curOpt}</option></select> `);
+          // }
 
-          JSON.parse(msg.message).forEach(function (btEntry: BTDevice) {
-            // [{\n\t\t\"name\":\t\"SMSL BT4.2\",\n\t\t\"rssi\":\t-64\n\t}]
-            //<input type="text" class="form-control bg-success" placeholder="name" hasvalue="true" longopts="sink_name" shortopts="n" checkbox="false" cmdname="cfg-audio-bt_source" id="cfg-audio-bt_source-sink_name" name="cfg-audio-bt_source-sink_name">
-            //<select hasvalue="true" longopts="jack_behavior" shortopts="j" checkbox="false" cmdname="cfg-audio-general" id="cfg-audio-general-jack_behavior" name="cfg-audio-general-jack_behavior" class="form-control "><option>--</option><option>Headphones</option><option>Subwoofer</option></select>            
-            if (!btExists(btEntry.name)) {
-              $(btSinkNamesOptSel).append(`<option>${btEntry.name}</option>`);
-              showMessage({
-                type: msg.type, 
-                message: `BT Audio device found: ${btEntry.name} RSSI: ${btEntry.rssi} `,
-                class: '',
-                sent_time: 0,
-                current_time: 0
-              }, msgTime);
-            }
-            getBTSinkOpt(btEntry.name).attr('data-bs-description', `${btEntry.name} (${btEntry.rssi}dB)`)
-              .attr('rssi', btEntry.rssi)
-              .attr('value', btEntry.name)
-              .text(`${btEntry.name} [${btEntry.rssi}dB]`).trigger('change');
+          // JSON.parse(msg.message).forEach(function (btEntry: BTDevice) {
 
-          });
+          //   // if (!btExists(btEntry.name)) {
+          //   //   $(btSinkNamesOptSel).append(`<option>${btEntry.name}</option>`);
+          //   //   showMessage({
+          //   //     type: msg.type,
+          //   //     message: `BT Audio device found: ${btEntry.name} RSSI: ${btEntry.rssi} `,
+          //   //     class: '',
+          //   //     sent_time: 0,
+          //   //     current_time: 0
+          //   //   }, msgTime);
+          //   // }
+          //   getBTSinkOpt(btEntry.name).attr('data-bs-description', `${btEntry.name} (${btEntry.rssi}dB)`)
+          //     .attr('rssi', btEntry.rssi)
+          //     .attr('value', btEntry.name)
+          //     .text(`${btEntry.name} [${btEntry.rssi}dB]`).trigger('change');
+
+          // });
           // Get the options as an array
-          const btEntries = Array.from($(btSinkNamesOptSel).find('option'));
+          // const btEntries = Array.from($(btSinkNamesOptSel).find('option'));
 
           // Sort the options based on the 'rssi' attribute
-          btEntries.sort(function (a, b) {
-            const rssiA = parseInt($(a).attr('rssi'), 10);
-            const rssiB = parseInt($(b).attr('rssi'), 10);
-            console.log(`${rssiA} < ${rssiB} ? `);
-            return rssiB - rssiA; // Sort by descending RSSI values
-          });
+          // btEntries.sort(function (a, b) {
+          //   const rssiA = parseInt($(a).attr('rssi'), 10);
+          //   const rssiB = parseInt($(b).attr('rssi'), 10);
+          //   console.log(`${rssiA} < ${rssiB} ? `);
+          //   return rssiB - rssiA; // Sort by descending RSSI values
+          // });
 
-          // Clear the select element and append the sorted options
-          $(btSinkNamesOptSel).empty().append(btEntries);
+          // // Clear the select element and append the sorted options
+          // $(btSinkNamesOptSel).empty().append(btEntries);
           break;
         default:
           break;
@@ -1907,7 +1935,7 @@ function handleRecoveryMode(data: StatusObject) {
     $('.recovery_element').show();
     $('.ota_element').hide();
     $('#boot-button').html('Reboot');
-    $('#boot-form').attr('action', '/reboot_ota.json');
+    $('#boot-form').attr('action', '/reboot_ota.zzz');
   } else {
     if (!recovery && messagesHeld) {
       messagesHeld = false;
@@ -1918,7 +1946,7 @@ function handleRecoveryMode(data: StatusObject) {
     $('.recovery_element').hide();
     $('.ota_element').show();
     $('#boot-button').html('Recovery');
-    $('#boot-form').attr('action', '/recovery.json');
+    $('#boot-form').attr('action', '/recovery.zzz');
   }
 
 }
@@ -2067,7 +2095,7 @@ function checkStatus() {
   $.ajaxSetup({
     timeout: statusInterval //Time in milliseconds
   });
-  $.getJSON('/status.json', function (data) {
+  $.getJSON('/status.zzz', function (data) {
     handleRecoveryMode(data);
     handleNVSVisible();
     handleNetworkStatus(data);
@@ -2202,10 +2230,10 @@ window.runCommand = function (button, reboot) {
     timestamp: Date.now(),
     command: cmdstring
   };
-  
+
 
   $.ajax({
-    url: '/commands.json',
+    url: '/commands.zzz',
     dataType: 'text',
     method: 'POST',
     cache: false,
@@ -2243,17 +2271,17 @@ window.runCommand = function (button, reboot) {
     },
   });
 }
-function getLongOps(data:CommandValues, name:string, longopts:string) {
+function getLongOps(data: CommandValues, name: string, longopts: string) {
   return data[name] !== undefined ? data[name][longopts] : "";
 }
 function getCommands() {
   $.ajaxSetup({
     timeout: 7000 //Time in milliseconds
   });
-  $.getJSON('/commands.json', function (data) {
+  $.getJSON('/commands.zzz', function (data) {
     console.log(data);
     $('.orec').show();
-    data.commands.forEach(function (command:CommandEntry) {
+    data.commands.forEach(function (command: CommandEntry) {
       if ($('#flds-' + command.name).length === 0) {
         const cmdParts = command.name.split('-');
         const isConfig = cmdParts[0] === 'cfg';
@@ -2326,7 +2354,7 @@ function getCommands() {
     });
     $(".sclk").off('click').on('click', function () { window.runCommand((this as HTMLButtonElement), false); });
     $(".cclk").off('click').on('click', function () { window.runCommand((this as HTMLButtonElement), true); });
-    data.commands.forEach(function (command:CommandEntry) {
+    data.commands.forEach(function (command: CommandEntry) {
       $('[cmdname=' + command.name + ']:input').val('');
       $('[cmdname=' + command.name + ']:checkbox').prop('checked', false);
       if (command.argtable) {
@@ -2342,7 +2370,7 @@ function getCommands() {
                 .trigger('change');
             }
             if (
-            ($(ctrlselector)[0] as HTMLInputElement).value.length === 0 &&
+              ($(ctrlselector)[0] as HTMLInputElement).value.length === 0 &&
               (arg.datatype || '').includes('|')
             ) {
               ($(ctrlselector)[0] as HTMLInputElement).value = '--';
@@ -2368,75 +2396,113 @@ function getConfig() {
   $.ajaxSetup({
     timeout: 7000 //Time in milliseconds
   });
-  $.getJSON('/config.json', function (entries) {
-    $('#nvsTable tr').remove();
-    const data = (entries.config ? entries.config : entries);
-    SystemConfig = data;
-    commandBTSinkName = '';
-    Object.keys(data)
-      .sort()
-      .forEach(function (key) {
-        let val = data[key].value;
-        if (key === 'autoexec1') {
-          /* call new function to parse the squeezelite options */
-          processSqueezeliteCommandLine(val);
-        } else if (key === 'host_name') {
-          val = val.replaceAll('"', '');
-          $('input#dhcp-name1').val(val);
-          $('input#dhcp-name2').val(val);
-          if ($('#cmd_opt_n').length == 0) {
-            $('#cmd_opt_n').val(val);
+
+
+   // Create an instance of Payload and set values
+   var payload = new proto.sys.request.Payload();
+   payload.setType(proto.sys.request.Type.CONFIG); // Example: Setting the type field
+   payload.setAction(proto.sys.request.Action.GET);
+
+   // Serialize the Payload to binary
+   var serializedPayload = payload.serializeBinary();
+
+   $.ajax({
+       url: '/data.bin', // URL to send the POST request
+       method: 'POST',
+       contentType: 'application/octet-stream', // Indicate that the content is binary
+       processData: false, // Prevent jQuery from converting the binary data to string
+       data: serializedPayload, // The binary data
+       success: function(data) {
+           console.log('Response received:', data);
+           try {
+            // Assuming 'proto.sys.Config.decode' is the method to deserialize your data
+            var ConfigMessage = proto.sys.Config; // Replace with your actual message class
+            var config = ConfigMessage.deserializeBinary(new Uint8Array(data));
+            console.log('Config received:', config);
+            document.title = config.getNames().getDevice();
+            hostName = config.getNames().getDevice();
+            releaseURL = config.getServices().getReleaseUrl();
+            $("#s_airplay").css({ display: config.getServices().getAirplay().getEnabled() ? 'inline' : 'none' })
+            $("#s_cspot").css({ display: config.getServices().getCspot().getEnabled() ? 'inline' : 'none' })
+    
+          } catch (error) {
+            console.error('Error decoding protobuf message:', error);
           }
-          document.title = val;
-          hostName = val;
-        } else if (key === 'rel_api') {
-          releaseURL = val;
-        }
-        else if (key === 'enable_airplay') {
-          $("#s_airplay").css({ display: isEnabled(val) ? 'inline' : 'none' })
-        }
-        else if (key === 'enable_cspot') {
-          $("#s_cspot").css({ display: isEnabled(val) ? 'inline' : 'none' })
-        }
-        else if (key == 'preset_name') {
-          preset_name = val;
-        }
-        else if (key == 'board_model') {
-          board_model = val;
-        }
-
-        $('tbody#nvsTable').append(
-          `<tr><td>${key}</td><td class='value'><input type='text' class='form-control nvs' id='${key}'  nvs_type=${data[key].type} ></td></tr>`
-        );
-        $('input#' + key).val(data[key].value);
-      });
-    if (commandBTSinkName.length > 0) {
-      // persist the sink name found in the autoexec1 command line
-      $('#cfg-audio-bt_source-sink_name').val(commandBTSinkName);
-    }
-    $('tbody#nvsTable').append(
-      "<tr><td><input type='text' class='form-control' id='nvs-new-key' placeholder='new key'></td><td><input type='text' class='form-control' id='nvs-new-value' placeholder='new value' nvs_type=33 ></td></tr>"
-    );
-    if (entries.gpio) {
-      $('#pins').show();
-      $('tbody#gpiotable tr').remove();
-
-
-      entries.gpio.forEach(function (gpioEntry: GPIOEntry) {
-        $('tbody#gpiotable').append(
-          `<tr class=${gpioEntry.fixed ? 'table-secondary' : 'table-primary'}><th scope="row">${gpioEntry.group}</th><td>${gpioEntry.name}</td><td>${gpioEntry.gpio}</td><td>${gpioEntry.fixed ? 'Fixed' : 'Configuration'}</td></tr>`
-        );
-      });
-    }
-    else {
-      $('#pins').hide();
-    }
-  }).fail(function (xhr, ajaxOptions, thrownError) {
+       },
+       error: function(jqXHR, textStatus, errorThrown) {
+           console.error('Error sending config:', textStatus, errorThrown);
+       }
+   }).fail(function (xhr, ajaxOptions, thrownError) {
     handleExceptionResponse(xhr, ajaxOptions, thrownError);
   });
+
+  // $.getJSON('/config.zzz', function (entries) {
+  //   $('#nvsTable tr').remove();
+  //   const data = (entries.config ? entries.config : entries);
+  //   SystemConfig = data;
+  //   commandBTSinkName = '';
+  //   Object.keys(data)
+  //     .sort()
+  //     .forEach(function (key) {
+  //       let val = data[key].value;
+  //       if (key === 'autoexec1') {
+  //         /* call new function to parse the squeezelite options */
+  //         processSqueezeliteCommandLine(val);
+  //       } else if (key === 'host_name') {
+  //         val = val.replaceAll('"', '');
+  //         $('input#dhcp-name1').val(val);
+  //         $('input#dhcp-name2').val(val);
+  //         if ($('#cmd_opt_n').length == 0) {
+  //           $('#cmd_opt_n').val(val);
+  //         }
+  //         document.title = val;
+  //         hostName = val;
+  //       } else if (key === 'rel_api') {
+  //         releaseURL = val;
+  //       }
+  //       else if (key === 'enable_airplay') {
+  //         $("#s_airplay").css({ display: isEnabled(val) ? 'inline' : 'none' })
+  //       }
+  //       else if (key === 'enable_cspot') {
+  //         $("#s_cspot").css({ display: isEnabled(val) ? 'inline' : 'none' })
+  //       }
+  //       else if (key == 'preset_name') {
+  //         preset_name = val;
+  //       }
+  //       else if (key == 'board_model') {
+  //         board_model = val;
+  //       }
+
+  //       $('tbody#nvsTable').append(
+  //         `<tr><td>${key}</td><td class='value'><input type='text' class='form-control nvs' id='${key}'  nvs_type=${data[key].type} ></td></tr>`
+  //       );
+  //       $('input#' + key).val(data[key].value);
+  //     });
+  //   if (commandBTSinkName.length > 0) {
+  //     // persist the sink name found in the autoexec1 command line
+  //     $('#cfg-audio-bt_source-sink_name').val(commandBTSinkName);
+  //   }
+  //   $('tbody#nvsTable').append(
+  //     "<tr><td><input type='text' class='form-control' id='nvs-new-key' placeholder='new key'></td><td><input type='text' class='form-control' id='nvs-new-value' placeholder='new value' nvs_type=33 ></td></tr>"
+  //   );
+  //   if (entries.gpio) {
+  //     $('#pins').show();
+  //     $('tbody#gpiotable tr').remove();
+
+
+  //     entries.gpio.forEach(function (gpioEntry: GPIOEntry) {
+  //       $('tbody#gpiotable').append(
+  //         `<tr class=${gpioEntry.fixed ? 'table-secondary' : 'table-primary'}><th scope="row">${gpioEntry.group}</th><td>${gpioEntry.name}</td><td>${gpioEntry.gpio}</td><td>${gpioEntry.fixed ? 'Fixed' : 'Configuration'}</td></tr>`
+  //       );
+  //     });
+  //   }
+  //   else {
+  //     $('#pins').hide();
+  //   }
+
 }
 
-function processSqueezeliteCommandLine(val:string) {
+function processSqueezeliteCommandLine(val: string) {
   const parsed = parseSqueezeliteCommandLine(val);
   if (parsed.output.toUpperCase().startsWith('I2S')) {
     handleTemplateTypeRadio('i2s');
@@ -2454,9 +2520,9 @@ function processSqueezeliteCommandLine(val:string) {
     if (!$(`#cmd_opt_${key}`).hasOwnProperty('checked')) {
       $(`#cmd_opt_${key}`).val(option);
     } else {
-      if(typeof option === 'boolean'){
-        ($(`#cmd_opt_${key}`)[0] as HTMLInputElement).checked = option ;
-    }
+      if (typeof option === 'boolean') {
+        ($(`#cmd_opt_${key}`)[0] as HTMLInputElement).checked = option;
+      }
     }
   });
   if (parsed.options.hasOwnProperty('u')) {
@@ -2483,55 +2549,14 @@ function processSqueezeliteCommandLine(val:string) {
 
 }
 
-function showLocalMessage(message:string, severity:string) {
-  const msg:MessageEntry = {
-    message: message,
-    type: severity,
-    class: '',
-    sent_time: 0,
-    current_time: 0
-  };
-  showMessage(msg, new Date());
-}
 
-function showMessage(msg: MessageEntry, msgTime: Date) {
-  let color = 'table-success';
 
-  if (msg.type === 'MESSAGING_WARNING') {
-    color = 'table-warning';
-    if (messageseverity === 'MESSAGING_INFO') {
-      messageseverity = 'MESSAGING_WARNING';
-    }
-  } else if (msg.type === 'MESSAGING_ERROR') {
-    if (
-      messageseverity === 'MESSAGING_INFO' ||
-      messageseverity === 'MESSAGING_WARNING'
-    ) {
-      messageseverity = 'MESSAGING_ERROR';
-    }
-    color = 'table-danger';
-  }
-  if (++messagecount > 0) {
-    $('#msgcnt').removeClass('badge-success');
-    $('#msgcnt').removeClass('badge-warning');
-    $('#msgcnt').removeClass('badge-danger');
-    $('#msgcnt').addClass({
-        MESSAGING_INFO: 'badge-success',
-        MESSAGING_WARNING: 'badge-warning',
-        MESSAGING_ERROR: 'badge-danger',
-      }[messageseverity]);
-    $('#msgcnt').text(messagecount);
-  }
 
-  $('#syslogTable').append(
-    `<tr class='${color}'><td>${msgTime.toLocalShort()}</td><td>${msg.message.encodeHTML()}</td></tr>`
-  );
-}
 
-function inRange(x:number, min:number, max:number) {
+function inRange(x: number, min: number, max: number) {
   return (x - min) * (x - max) <= 0;
 }
 
-function sleep(ms:number) {
+function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }

@@ -1,0 +1,14 @@
+{
+    "BasedOnStyle": "LLVM",
+    "UseTab": "Never",
+    "IndentWidth": 4,
+    "TabWidth": 4,
+    "ColumnLimit": 150,
+    "PointerAlignment": "Left",
+    "AlignAfterOpenBracket": "DontAlign",
+    "BreakBeforeBraces": "Attach",
+    "AllowShortIfStatementsOnASingleLine": true,
+    "AllowShortFunctionsOnASingleLine": "All",
+    "IndentCaseLabels": false,
+    "SpacesBeforeTrailingComments": 1
+}

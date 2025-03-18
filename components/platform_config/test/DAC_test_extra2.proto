@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package sys.dac.extra2;
+import "DAC.proto";
+import "GPIO.proto";
+import "I2CBus.proto";
+import "DacControlSet.proto";
+import "customoptions.proto";
+import "nanopb.proto";
+option (nanopb_fileopt).enum_to_string = true;
+
+message config {
+  option (nanopb_msgopt).packed_struct  = true;
+  option (nanopb_msgopt).msgid  = 90008;
+  int32 bck = 1 [(cust_field).v_int32=-1];
+  int32 ws = 2 [(cust_field).v_int32=-1];
+  int32 dout = 3 [(cust_field).v_int32=-1];
+  MCK mck = 4;
+  gpio.config mute = 5 [(cust_field).v_msg='{"pin":-1,"level":"LOW"}'];
+  Models model = 6;
+  I2CBus i2c = 7;
+  dac.control.Set daccontrolset = 8;
+  bool jack_mutes_amp = 9;
+  uint32 addr = 10;
+  int32 din = 11 [(cust_field).v_int32=-1];
+  int32 dummy1 = 20;
+  int64 dummy2 = 21;  
+  gpio.config dummy3 = 22;
+  gpio.config dummy4 = 23;
+}

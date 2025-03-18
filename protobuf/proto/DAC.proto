@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package sys;
+package sys.dac;
 import "GPIO.proto";
 import "DacControlSet.proto";
 import "I2CBus.proto";
@@ -8,8 +8,8 @@ import "customoptions.proto";
 import "nanopb.proto";
 option (nanopb_fileopt).enum_to_string = true;
 
-enum DACModelEnum {
-  UNSPECIFIED_MODEL = 0;
+enum models {
+  UNSPECIFIED = 0;
   TAS57xx = 1;
   TAS5713 = 2;
   AC101 = 3;
@@ -17,23 +17,40 @@ enum DACModelEnum {
   ES8388 = 5;
   I2S = 6;
   CS4265 = 7;
+  OTHER = 8;
 }
-enum MCKEnum {
-  UNSPECIFIED_MCK = 0;
-  MCK0 = 1;
-  MCK1 = 2;
-  MCK2 = 3;
+enum mck {
+  NONE = 0;
+  GPIO0 = 1;
+  TXD = 2;
+  INVALID1 = 3;
+  RXD = 4;
 }
+message default_set {
+  models model = 1;
+  uint32 bytes_per_frame = 2;
+  bool valid = 3;
+  dac.control.set set = 4;
+  
 
-message DAC {
+}
+message default_sets {
+  repeated default_set sets = 1 [(nanopb).type = FT_POINTER];
+}
+message config {
+  option (nanopb_msgopt).packed_struct  = true;
   option (nanopb_msgopt).msgid  = 10008;
-  GPIO bck = 1 [(cust_field).read_only = true] ;
-  GPIO ws = 2;
-  GPIO dout = 3;
-  MCKEnum mck = 4;
-  GPIO mute = 5;
-  DACModelEnum model = 6;
-  I2CBus i2c = 7;
-  DacControlSet daccontrolset = 8;
+  int32 bck = 1 [(cust_field).v_int32=-1];
+  int32 ws = 2 [(cust_field).v_int32=-1];
+  int32 dout = 3 [(cust_field).v_int32=-1];
+  mck mck = 4;
+  gpio.config mute = 5 [(cust_field).v_msg='{"pin":-1,"level":"LOW"}'];
+  models model = 6;
+  sys.i2c.bus i2c = 7;
+  dac.control.set daccontrolset = 8;
   bool jack_mutes_amp = 9;
+  uint32 addr = 10;
+  int32 din = 11 [(cust_field).v_int32=-1];
+  
+
 }

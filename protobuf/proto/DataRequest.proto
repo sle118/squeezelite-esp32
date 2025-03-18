@@ -1,0 +1,45 @@
+syntax = "proto3";
+import "nanopb.proto";
+import "configuration.proto";
+import "Status.proto";
+package sys.request;
+
+option (nanopb_fileopt).enum_to_string = true;
+enum type {
+  UNKNOWN = 0;
+  CONFIG = 1;
+  STATUS = 2;
+  MESSAGE = 3;
+  RESTART = 4;
+  NETWORK = 5;
+  OTA = 6;
+  SCAN = 7;
+}
+enum action {
+  ACT_UNKNOWN = 0;
+  SET = 1;
+  GET = 2;
+}
+enum result {
+  RES_UNKNOWN = 0;
+  SUCCESS = 1;
+  ERROR = 2;
+}
+
+message payload {
+  type type = 1;
+  action action = 2;
+  oneof data {
+    config config = 3;
+    string URL = 4 [(nanopb).type = FT_POINTER];
+  } 
+  
+}
+message response {
+  result result = 1;
+  string message = 2 [(nanopb).type = FT_POINTER];
+  oneof data {
+    status.data status = 3;
+  }
+  
+}

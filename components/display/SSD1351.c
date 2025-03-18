@@ -268,10 +268,10 @@ static const struct GDS_Device SSD1351 = {
 	.Mode = GDS_RGB565, .Depth = 16,
 };	
 
-struct GDS_Device* SSD1351_Detect(sys_Display * Driver, struct GDS_Device* Device) {
+struct GDS_Device* SSD1351_Detect(sys_display_config * Driver, struct GDS_Device* Device) {
 	int Depth;
 	
-	if(Driver->common.driver != sys_DisplayDriverEnum_SSD1351) return NULL;
+	if(Driver->common.driver != sys_display_drivers_SSD1351) return NULL;
 	
 	if (!Device) Device = calloc(1, sizeof(struct GDS_Device));
 	

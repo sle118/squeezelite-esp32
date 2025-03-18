@@ -26,8 +26,7 @@
 #ifndef SQUEEZELITE_ESP32_RELEASE_URL
 #define SQUEEZELITE_ESP32_RELEASE_URL "https://github.com/sle118/squeezelite-esp32/releases"
 #endif
-extern bool is_recovery_running;
-extern  bool wait_for_wifi();
+
 extern bool console_push(const char * data, size_t size);
 extern void console_start();
 extern pthread_cond_t wifi_connect_suspend_cond;

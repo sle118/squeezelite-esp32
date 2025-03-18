@@ -12,12 +12,12 @@
 #include "freertos/FreeRTOS.h"
 #include "driver/i2s.h"
 #include "driver/i2c.h"
-#include "Configurator.h"
+#include "Config.h"
 typedef enum { ADAC_ON = 0, ADAC_STANDBY, ADAC_OFF } adac_power_e;
 
 struct adac_s {
-	sys_DACModelEnum model;
-	bool (*init)(char *config, int i2c_port_num, i2s_config_t *i2s_config, bool *mck);
+	sys_dac_models model;
+	bool (*init)(sys_dac_config *config,i2s_config_t *i2s_config, bool *mck);
 	void (*deinit)(void);
 	void (*power)(adac_power_e mode);
 	void (*speaker)(bool active);
@@ -29,9 +29,10 @@ extern const struct adac_s dac_tas57xx;
 extern const struct adac_s dac_tas5713;
 extern const struct adac_s dac_ac101;
 extern const struct adac_s dac_wm8978;
+extern const struct adac_s dac_cs4265;
 extern const struct adac_s dac_external;
 
-int 		adac_init(char *config, int i2c_port);
+int 		adac_init(sys_dac_config *config);
 void		adac_deinit(void);
 esp_err_t 	adac_write(int i2c_addr, uint8_t reg, uint8_t *data, size_t count);
 esp_err_t 	adac_write_byte(int i2c_addr, uint8_t reg, uint8_t val);

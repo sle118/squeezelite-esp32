@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package sys.metadata;
+
+import "Artwork.proto";
+import "nanopb.proto";
+
+  message config {
+    option (nanopb_msgopt).packed_struct  = true;
+    option (nanopb_msgopt).msgid  = 10036;
+    // Optional parameters controlling bluetooth and airplay
+    // Display format with optional keywords %artist%, %album%, %title%
+    string format = 1 [(nanopb).max_length= 50];
+  
+    // Scrolling speed in ms
+    uint32 speed = 2 ;
+  
+    // Pause time between scrolls in ms
+    uint32 pause = 3;
+  
+    // Cover art display configuration
+    artwork.config artwork = 4;
+  }

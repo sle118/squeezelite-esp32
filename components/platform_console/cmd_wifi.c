@@ -54,7 +54,7 @@ static struct {
 
 
 
-// todo: implement access point config - cmd_to_json(&i2cdetect_cmd);
+
 
 static void event_handler(void* arg, esp_event_base_t event_base,
                                 int32_t event_id, void* event_data)

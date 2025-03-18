@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package sys.led;
+import "customoptions.proto";
+import "GPIO.proto";
+import "nanopb.proto";
+option (nanopb_fileopt).enum_to_string = true;
+enum types { 
+    UNKNOWN = 0;
+    GPIO = 1;
+    WS2812 = 2;
+  }
+  message config {
+    option (nanopb_msgopt).packed_struct  = true;
+    option (nanopb_msgopt).msgid  = 10029;
+    gpio.config gpio = 1 [(cust_field).v_msg='{"pin":-1,"level":"LOW"}'];
+    int32 brightness = 2 [(nanopb).int_size = IS_8]; // 0 to 100%
+    types led_type = 3;
+  }

@@ -6,25 +6,22 @@
  *  https://opensource.org/licenses/MIT
  *
  */
-// #define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
+#define LOG_LOCAL_LEVEL ESP_LOG_INFO
 #include "tools.h"
 #include "esp_heap_caps.h"
-#include "esp_http_client.h"
 #include "esp_log.h"
 #include "esp_task.h"
-#include "esp_tls.h"
+
 #include <ctype.h>
 #include <stdint.h>
-#include <stdlib.h>
 #include <string.h>
-#include <dirent.h>
-#include "esp_http_server.h"
 #if CONFIG_FREERTOS_THREAD_LOCAL_STORAGE_POINTERS < 2
 #error CONFIG_FREERTOS_THREAD_LOCAL_STORAGE_POINTERS must be at least 2
 #endif
-static bool initialized = false;
+
 const static char TAG[] = "tools";
-static esp_vfs_spiffs_conf_t* spiffs_conf = NULL;
+const char unknown_string_placeholder[] = "unknown";
+const char null_string_placeholder[] = "null";
 
 /****************************************************************************************
  * UTF-8 tools
@@ -67,6 +64,15 @@ static const uint8_t utf8d[] = {
     1, // s7..s8
 };
 
+/**
+ * @fn static uint32_t decode(uint32_t* state, uint32_t* codep, uint32_t byte)
+ * Decodes a single UTF-8 encoded byte.
+ *
+ * @param state A pointer to the current state of the UTF-8 decoder.
+ * @param codep A pointer to the code point being built from the UTF-8 bytes.
+ * @param byte The current byte to be decoded.
+ * @return The new state after processing the byte.
+ */
 static uint32_t decode(uint32_t* state, uint32_t* codep, uint32_t byte) {
     uint32_t type = utf8d[byte];
 
@@ -76,6 +82,13 @@ static uint32_t decode(uint32_t* state, uint32_t* codep, uint32_t byte) {
     return *state;
 }
 
+/**
+ * @fn static uint8_t UNICODEtoCP1252(uint16_t chr)
+ * Converts a Unicode character to its corresponding CP1252 character.
+ *
+ * @param chr The Unicode character to be converted.
+ * @return The corresponding CP1252 character or 0x00 if there is no direct mapping.
+ */
 static uint8_t UNICODEtoCP1252(uint16_t chr) {
     if (chr <= 0xff)
         return (chr & 0xff);
@@ -182,27 +195,6 @@ void utf8_decode(char* src) {
 }
 
 /****************************************************************************************
- * URL tools
- */
-
-static inline char from_hex(char ch) { return isdigit(ch) ? ch - '0' : tolower(ch) - 'a' + 10; }
-
-void url_decode(char* url) {
-    char *p, *src = strdup(url);
-    for (p = src; *src; url++) {
-        *url = *src++;
-        if (*url == '%') {
-            *url = from_hex(*src++) << 4;
-            *url |= from_hex(*src++);
-        } else if (*url == '+') {
-            *url = ' ';
-        }
-    }
-    *url = '\0';
-    free(p);
-}
-
-/****************************************************************************************
  * Memory tools
  */
 
@@ -233,8 +225,7 @@ char* strdup_psram(const char* source) {
     size_t source_sz = strlen(source) + 1;
     ptr = heap_caps_malloc(source_sz, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     if (ptr == NULL) {
-        ESP_LOGE(TAG, "strdup_psram:  unable to allocate %d bytes of PSRAM! Cannot clone string %s",
-            source_sz, source);
+        ESP_LOGE(TAG, "strdup_psram:  unable to allocate %d bytes of PSRAM! Cannot clone string %s", source_sz, source);
     } else {
         memset(ptr, 0x00, source_sz);
         strcpy(ptr, source);
@@ -247,27 +238,42 @@ char* strdup_psram(const char* source) {
  */
 #define TASK_TLS_INDEX 1
 
+/**
+ * @struct task_context_t
+ * Structure to hold the context of a task including its task buffer and stack.
+ *
+ * @var StaticTask_t* xTaskBuffer
+ * Pointer to the task's control block.
+ * 
+ * @var StackType_t* xStack
+ * Pointer to the task's stack.
+ */
 typedef struct {
     StaticTask_t* xTaskBuffer;
     StackType_t* xStack;
 } task_context_t;
 
+/**
+ * @fn static void task_cleanup(int index, task_context_t* context)
+ * Cleans up the resources allocated for a task.
+ * This function is intended to be used as a callback for task deletion.
+ *
+ * @param index The TLS index where the task's context is stored.
+ * @param context Pointer to the task's context to be cleaned up.
+ */
 static void task_cleanup(int index, task_context_t* context) {
     free(context->xTaskBuffer);
     free(context->xStack);
     free(context);
 }
 
-BaseType_t xTaskCreateEXTRAM(TaskFunction_t pvTaskCode, const char* const pcName,
-    configSTACK_DEPTH_TYPE usStackDepth, void* pvParameters, UBaseType_t uxPriority,
-    TaskHandle_t* pxCreatedTask) {
+BaseType_t xTaskCreateEXTRAM(TaskFunction_t pvTaskCode, const char* const pcName, configSTACK_DEPTH_TYPE usStackDepth, void* pvParameters,
+    UBaseType_t uxPriority, TaskHandle_t* pxCreatedTask) {
     // create the worker task as a static
     task_context_t* context = calloc(1, sizeof(task_context_t));
-    context->xTaskBuffer = (StaticTask_t*)heap_caps_malloc(
-        sizeof(StaticTask_t), (MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+    context->xTaskBuffer = (StaticTask_t*)heap_caps_malloc(sizeof(StaticTask_t), (MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
     context->xStack = heap_caps_malloc(usStackDepth, (MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
-    TaskHandle_t handle = xTaskCreateStatic(pvTaskCode, pcName, usStackDepth, pvParameters,
-        uxPriority, context->xStack, context->xTaskBuffer);
+    TaskHandle_t handle = xTaskCreateStatic(pvTaskCode, pcName, usStackDepth, pvParameters, uxPriority, context->xStack, context->xTaskBuffer);
 
     // store context in TCB or free everything in case of failure
     if (!handle) {
@@ -275,8 +281,7 @@ BaseType_t xTaskCreateEXTRAM(TaskFunction_t pvTaskCode, const char* const pcName
         free(context->xStack);
         free(context);
     } else {
-        vTaskSetThreadLocalStoragePointerAndDelCallback(
-            handle, TASK_TLS_INDEX, context, (TlsDeleteCallbackFunction_t)task_cleanup);
+        vTaskSetThreadLocalStoragePointerAndDelCallback(handle, TASK_TLS_INDEX, context, (TlsDeleteCallbackFunction_t)task_cleanup);
     }
 
     if (pxCreatedTask) *pxCreatedTask = handle;
@@ -291,104 +296,6 @@ void vTaskDeleteEXTRAM(TaskHandle_t xTask) {
     vTaskDelete(xTask);
 }
 
-/****************************************************************************************
- * URL download
- */
-
-typedef struct {
-    void* user_context;
-    http_download_cb_t callback;
-    size_t max, bytes;
-    bool abort;
-    uint8_t* data;
-    esp_http_client_handle_t client;
-} http_context_t;
-
-static void http_downloader(void* arg);
-static esp_err_t http_event_handler(esp_http_client_event_t* evt);
-
-void http_download(char* url, size_t max, http_download_cb_t callback, void* context) {
-    http_context_t* http_context =
-        (http_context_t*)heap_caps_calloc(sizeof(http_context_t), 1, MALLOC_CAP_SPIRAM);
-
-    esp_http_client_config_t config = {
-        .url = url,
-        .event_handler = http_event_handler,
-        .user_data = http_context,
-    };
-
-    http_context->callback = callback;
-    http_context->user_context = context;
-    http_context->max = max;
-    http_context->client = esp_http_client_init(&config);
-
-    xTaskCreateEXTRAM(
-        http_downloader, "downloader", 8 * 1024, http_context, ESP_TASK_PRIO_MIN + 1, NULL);
-}
-
-static void http_downloader(void* arg) {
-    http_context_t* http_context = (http_context_t*)arg;
-
-    esp_http_client_perform(http_context->client);
-    esp_http_client_cleanup(http_context->client);
-
-    free(http_context);
-    vTaskDeleteEXTRAM(NULL);
-}
-
-static esp_err_t http_event_handler(esp_http_client_event_t* evt) {
-    http_context_t* http_context = (http_context_t*)evt->user_data;
-
-    if (http_context->abort) return ESP_FAIL;
-
-    switch (evt->event_id) {
-    case HTTP_EVENT_ERROR:
-        http_context->callback(NULL, 0, http_context->user_context);
-        http_context->abort = true;
-        break;
-    case HTTP_EVENT_ON_HEADER:
-        if (!strcasecmp(evt->header_key, "Content-Length")) {
-            size_t len = atoi(evt->header_value);
-            if (!len || len > http_context->max) {
-                ESP_LOGI(TAG, "content-length null or too large %zu / %zu", len, http_context->max);
-                http_context->abort = true;
-            }
-        }
-        break;
-    case HTTP_EVENT_ON_DATA: {
-        size_t len = esp_http_client_get_content_length(evt->client);
-        if (!http_context->data) {
-            if ((http_context->data = (uint8_t*)malloc(len)) == NULL) {
-                http_context->abort = true;
-                ESP_LOGE(TAG, "failed to allocate memory for output buffer %zu", len);
-                return ESP_FAIL;
-            }
-        }
-        memcpy(http_context->data + http_context->bytes, evt->data, evt->data_len);
-        http_context->bytes += evt->data_len;
-        break;
-    }
-    case HTTP_EVENT_ON_FINISH:
-        http_context->callback(http_context->data, http_context->bytes, http_context->user_context);
-        break;
-    case HTTP_EVENT_DISCONNECTED: {
-        int mbedtls_err = 0;
-        esp_err_t err = esp_tls_get_and_clear_last_error(evt->data, &mbedtls_err, NULL);
-        if (err != ESP_OK) {
-            ESP_LOGE(TAG, "HTTP download disconnect %d", err);
-            if (http_context->data) free(http_context->data);
-            http_context->callback(NULL, 0, http_context->user_context);
-            return ESP_FAIL;
-        }
-        break;
-    }
-    default:
-        break;
-    }
-
-    return ESP_OK;
-}
-
 void dump_json_content(const char* prefix, cJSON* json, int level) {
     if (!json) {
         ESP_LOG_LEVEL(level, TAG, "%s: empty!", prefix);
@@ -400,159 +307,10 @@ void dump_json_content(const char* prefix, cJSON* json, int level) {
     }
     FREE_AND_NULL(output);
 }
-void init_spiffs() {
-    if (initialized) {
-        ESP_LOGD(TAG, "SPIFFS already initialized. returning");
-        return;
-    }
-    ESP_LOGI(TAG, "Initializing the SPI File system");
-    spiffs_conf = (esp_vfs_spiffs_conf_t*)malloc(sizeof(esp_vfs_spiffs_conf_t));
-    spiffs_conf->base_path = "/spiffs";
-    spiffs_conf->partition_label = NULL;
-    spiffs_conf->max_files = 5;
-    spiffs_conf->format_if_mount_failed = true;
-    
-    // Use settings defined above to initialize and mount SPIFFS filesystem.
-    // Note: esp_vfs_spiffs_register is an all-in-one convenience function.
-    esp_err_t ret = esp_vfs_spiffs_register(spiffs_conf);
 
-    if (ret != ESP_OK) {
-        if (ret == ESP_FAIL) {
-            ESP_LOGE(TAG, "Failed to mount or format filesystem");
-        } else if (ret == ESP_ERR_NOT_FOUND) {
-            ESP_LOGE(TAG, "Failed to find SPIFFS partition");
-        } else {
-            ESP_LOGE(TAG, "Failed to initialize SPIFFS (%s)", esp_err_to_name(ret));
-        }
-        return;
-    }
-
-    size_t total = 0, used = 0;
-    ret = esp_spiffs_info(spiffs_conf->partition_label, &total, &used);
-    if (ret != ESP_OK) {
-        ESP_LOGW(TAG, "Failed to get SPIFFS partition information (%s). Formatting...",
-            esp_err_to_name(ret));
-        esp_spiffs_format(spiffs_conf->partition_label);
-    } else {
-        ESP_LOGI(TAG, "Partition size: total: %d, used: %d", total, used);
-    }
-
-
-    initialized = true;
-}
-
-// Function to safely append a path part with '/' if needed
-void append_path_part(char** dest, const char* part) {
-    if ((*dest)[-1] != '/' && part[0] != '/') {
-        strcat(*dest, "/");
-        *dest += 1; // Move the pointer past the '/'
-    }
-    strcat(*dest, part);
-    *dest += strlen(part);
-}
-
-// Function to calculate the total length needed for the new path
-size_t calculate_total_length(const char* base_path, va_list args) {
-    ESP_LOGV(TAG, "%s, Starting with base path: %s", "calculate_total_length", base_path);
-    size_t length = strlen(base_path) + 1; // +1 for null terminator
-    const char* part;
-    va_list args_copy;
-    va_copy(args_copy, args);
-    while ((part = va_arg(args_copy, const char*)) != NULL) {
-        ESP_LOGV(TAG, "Adding length of %s", part);
-        length += strlen(part) + 1; // +1 for potential '/'
-    }
-    ESP_LOGV(TAG, "Done looping. calculated length: %d", length);
-    va_end(args_copy);
-    return length;
-}
-
-// Main function to join paths
-char* __alloc_join_path(const char* base_path, va_list args) {
-    size_t count = 0;
-    ESP_LOGD(TAG, "Getting path length starting with %s", base_path);
-    size_t total_length = calculate_total_length(base_path, args);
-
-    // Allocate memory
-    char* full_path = malloc_init_external(total_length);
-    if (!full_path) {
-        ESP_LOGE(TAG, "Unable to allocate memory for path");
-        return NULL;
-    }
-
-    // Start constructing the path
-    strcpy(full_path, base_path);
-    char* current_position = full_path + strlen(full_path);
-
-    // Append each path part
-    const char* part;
-    while ((part = va_arg(args, const char*)) != NULL) {
-        append_path_part(&current_position, part);
-    }
-    *current_position = '\0'; // Null-terminate the string
-    return full_path;
-}
-char* _alloc_join_path(const char* base_path, ...) {
-    va_list args;
-    ESP_LOGD(TAG, "%s", "join_path_var_parms");
-    va_start(args, base_path);
-    char* result = __alloc_join_path(base_path, args);
-    va_end(args);
-    return result;
-}
-
-FILE* __open_file(const char* mode, va_list args) {
-    FILE* file = NULL;
-    char* fullfilename = __alloc_join_path(spiffs_conf->base_path, args);
-    if (!fullfilename) {
-        ESP_LOGE(TAG, "Open file failed: unable to determine name");
-    } else {
-        ESP_LOGI(TAG, "Opening file %s in mode %s ", fullfilename, mode);
-        file = fopen(fullfilename, mode);
-    }
-    if (file == NULL) {
-        ESP_LOGE(TAG, "Open file failed");
-    }
-    if (fullfilename) free(fullfilename);
-    return file;
-}
-FILE* _open_file(const char* mode, ...) {
-    va_list args;
-    FILE* file = NULL;
-    va_start(args, mode);
-    file = __open_file(mode, args);
-    va_end(args);
-    return file;
-}
-bool _write_file(uint8_t* data, size_t sz, ...) {
-    bool result = true;
-    FILE* file = NULL;
-    va_list args;
-    if (data == NULL) {
-        ESP_LOGE(TAG, "Cannot write file. Data not received");
-        return false;
-    }
-    if (sz == 0) {
-        ESP_LOGE(TAG, "Cannot write file. Data length 0");
-        return false;
-    }
-    va_start(args, sz);
-    file = __open_file("w+", args);
-    va_end(args);
-    if (file == NULL) {
-        return false;
-    }
-    size_t written = fwrite(data, 1, sz, file);
-    if (written != sz) {
-        ESP_LOGE(TAG, "Write error. Wrote %d bytes of %d.", written, sz);
-        result = false;
-    }
-    fclose(file);
-    return result;
-}
 const char* get_mem_flag_desc(int flags) {
-    static char flagString[101]; 
-    memset(flagString,0x00,sizeof(flagString));
+    static char flagString[101];
+    memset(flagString, 0x00, sizeof(flagString));
     if (flags & MALLOC_CAP_EXEC) strcat(flagString, "EXEC ");
     if (flags & MALLOC_CAP_32BIT) strcat(flagString, "32BIT ");
     if (flags & MALLOC_CAP_8BIT) strcat(flagString, "8BIT ");
@@ -571,65 +329,7 @@ const char* get_mem_flag_desc(int flags) {
 
     return flagString;
 }
-void* _load_file(uint32_t memflags,size_t* sz, ...) {
-    void* data = NULL;
-    FILE* file = NULL;
-    size_t fsz = 0;
-    va_list args;
-    va_start(args, sz);
-    file = __open_file("rb", args);
-    va_end(args);
 
-    if (file == NULL) {
-        return data;
-    }
-    fseek(file, 0, SEEK_END);
-    fsz = ftell(file);
-    fseek(file, 0, SEEK_SET);
-    if (fsz > 0) {
-        ESP_LOGD(TAG, "Allocating %d bytes to load file content with flags: %s ", fsz,get_mem_flag_desc(memflags));
-        data = (void*)heap_caps_calloc(1, fsz, memflags); 
-        if (data == NULL) {
-            ESP_LOGE(TAG, "Failed to allocate %d bytes to load file", fsz);
-        } else {
-            fread(data, 1, fsz, file);
-            if (sz) {
-                *sz = fsz;
-            }
-        }
-    } else {
-        ESP_LOGW(TAG, "File is empty. Nothing to read");
-    }
-    fclose(file);
-    return data;
-}
-bool _get_file_info(struct stat* pfileInfo, ...) {
-    va_list args;
-    struct stat fileInfo;
-    va_start(args, pfileInfo);
-    char* fullfilename = __alloc_join_path(spiffs_conf->base_path, args);
-    va_end(args);
-    ESP_LOGD(TAG, "Getting file info for %s", fullfilename);
-
-    if (!fullfilename) {
-        ESP_LOGE(TAG, "Failed to construct full file path");
-        return false;
-    }
-    bool result = false;
-    // Use stat to fill the fileInfo structure
-    if (stat(fullfilename, &fileInfo) != 0) {
-        ESP_LOGD(TAG, "File %s not found", fullfilename);
-    } else {
-        result = true;
-        if (pfileInfo) {
-            memcpy(pfileInfo, &fileInfo, sizeof(fileInfo));
-        }
-        ESP_LOGD(TAG, "File %s has %lu bytes", fullfilename, fileInfo.st_size);
-    }
-
-    free(fullfilename);
-    return result;
-}
 #define LOCAL_MAC_SIZE 10
 const char* get_mac_str() {
     uint8_t mac[6];
@@ -644,111 +344,89 @@ const char* get_mac_str() {
     return macStr;
 }
 char* alloc_get_string_with_mac(const char* val) {
-    uint8_t mac[6];
-    char macStr[LOCAL_MAC_SIZE + 1];
-    char* fullvalue = NULL;
-    esp_read_mac((uint8_t*)&mac, ESP_MAC_WIFI_STA);
-    snprintf(macStr, LOCAL_MAC_SIZE - 1, "-%x%x%x", mac[3], mac[4], mac[5]);
-    fullvalue = (char*)malloc_init_external(strlen(val) + sizeof(macStr) + 1);
+    const char* macstr = get_mac_str();
+    char* fullvalue = (char*)malloc_init_external(strlen(val) + sizeof(macstr) + 1);
     if (fullvalue) {
         strcpy(fullvalue, val);
-        strcat(fullvalue, macStr);
+        strcat(fullvalue, macstr);
     } else {
         ESP_LOGE(TAG, "malloc failed for value %s", val);
     }
     return fullvalue;
 }
-void listFiles(const char *path_requested) {
-    DIR *dir = NULL;
-    char * sep="---------------------------------------------------------\n";
-    struct dirent *ent;
-    char type;
-    char size[21];
-    char tpath[255];
-    struct stat sb;
-    struct tm *tm_info;
-    char *lpath = NULL;
-    int statok;
-    char * path= alloc_join_path(spiffs_conf->base_path,path_requested);
 
-    printf("\nList of Directory [%s]\n", path);
-    printf(sep);
-    // Open directory
-    dir = opendir(path);
-    if (!dir) {
-        printf("Error opening directory\n");
-        free(path);
-        return;
+char* alloc_get_fallback_unique_name() {
+#ifdef CONFIG_LWIP_LOCAL_HOSTNAME
+    return alloc_get_string_with_mac(CONFIG_LWIP_LOCAL_HOSTNAME "-");
+#elif defined(CONFIG_FW_PLATFORM_NAME)
+    return alloc_get_string_with_mac(CONFIG_FW_PLATFORM_NAME "-");
+#else
+    return alloc_get_string_with_mac("squeezelite-");
+#endif
+}
+
+#define LOCAL_MAC_SIZE 20
+char* alloc_get_formatted_mac_string(uint8_t mac[6]) {
+    char* macStr = malloc_init_external(LOCAL_MAC_SIZE);
+    if (macStr) {
+        snprintf(macStr, LOCAL_MAC_SIZE, MACSTR, MAC2STR(mac));
+    }
+    return macStr;
+}
+
+const char* str_or_unknown(const char* str) { return (str ? str : unknown_string_placeholder); }
+const char* str_or_null(const char* str) { return (str ? str : null_string_placeholder); }
+
+esp_log_level_t get_log_level_from_char(char* level) {
+    if (!strcasecmp(level, "NONE")) {
+        return ESP_LOG_NONE;
+    }
+    if (!strcasecmp(level, "ERROR")) {
+        return ESP_LOG_ERROR;
+    }
+    if (!strcasecmp(level, "WARN")) {
+        return ESP_LOG_WARN;
+    }
+    if (!strcasecmp(level, "INFO")) {
+        return ESP_LOG_INFO;
+    }
+    if (!strcasecmp(level, "DEBUG")) {
+        return ESP_LOG_DEBUG;
+    }
+    if (!strcasecmp(level, "VERBOSE")) {
+        return ESP_LOG_VERBOSE;
+    }
+    return ESP_LOG_WARN;
+}
+const char* get_log_level_desc(esp_log_level_t level) {
+    switch (level) {
+    case ESP_LOG_NONE:
+        return "NONE";
+        break;
+
+    case ESP_LOG_ERROR:
+        return "ERROR";
+        break;
+
+    case ESP_LOG_WARN:
+        return "WARN";
+        break;
+
+    case ESP_LOG_INFO:
+        return "INFO";
+        break;
+    case ESP_LOG_DEBUG:
+        return "DEBUG";
+        break;
+    case ESP_LOG_VERBOSE:
+        return "VERBOSE";
+        break;
+
+    default:
+        break;
     }
 
-    // Read directory entries
-    uint64_t total = 0;
-    int nfiles = 0;
-    printf("T       Size Name\n");
-    printf(sep);
-    while ((ent = readdir(dir)) != NULL) {
-        sprintf(tpath, path);
-        if (path[strlen(path)-1] != '/') strcat(tpath,"/");
-        strcat(tpath,ent->d_name);
-
-        // Get file stat
-        statok = stat(tpath, &sb);
-
-        if (ent->d_type == DT_REG) {
-            type = 'f';
-            nfiles++;
-            if (statok) strcpy(size, "       ?");
-            else {
-                total += sb.st_size;
-                if (sb.st_size < (1024*1024)) sprintf(size,"%8d", (int)sb.st_size);
-                else if ((sb.st_size/1024) < (1024*1024)) sprintf(size,"%6dKB", (int)(sb.st_size / 1024));
-                else sprintf(size,"%6dMB", (int)(sb.st_size / (1024 * 1024)));
-            }
-        }
-        else {
-            type = 'd';
-            strcpy(size, "       -");
-        }
-
-        printf("%c  %s  %s\r\n",
-            type,
-            size,
-            ent->d_name
-        );
-        
-    }
-    if (total) {
-        printf(sep);
-    	if (total < (1024*1024)) printf("   %8d", (int)total);
-    	else if ((total/1024) < (1024*1024)) printf("   %6dKB", (int)(total / 1024));
-    	else printf("   %6dMB", (int)(total / (1024 * 1024)));
-    	printf(" in %d file(s)\n", nfiles);
-    }
-    printf(sep);
-
-    closedir(dir);
-
-    free(lpath);
-    free(path);
-	uint32_t tot=0, used=0;
-    esp_spiffs_info(NULL, &tot, &used);
-    printf("SPIFFS: free %d KB of %d KB\n", (tot-used) / 1024, tot / 1024);
-    printf(sep);
+    return "UNKNOWN";
 }
 
-bool out_file_binding(pb_ostream_t* stream, const uint8_t* buf, size_t count) {
-    FILE* file = (FILE*)stream->state;
-    ESP_LOGD(TAG, "Writing %d bytes to file", count);
-    return fwrite(buf, 1, count, file) == count;
-}
-bool in_file_binding(pb_istream_t* stream, pb_byte_t *buf, size_t count) {
-    FILE* file = (FILE*)stream->state;
-    ESP_LOGD(TAG, "Reading %d bytes from file", count);
-    return  fread(buf, 1, count, file) == count;
-}
-
-bool out_http_binding(pb_ostream_t* stream, const uint8_t* buf, size_t count) {
-    httpd_req_t* req = (httpd_req_t*)stream->state;
-    ESP_LOGD(TAG, "Writing %d bytes to file", count);
-    return  httpd_resp_send_chunk(req, (const char*)buf, count) == ESP_OK;
-}
+void set_log_level(char* tag, char* level) { esp_log_level_set(tag, get_log_level_from_char(level)); }

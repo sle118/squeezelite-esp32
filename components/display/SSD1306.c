@@ -162,8 +162,8 @@ static const struct GDS_Device SSD1306 = {
 #endif		
 };	
 
-struct GDS_Device* SSD1306_Detect(sys_Display * Driver, struct GDS_Device* Device) {
-	if(Driver->common.driver != sys_DisplayDriverEnum_SSD1306) return NULL;
+struct GDS_Device* SSD1306_Detect(sys_display_config * Driver, struct GDS_Device* Device) {
+	if(Driver->common.driver != sys_display_drivers_SSD1306) return NULL;
 	
 	if (!Device) Device = calloc(1, sizeof(struct GDS_Device));
 	*Device = SSD1306;	

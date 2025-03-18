@@ -18,7 +18,7 @@
 #include "driver/i2c.h"
 #include "driver/spi_master.h"
 #include "gpio_exp.h"
-
+#include "GPIO.pb.h"
 #define GPIO_EXP_INTR	0x100
 #define	GPIO_EXP_WRITE	0x200
 
@@ -181,7 +181,6 @@ gpio_exp_t* gpio_exp_create(const gpio_exp_config_t *config) {
 		ESP_LOGE(TAG, "Cannot create GPIO expander %s, check i2c/spi configuration", config->model);
 		return NULL;
 	}
-
 	n_expanders++;
 	expander->first = config->base;
 	expander->last = config->base + config->count - 1;
@@ -196,6 +195,12 @@ gpio_exp_t* gpio_exp_create(const gpio_exp_config_t *config) {
 
 		message_queue = xQueueCreate(4, sizeof(queue_request_t));
 		service_task = xTaskCreateStatic(service_handler, "gpio_expander", sizeof(xStack), NULL, ESP_TASK_PRIO_MIN + 1, xStack, xTaskBuffer);
+	}
+	if(config->phy.ena_pin>=0){
+		ESP_LOGD(TAG,"Enabling expander with pin %d level %d",config->phy.ena_pin,config->phy.ena_lvl);
+		gpio_pad_select_gpio(config->phy.ena_pin);
+		gpio_set_direction(config->phy.ena_pin, GPIO_MODE_DEF_OUTPUT);
+		gpio_set_level(config->phy.ena_pin, config->phy.ena_lvl);
 	}
 
 	// set interrupt if possible
@@ -222,7 +227,7 @@ gpio_exp_t* gpio_exp_create(const gpio_exp_config_t *config) {
 		gpio_intr_enable(config->intr);						
 	}
 	
-	ESP_LOGI(TAG, "Create GPIO expander %s at base %u with intr %d at @%x on port/host %d/%d", config->model, config->base, config->intr, config->phy.addr, config->phy.port, config->phy.host);
+	ESP_LOGI(TAG, "Create GPIO expander %s at base %u with intr %d at @%x on port/host %d/%d, enable pin: %d:%d", config->model, config->base, config->intr, config->phy.addr, config->phy.port, config->phy.host,config->phy.ena_pin,config->phy.ena_lvl);
 	return expander;
 }
 
@@ -377,6 +382,13 @@ esp_err_t gpio_exp_set_pull_mode(int gpio, gpio_pull_mode_t mode, gpio_exp_t *ex
 /******************************************************************************
  * Wrapper function
  */
+
+void esp_rom_gpio_pad_select_gpio_x(uint32_t gpio){
+	if (gpio < GPIO_NUM_MAX) {
+		esp_rom_gpio_pad_select_gpio(gpio);
+	} 
+}
+
 esp_err_t gpio_set_pull_mode_x(int gpio, gpio_pull_mode_t mode) {
 	if (gpio < GPIO_NUM_MAX) return gpio_set_pull_mode(gpio, mode);
 	return gpio_exp_set_pull_mode(gpio, mode, NULL);

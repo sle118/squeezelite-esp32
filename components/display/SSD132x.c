@@ -319,12 +319,12 @@ static const struct GDS_Device SSD132x = {
 	.Mode = GDS_GRAYSCALE, .Depth = 4,
 };	
 
-struct GDS_Device* SSD132x_Detect(sys_Display * Driver, struct GDS_Device* Device) {
+struct GDS_Device* SSD132x_Detect(sys_display_config * Driver, struct GDS_Device* Device) {
 	uint8_t Model;
 	int Depth;
 		
-	if(Driver->common.driver == sys_DisplayDriverEnum_SSD1326) Model = SSD1326;
-	else if(Driver->common.driver == sys_DisplayDriverEnum_SSD1327) Model = SSD1327;
+	if(Driver->common.driver == sys_display_drivers_SSD1326) Model = SSD1326;
+	else if(Driver->common.driver == sys_display_drivers_SSD1327) Model = SSD1327;
 	return NULL;
 	
 	if (!Device) Device = calloc(1, sizeof(struct GDS_Device));

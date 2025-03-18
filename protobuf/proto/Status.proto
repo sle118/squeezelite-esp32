@@ -1,16 +1,16 @@
 syntax = "proto3";
-package sys;
+package sys.status;
 import "Network.proto";
 import "nanopb.proto";
 
 option (nanopb_fileopt).enum_to_string = true;
 // Enum for APP_AV_STATE
-enum CONNECTED_IF {
+enum interfaces {
   IF_UNKNOWN = 0;
   IF_WIFI = 1;
   IF_ETHERNET = 2;
 }
-enum AV_STATE {
+enum av_states {
     A_IDLE = 0;
     A_DISCOVERING = 1;
     A_DISCOVERED = 2;
@@ -19,14 +19,14 @@ enum AV_STATE {
     A_CONNECTED = 5;
     A_DISCONNECTING = 6;
   }
-  enum MEDIA_STATE {
+  enum media_states {
     M_IDLE = 0;
     M_STARTING = 1;
     M_STARTED = 2;
     M_STOPPING = 3;
 	  M_WAIT_DISCONNECT = 4;
   }
-  enum UPDATE_REASONS {
+  enum reasons {
     R_UNKNOWN = 0;
     R_CONNECTION_OK = 1;
     R_FAILED_ATTEMPT = 2;
@@ -36,7 +36,7 @@ enum AV_STATE {
     R_ETHERNET_CONNECTED = 6; 
    }
   // Enum for ESP_AVRC_CT
-  enum ESP_AVRC_CT {
+  enum avrc_ct {
     ESP_AVRC_CT_CONNECTION_STATE_EVT = 0;
     ESP_AVRC_CT_PASSTHROUGH_RSP_EVT = 1;
     ESP_AVRC_CT_METADATA_RSP_EVT = 2;
@@ -46,7 +46,7 @@ enum AV_STATE {
     ESP_AVRC_CT_GET_RN_CAPABILITIES_RSP_EVT = 6;
     ESP_AVRC_CT_SET_ABSOLUTE_VOLUME_RSP_EVT = 7;
   }
-  enum NetworkStates {
+  enum net_states {
     NET_UNKNOWN = 0;
     NET_INSTANTIATED = 1;
     NET_INITIALIZING = 2;
@@ -54,7 +54,7 @@ enum AV_STATE {
     NET_WIFI_ACTIVE = 4;
     NET_WIFI_CONFIGURING_ACTIVE = 5;
   }
-  enum EthStates {
+  enum eth_states {
     ETH_UNKNOWN = 0;
     ETH_STARTING = 1;
     ETH_ACTIVE_LINKUP = 2;
@@ -62,7 +62,7 @@ enum AV_STATE {
     ETH_ACTIVE_CONNECTED = 4;
     ETH_CONNECTING_NEW = 5;
   }
- enum WifiState {
+ enum wifi_States {
   WIFI_UNKNOWN = 0;
   WIFI_INITIALIZING = 1;
   WIFI_CONNECTING = 2;
@@ -74,52 +74,60 @@ enum AV_STATE {
  }
 
 
-message WIFI {
+message wifi {
+  option (nanopb_msgopt).packed_struct  = true;
   option (nanopb_msgopt).msgid  = 10052;
-  WifiSTAEntry connected_sta = 1;
+  sys.net.wifi_entry connected_sta = 1;
   int32 disconnect_count = 2;
   float avg_conn_time = 3;
-  repeated WifiSTAEntry scan_result = 4 [ (nanopb).type = FT_POINTER  ];
-  WifiState wifi_state = 5;
+  repeated sys.net.wifi_entry scan_result = 4 [(nanopb).type = FT_CALLBACK, (nanopb).callback_datatype = "sys_net_wifi_entry*"];
+  wifi_States wifi_state = 5;
 }
-message NET {
+message net {
+  option (nanopb_msgopt).packed_struct  = true;
   option (nanopb_msgopt).msgid  = 10053;
-  WIFI wifi = 1;
-  IP ip = 2;
-  NetworkStates network_state = 5;
-  EthStates eth_state = 6;
+  wifi wifi = 1;
+  sys.net.ip ip = 2;
+  net_states network_state = 5;
+  eth_states eth_state = 6;
   bool eth_up = 7;
-  UPDATE_REASONS updt_reason = 8;
-  CONNECTED_IF interface = 9;
+  reasons updt_reason = 8;
+  interfaces interface = 9;
   
 }
-message BT {
+message bt {
+  option (nanopb_msgopt).packed_struct  = true;
   option (nanopb_msgopt).msgid  = 10054;
-  AV_STATE bt_status = 1;
-  ESP_AVRC_CT bt_sub_status = 2;
-  MEDIA_STATE bt_media_state = 3;
+  av_states bt_status = 1;
+  avrc_ct bt_sub_status = 2;
+  media_states bt_media_state = 3;
 }
-message PLATFORM {
+message platform {
+  option (nanopb_msgopt).packed_struct  = true;
   option (nanopb_msgopt).msgid  = 10055;
   string project = 1 [(nanopb).max_length = 128];
   string version   = 2 [(nanopb).max_length = 25];
   bool recovery = 3;
-  string name = 4 [(nanopb).max_length = 55];
+  string target = 4 [(nanopb).type = FT_POINTER];
   int32 depth = 5;
 }
-message HW {
+message hw {
+  option (nanopb_msgopt).packed_struct  = true;
   option (nanopb_msgopt).msgid  = 10056;
   bool jack_inserted = 1;
   float batt_voltage = 2;
-  bool has_jack_inserted = 3;
+  bool supports_jack_inserted = 3;
   bool spk_fault = 4;
-  bool has_spk_fault = 5;
+  bool supports_spk_fault = 5;
 }
-message Status {
+message data {
+  option (nanopb_msgopt).packed_struct  = true;
   option (nanopb_msgopt).msgid  = 10057;
-  PLATFORM platform = 1;
-  HW hw = 2;
-  BT bt = 3;
-  Server LMS = 4;
-  NET net = 5;
+  platform platform = 1;
+  hw hw = 2;
+  bt bt = 3;
+  sys.net.server LMS = 4;
+  net net = 5;
+  
+
 }

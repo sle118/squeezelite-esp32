@@ -1,17 +1,33 @@
-/* 
- *  Squeezelite for esp32
+/*
  *
- *  (c) Sebastien 2019
- *      Philippe G. 2019, philippe_44@outlook.com
+ *      Sebastien L. 2023, sle118@hotmail.com
+ *      Philippe G. 2023, philippe_44@outlook.com
  *
  *  This software is released under the MIT License.
  *  https://opensource.org/licenses/MIT
  *
+ *  License Overview:
+ *  ----------------
+ *  The MIT License is a permissive open source license. As a user of this software, you are free to:
+ *  - Use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of this software.
+ *  - Use the software for private, commercial, or any other purposes.
+ *
+ *  Conditions:
+ *  - You must include the above copyright notice and this permission notice in all
+ *    copies or substantial portions of the Software.
+ *
+ *  The MIT License offers a high degree of freedom and is well-suited for both open source and
+ *  commercial applications. It places minimal restrictions on how the software can be used,
+ *  modified, and redistributed. For more details on the MIT License, please refer to the link above.
  */
- 
+
 #pragma once
 
 #include "sys/time.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define PERF_MAX LONG_MAX
 #define MIN_MAX_VAL(x) x==PERF_MAX?0:x
@@ -75,4 +91,8 @@ static inline bool hasTimeElapsed(time_t delayMS, bool bforce)
 	else
 		return false;
 }
+
+#ifdef __cplusplus
+}
+#endif
 

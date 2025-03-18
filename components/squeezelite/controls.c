@@ -7,7 +7,7 @@
  */
 
 #include "squeezelite.h"
-// #include "Configurator.h"
+// #include "Config.h"
 #pragma message("fixme: look for TODO below")
 #include "audio_controls.h"
 
@@ -54,7 +54,7 @@ static u16_t server_cport;
 static int cli_sock = -1;
 static u8_t mac[6];
 static void	(*chained_notify)(in_addr_t, u16_t, u16_t);
-static bool raw_mode;
+static bool raw_mode=false;
 
 static void cli_send_cmd(char *cmd);
 
@@ -244,15 +244,16 @@ static bool ir_handler(u16_t addr, u16_t cmd) {
  */
 void sb_controls_init(void) {
 	// TODO: Add support for the commented code
+	#pragma message("sb_controls_init needs to be implemented")
 	// char *p = config_alloc_get_default(NVS_TYPE_STR, "lms_ctrls_raw", "n", 0);
 	// raw_mode = p && (*p == '1' || *p == 'Y' || *p == 'y');
 	// free(p);
 	
-	// LOG_INFO("initializing audio (buttons/rotary/ir) controls (raw:%u)", raw_mode);
+	LOG_INFO("initializing audio (buttons/rotary/ir) controls (raw:%u)", raw_mode);
 	
-	// get_mac(mac);
-	// actrls_set_default(LMS_controls, raw_mode, NULL, ir_handler);
+	get_mac(mac);
+	actrls_set_default(LMS_controls, raw_mode, NULL, ir_handler);
 	
-	// chained_notify = server_notify;
-	// server_notify = notify;
+	chained_notify = server_notify;
+	server_notify = notify;
 }

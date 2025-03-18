@@ -1,0 +1,299 @@
+{	"sets": [
+		{
+			"model": "ES8388",
+			"bytes_per_frame": 8,
+			"valid":true,
+			"set": {
+				"commands": [
+					{
+						"type": "INIT",
+						"items": [
+							{
+								"reg_action": {
+									"reg": 8,
+									"val": 0,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 2,
+									"val": 243,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 43,
+									"val": 128,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 0,
+									"val": 5,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 1,
+									"val": 64,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 4,
+									"val": 60,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 23,
+									"val": 32,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 24,
+									"val": 2,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 26,
+									"val": 0,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 27,
+									"val": 0,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 25,
+									"val": 50,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 38,
+									"val": 0,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 39,
+									"val": 184,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 42,
+									"val": 184,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 46,
+									"val": 30,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 47,
+									"val": 30,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 48,
+									"val": 30,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 49,
+									"val": 30,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 2,
+									"val": 170,
+									"mode": "NOTHING"
+								}
+							}
+						]
+					}
+				],
+				"mclk_needed": true
+			}
+		},
+		{
+			"model": "ES8388",
+			"bytes_per_frame": 4,
+			"valid":true,
+			"set": {
+				"commands": [
+					{
+						"type": "INIT",
+						"items": [
+							{
+								"reg_action": {
+									"reg": 8,
+									"val": 0,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 2,
+									"val": 243,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 43,
+									"val": 128,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 0,
+									"val": 5,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 1,
+									"val": 64,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 4,
+									"val": 60,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 23,
+									"val": 24,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 24,
+									"val": 2,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 26,
+									"val": 0,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 27,
+									"val": 0,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 25,
+									"val": 50,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 38,
+									"val": 0,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 39,
+									"val": 184,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 42,
+									"val": 184,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 46,
+									"val": 30,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 47,
+									"val": 30,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 48,
+									"val": 30,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 49,
+									"val": 30,
+									"mode": "NOTHING"
+								}
+							},
+							{
+								"reg_action": {
+									"reg": 2,
+									"val": 170,
+									"mode": "NOTHING"
+								}
+							}
+						]
+					}
+				],
+				"mclk_needed": true
+			}
+		}
+	]
+}

@@ -1,4 +1,4 @@
-# !/usr/bin/env python
+#!/opt/esp/python_env/idf4.4_py3.8_env/bin/python
 import argparse
 import sys
 import os
@@ -25,7 +25,7 @@ logging.basicConfig(
 def process(
     request: plugin.CodeGeneratorRequest, response: CodeGeneratorResponse, data
 ) -> None:
-    logger.info(f'Received parameter(s): {request.parameter}')
+    logger.debug(f'Received parameter(s): {request.parameter}')
     params = request.parameter.split(',')
     param_dict = {p.split('=')[0]: parse.unquote(p.split('=')[1]) for p in params if '=' in p}
     param_dict['path'] = param_dict['path'].split('?')

@@ -1,19 +1,23 @@
 syntax = "proto3";
 
-package sys;
-import "GPIO.proto";
+package sys.display;
 import "Common.proto";
+import "SPI.proto";
 import "nanopb.proto";
+import "I2CBus.proto";
+import "customoptions.proto";
+
 option (nanopb_fileopt).enum_to_string = true;
 
-message DispOffsets {
+message offsets {
+  option (nanopb_msgopt).packed_struct  = true;
   option (nanopb_msgopt).msgid  = 10020;
   int32 height =1  [(nanopb).int_size = IS_16];
   int32 width =2  [(nanopb).int_size = IS_16];
 }
 
-enum DisplayDriverEnum {
-  UNSPECIFIED_DRIVER = 0;
+enum drivers {
+  UNSPECIFIED = 0;
   SSD1306 = 1;
   SSD1322 = 2;
   SSD1326 = 3;
@@ -28,41 +32,33 @@ enum DisplayDriverEnum {
 }
 
 
-message I2CDisplay {
-  option (nanopb_msgopt).msgid  = 10021;
-  int32 address = 1  [(nanopb).int_size = IS_8];
-}
-
-message SPIDisplay {
-  option (nanopb_msgopt).msgid  = 10022;
-  GPIO cs = 1;
-  int32 speed = 4  ;
-}
-
-
-message DispCommon {
+message common {
+  option (nanopb_msgopt).packed_struct  = true;
   option (nanopb_msgopt).msgid  = 10023;
   int32 width = 1  [(nanopb).int_size = IS_16];
   int32 height = 2 [(nanopb).int_size = IS_16];
   bool HFlip = 3;
   bool VFlip = 4;
-  DisplayDriverEnum driver = 5;
+  drivers driver = 5;
   int32 bitDepth = 6  [(nanopb).int_size = IS_8];  // Defaults to Depth1 in your application logic
-  GPIO back = 7;
-  GPIO reset = 8;
-  GPIO ready = 9;
-  DispOffsets offsets = 10;
+  int32 back = 7 [(nanopb).int_size=IS_16, (cust_field).v_int32=-1];
+  int32 reset = 8 [(nanopb).int_size=IS_16, (cust_field).v_int32=-1];
+  int32 ready = 9 [(nanopb).int_size=IS_16, (cust_field).v_int32=-1];
+  offsets offsets = 10;
   bool rotate = 11;
   bool invert = 12;
   bool colow_swap = 13;
+  
 }
 
-message Display {
+message config {
+  option (nanopb_msgopt).packed_struct  = true;
   option (nanopb_msgopt).msgid  = 10024;
-  DeviceTypeEnum type = 1;
-  DispCommon common = 2;
+  dev.common.types type = 1;
+  common common = 2;
   oneof dispType {
-    I2CDisplay i2c = 3;
-    SPIDisplay spi = 4;
+    sys.i2c.device i2c = 3;
+    sys.spi.device spi = 4;
   }  
+  
 }

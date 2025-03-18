@@ -10,14 +10,11 @@
  
 #pragma once
 
-#define I2C_SYSTEM_PORT		1
 #define SPI_SYSTEM_HOST		SPI2_HOST
 
 #define RMT_NEXT_TX_CHANNEL() rmt_system_base_tx_channel++;
 #define RMT_NEXT_RX_CHANNEL() rmt_system_base_rx_channel--;
 
-extern int i2c_system_port;
-extern int i2c_system_speed;
 extern int spi_system_host;
 extern int spi_system_dc_gpio;
 extern int rmt_system_base_tx_channel;

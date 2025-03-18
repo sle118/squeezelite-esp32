@@ -22,7 +22,7 @@
 #include "gds_text.h"
 #include "gds_font.h"
 #include "gds_image.h"
-#include "Configurator.h"
+#include "Config.h"
 static const char *TAG = "display";
 
 #define min(a,b) (((a) < (b)) ? (a) : (b))
@@ -44,7 +44,7 @@ static EXT_RAM_ATTR struct {
 	char header[HEADER_SIZE + 1];
 	char string[SCROLLABLE_SIZE + 1];
 	int offset, boundary;
-	sys_Metadata *metadata_config;
+	sys_metadata_config *metadata_config;
 	bool timer, refresh;
 	uint32_t elapsed;
 	struct {
@@ -76,10 +76,11 @@ GDS_DetectFunc *drivers[] = { SH1106_Detect, SSD1306_Detect, SSD132x_Detect, SSD
 void display_init(char *welcome) {
 	bool init = false;
 	int width = -1, height = -1, backlight_pin = -1, RST_pin = -1;
-	sys_Display * sys_display;
-	sys_DispCommon * common;
+	sys_display_config * sys_display;
+	sys_display_common * common;
 
-	if(!SYS_DISPLAY(sys_display) || !SYS_DISPLAY_COMMON(common)){
+	if(!SYS_DISPLAY(sys_display) || !SYS_DISPLAY_COMMON(common) || common->driver == sys_display_drivers_UNSPECIFIED){
+		ESP_LOGI(TAG,"No display configuration");
 		return;
 	}
 	// // so far so good
@@ -87,11 +88,10 @@ void display_init(char *welcome) {
 		ESP_LOGE(TAG,"Misconfigured display missing data");
 		return;
 	}	
-
-	ESP_LOGI(TAG, "Trying to configure display type %s, driver: %s", 
-				sys_DeviceTypeEnum_name(sys_display->type),
-				sys_DisplayDriverEnum_name(common->driver));
-	if (common->has_back && common->back.pin >= 0) {
+	ESP_LOGI(TAG, "Initializing display type %s, driver: %s", 
+				sys_dev_common_types_name(sys_display->type),
+				sys_display_drivers_name(common->driver));
+	if (common->back >= 0) {
 		struct GDS_BacklightPWM PWMConfig = { .Channel = pwm_system.base_channel++, .Timer = pwm_system.timer, .Max = pwm_system.max, .Init = false	};
 		display = GDS_AutoDetect(sys_display, drivers, &PWMConfig);
 	} else {
@@ -99,38 +99,27 @@ void display_init(char *welcome) {
 	}
 
 	if (display) {
-		if(common->has_reset){
-			RST_pin = common->reset.pin;
-		}
-		if(common->has_back){
-			backlight_pin = common->back.pin;
-		}		
+		RST_pin = common->reset;
+		backlight_pin = common->back;
 		width = common->width;
 		height = common->height;
 
 		// Detect driver interface
-		if (sys_display->which_dispType == sys_Display_i2c_tag && i2c_system_port != -1){
+		if (sys_display->which_dispType == sys_display_config_i2c_tag && platform->dev.i2c.port != sys_i2c_port_UNSPECIFIED){
 			int address = 0x3C;
 			
 			address = sys_display->dispType.i2c.address;
 			init = true;
-			GDS_I2CInit( i2c_system_port, -1, -1, i2c_system_speed ) ;
+			GDS_I2CInit( platform->dev.i2c.port-sys_i2c_port_PORT0, -1, -1, platform->dev.i2c.speed ) ;
 			GDS_I2CAttachDevice( display, width, height, address, RST_pin, backlight_pin );
 		
 			ESP_LOGI(TAG, "Display is I2C on port %u", address);
-		} else if (sys_display->which_dispType == sys_Display_spi_tag && spi_system_host != -1) {
+		} else if (sys_display->which_dispType == sys_display_config_spi_tag && spi_system_host != -1) {
 			int CS_pin = -1, speed = 0, mode = 0;
-			if(sys_display->dispType.spi.has_cs){
-				CS_pin = sys_display->dispType.spi.cs.pin;
-			}		
+			CS_pin = sys_display->dispType.spi.cs;
 			speed = sys_display->dispType.spi.speed;
+			mode = sys_display->dispType.spi.mode;
 			
-			//todo: what is mode? 
-
-			// PARSE_PARAM(config, "mode", '=', mode);
-
-			// todo: need to handle display offsets 
-		
 			init = true;
 			GDS_SPIInit( spi_system_host, spi_system_dc_gpio );
 			GDS_SPIAttachDevice( display, width, height, CS_pin, RST_pin, backlight_pin, speed, mode );
@@ -174,7 +163,7 @@ void display_init(char *welcome) {
 		
 			// leave room for artwork is display is horizontal-style
 			if (displayer.metadata_config->has_artwork && displayer.metadata_config->artwork.enabled) {
-				// todo : check for resize flag
+				#pragma message("todo: check for resize flag and possibly offsets?")
 				displayer.artwork.enable = true;
 				displayer.artwork.fit = true;
 				if (height <= 64 && width > height * 2)

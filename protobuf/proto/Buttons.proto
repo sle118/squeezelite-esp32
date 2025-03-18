@@ -1,61 +1,79 @@
 syntax = "proto3";
 
-package sys;
-import "GPIO.proto";
+package sys.btns;
 import "nanopb.proto";
+import "GPIO.proto";
+import "customoptions.proto";
+
 option (nanopb_fileopt).enum_to_string = true;
 
-enum ButtonAction {
-  ACTRLS_NONE = 0;
-  ACTRLS_POWER = 1;
-  ACTRLS_VOLUP = 2;
-  ACTRLS_VOLDOWN = 3;
-  ACTRLS_TOGGLE = 4;
-  ACTRLS_PLAY = 5;
-  ACTRLS_PAUSE = 6;
-  ACTRLS_STOP = 7;
-  ACTRLS_REW = 8;
-  ACTRLS_FWD = 9;
-  ACTRLS_PREV = 10;
-  ACTRLS_NEXT = 11;
-  BCTRLS_UP = 12;
-  BCTRLS_DOWN = 13;
-  BCTRLS_LEFT = 14;
-  BCTRLS_RIGHT = 15;
-  BCTRLS_PS1 = 16;
-  BCTRLS_PS2 = 17;
-  BCTRLS_PS3 = 18;
-  BCTRLS_PS4 = 19;
-  BCTRLS_PS5 = 20;
-  BCTRLS_PS6 = 21;
-  BCTRLS_PS7 = 22;
-  BCTRLS_PS8 = 23;
-  BCTRLS_PS9 = 24;
-  BCTRLS_PS10 = 25;
+enum actions {
+  A_NONE = 0;
+  A_POWER = 1;
+  A_VOLUP = 2;
+  A_VOLDOWN = 3;
+  A_TOGGLE = 4;
+  A_PLAY = 5;
+  A_PAUSE = 6;
+  A_STOP = 7;
+  A_REW = 8;
+  A_FWD = 9;
+  A_PREV = 10;
+  A_NEXT = 11;
+  B_UP = 12;
+  B_DOWN = 13;
+  B_LEFT = 14;
+  B_RIGHT = 15;
+  B_PS1 = 16;
+  B_PS2 = 17;
+  B_PS3 = 18;
+  B_PS4 = 19;
+  B_PS5 = 20;
+  B_PS6 = 21;
+  B_PS7 = 22;
+  B_PS8 = 23;
+  B_PS9 = 24;
+  B_PS10 = 25;
   KNOB_LEFT = 26;
   KNOB_RIGHT = 27;
   KNOB_PUSH = 28;
-  ACTRLS_SLEEP = 29;
+  A_SLEEP = 29;
+  REMAP=30;
+  MAX=31;
+
 }
-// Message for ButtonActions
-message ButtonActions {
+message action {
+  option (nanopb_msgopt).packed_struct  = true;
+  actions type = 1;
+  string profile_name = 2  [(nanopb).type = FT_POINTER];
+}
+message press {
+  option (nanopb_msgopt).packed_struct  = true;
   option (nanopb_msgopt).msgid  = 10004;
-  ButtonAction pressed = 1 ;
-  ButtonAction released = 2 ;
+  action pressed = 1;
+  action released = 2;  
 }
-message Button {
+
+message btn {
+  option (nanopb_msgopt).packed_struct  = true;
   option (nanopb_msgopt).msgid  = 10005;
-  GPIO gpio = 1;
+  gpio.config gpio = 1 [(cust_field).v_msg='{"pin":-1,"level":"LOW"}'];
   bool pull = 2;
   int32 debounce = 3;
-  GPIO shifter = 4;
+  int32 shifter = 4 [(cust_field).v_int32=-1];
   int32 longduration = 5;
-  ButtonActions normal = 6;
-  ButtonActions longpress = 7;
-  ButtonActions shifted = 8;
-  ButtonActions longshifted = 9;
+  press normal = 6;
+  press longpress = 7;
+  press shifted = 8;
+  press longshifted = 9;
 }
-message KnobOnly {
+message profile {
+  option (nanopb_msgopt).packed_struct  = true;
+  string profile_name = 1 [(nanopb).max_length= 128];
+  repeated btn buttons = 2 [(nanopb).type = FT_POINTER];
+}
+message knob_only {
+  option (nanopb_msgopt).packed_struct  = true;
   option (nanopb_msgopt).msgid  = 10006;
   // This mode attempts to offer a single knob full navigation which is a bit contorded due to LMS UI's 
   // principles. Left, Right and Press obey to LMS's navigation rules and especially Press always goes to 
@@ -74,12 +92,15 @@ message KnobOnly {
   int32 delay_ms = 2; // optionally set the delay
 
 }
-message Rotary {
+message rotary {
+  option (nanopb_msgopt).packed_struct  = true;
   option (nanopb_msgopt).msgid  = 10007;
-  GPIO A = 1;
-  GPIO B = 2;
-  GPIO SW = 3;
-  KnobOnly knobonly = 4;
+  int32 A = 1 [(cust_field).v_int32=-1];
+  int32 B = 2 [(cust_field).v_int32=-1];
+  int32 SW = 3 [(cust_field).v_int32=-1];
+  knob_only knobonly = 4;
   bool volume = 5;
   bool longpress = 6;
+  
+
 }

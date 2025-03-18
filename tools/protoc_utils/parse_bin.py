@@ -1,3 +1,4 @@
+#!/opt/esp/python_env/idf4.4_py3.8_env/bin/python
 import json
 import os
 import sys
@@ -66,14 +67,10 @@ def main():
     main_message_class = getattr(proto_module, args.main_class)
     message = main_message_class()
 
-    proto_base_name = Path(args.proto_file).stem
-    import configuration_pb2 
-    config = configuration_pb2.Config()
-
     with open(args.source, 'rb') as bin_file:  # Open in binary mode
         data =bin_file.read()
-        config.ParseFromString(data)
-        logging.info(f'Parsed: {json.dumps(config)}')
+        message.ParseFromString(data)
+        logging.info(f'Parsed: {MessageToJson(message)}')
         
             
     # for jsonfile in args.json:

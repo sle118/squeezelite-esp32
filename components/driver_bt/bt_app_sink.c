@@ -21,7 +21,7 @@
 #include "esp_gap_bt_api.h"
 #include "esp_a2dp_api.h"
 #include "esp_avrc_api.h"
-#include "Configurator.h"
+#include "Config.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "tools.h"
@@ -45,7 +45,6 @@ static const char BT_RC_CT_TAG[] = "RCCT";
 #define CONFIG_BT_NAME	"ESP32-BT"
 #endif
 
-static char * bt_name = NULL;
 
 static bool (*bt_app_a2d_cmd_cb)(bt_sink_cmd_t cmd, ...);
 static void (*bt_app_a2d_data_cb)(const uint8_t *data, uint32_t len);
@@ -511,7 +510,7 @@ static void volume_set_by_local_host(int value, bool is_step)
 	_lock_release(&s_volume_lock);
     if(sys_state->bt_sink_volume != s_volume){
         sys_state->bt_sink_volume = s_volume;
-        configurator_raise_state_changed();
+        config_raise_state_changed();
     }
 	
     if (s_volume_notify) {
@@ -567,8 +566,8 @@ void bt_sink_init(bt_cmd_vcb_t cmd_cb, bt_data_cb_t data_cb)
 	bt_app_a2d_cmd_cb = cmd_handler;
 	cmd_handler_chain = cmd_cb;
   	bt_app_a2d_data_cb = data_cb;
-    sys_BluetoothSink * bt_sink;
-    if(!SYS_SERVICES_BTSINK(bt_sink)){
+    sys_services_bt_sink * bt_sink;
+    if(!sys_services_config_BTSINK(bt_sink)){
         return;
     }
     char pin_code[ESP_BT_PIN_CODE_LEN+1] = "1234\0";
@@ -583,7 +582,7 @@ void bt_sink_init(bt_cmd_vcb_t cmd_cb, bt_data_cb_t data_cb)
      */
     esp_bt_pin_type_t pin_type = ESP_BT_PIN_TYPE_FIXED;
     strncpy(pin_code,bt_sink->pin,sizeof(pin_code));
-    if(SYS_SERVICES_BTSINK(bt_sink) && strlen(bt_sink->pin)>ESP_BT_PIN_CODE_LEN){
+    if( strlen(bt_sink->pin)>ESP_BT_PIN_CODE_LEN){
 
     	ESP_LOGW(BT_AV_TAG, "BT Sink pin code [%s] too long. ", bt_sink->pin);
     	pin_code[ESP_BT_PIN_CODE_LEN] = '\0';
@@ -606,7 +605,6 @@ void bt_sink_init(bt_cmd_vcb_t cmd_cb, bt_data_cb_t data_cb)
     if (bError) memcpy(esp_pin_code, "1234", 4);
 	esp_bt_gap_set_pin(pin_type, strlen(pin_code), esp_pin_code);
 	
-	free(pin_code);
 }
 
 void bt_sink_deinit(void)

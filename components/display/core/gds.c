@@ -15,7 +15,7 @@
 #include "driver/gpio.h"
 #include "driver/ledc.h"
 #include "esp_log.h"
-#include "Configurator.h"
+#include "Config.h"
 #include "gds.h"
 #include "gds_private.h"
 
@@ -30,8 +30,8 @@ static struct GDS_BacklightPWM PWMConfig;
 
 static char TAG[] = "gds";
 
-struct GDS_Device* GDS_AutoDetect( sys_Display * Driver, GDS_DetectFunc* DetectFunc[], struct GDS_BacklightPWM* PWM ) {
-	if (!Driver->has_common || Driver->common.driver == sys_DisplayDriverEnum_UNSPECIFIED_DRIVER) return NULL;
+struct GDS_Device* GDS_AutoDetect( sys_display_config * Driver, GDS_DetectFunc* DetectFunc[], struct GDS_BacklightPWM* PWM ) {
+	if (!Driver->has_common || Driver->common.driver == sys_display_drivers_UNSPECIFIED) return NULL;
 	if (PWM) PWMConfig = *PWM;
 	
 	for (int i = 0; DetectFunc[i]; i++) {

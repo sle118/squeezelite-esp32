@@ -1,10 +1,11 @@
-# !/usr/bin/env python
+#!/opt/esp/python_env/idf4.4_py3.8_env/bin/python
 import io
 import os
 
 import logging
 import json
 from pathlib import Path
+import sys
 from typing import Dict, List
 from google.protobuf.compiler import plugin_pb2 as plugin
 from google.protobuf.descriptor_pb2 import FileDescriptorProto, DescriptorProto, FieldDescriptorProto,FieldOptions
@@ -59,6 +60,7 @@ class OptionsParser(ProtocParser) :
 
         
     def render_all_members(self):
+        
         for key in [key for key in  self.all_members_defaults.keys() if not '.' in key and not key.startswith(PROCESSED_PREFIX)]:
             # make each line unique
             self.all_members_defaults[key] = set(self.all_members_defaults[key])
@@ -66,9 +68,12 @@ class OptionsParser(ProtocParser) :
         
         # WRITE DEPENDENCIES FOR THE CURRENT FILE
 
-
-        member_defines = '\n'.join([ self.all_members_defaults.get(key) for key in self.all_members_defaults.keys() if '.' in key])
-        self.c_header.writelines(member_defines)
+        try:
+            member_defines = '\n'.join([ self.all_members_defaults.get(key) for key in self.all_members_defaults.keys() if '.' in key])
+            self.c_header.writelines(member_defines)
+        except Exception as e:
+            logger.error(f'{e}')
+            sys.exit(1)  # Exit with error status
         message_defines = ',\\\n'.join([key for key in  self.all_members_defaults.keys() if not '.' in key])
         self.c_header.writelines(message_defines)
                 
@@ -213,7 +218,7 @@ class OptionsParser(ProtocParser) :
                 self.get_mkey(element.cpp_type).append(f'#define {member_prefix} {opt_member_type}({init_from_mac_str}, {const_prefix_str}, {read_only_str}, {default_value_str}, {global_name_str})')
                 if element.detached_leading_comments:
                     logger.debug(f'{element.detached_leading_comments}')
-                logger.info(f'INITFROMMAC: {self.global_name}{element.path}')
+                logger.info(f'INITFROMMAC: {self.global_name}/{element.path}')
                 self.get_mkey(element.cpp_child).append(f'{opt_member}(msg, member.{element.cpp_member},{opt_member_type}) ')
                 self.get_mkey(element.cpp_root).append(f'{opt_member}({element.cpp_type},{element.cpp_member},{opt_member_type})')
 

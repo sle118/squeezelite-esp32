@@ -30,27 +30,29 @@ there might be a pop and a de-sync when sampling rate change happens. Not
 sure that using rate_delay would fix that
 */
 
-#include "squeezelite.h"
-#include "slimproto.h"
-#include "esp_pthread.h"
-#include "driver/i2s.h"
-#include "driver/i2c.h"
-#include "driver/gpio.h"
-#include "perf_trace.h"
-#include <signal.h>
-#include "adac.h"
-#include "time.h"
-#include "led.h"
-#include "services.h"
-#include "monitor.h"
-#include "gpio_exp.h"
+#include "Config.h"
 #include "accessors.h"
+#include "adac.h"
+#include "driver/gpio.h"
+#include "driver/i2c.h"
+#include "driver/i2s.h"
 #include "equalizer.h"
+#include "esp_pthread.h"
 #include "globdefs.h"
-#include "Configurator.h"
+#include "gpio_exp.h"
+#include "hal/gpio_hal.h"
+#include "led.h"
+#include "monitor.h"
+#include "perf_trace.h"
+#include "services.h"
+#include "slimproto.h"
+#include "squeezelite.h"
+#include "time.h"
+#include <signal.h>
 
-extern log_level log_level_from_sys_level(sys_DebugLevelEnum level);
-static sys_Squeezelite* config = NULL;
+extern sys_squeezelite_config* get_profile(const char* name);
+extern log_level log_level_from_sys_level(sys_squeezelite_debug_levels level);
+static sys_squeezelite_config* config = NULL;
 
 #define LOCK mutex_lock(outputbuf->mutex)
 #define UNLOCK mutex_unlock(outputbuf->mutex)
@@ -75,18 +77,18 @@ static sys_Squeezelite* config = NULL;
 #define DMA_BUF_FRAMES_SPDIF 450
 #define DMA_BUF_COUNT_SPDIF 7
 
-#define DECLARE_ALL_MIN_MAX                                                                        \
-    DECLARE_MIN_MAX(o);                                                                            \
-    DECLARE_MIN_MAX(s);                                                                            \
-    DECLARE_MIN_MAX(rec);                                                                          \
-    DECLARE_MIN_MAX(i2s_time);                                                                     \
+#define DECLARE_ALL_MIN_MAX                                                                                                                          \
+    DECLARE_MIN_MAX(o);                                                                                                                              \
+    DECLARE_MIN_MAX(s);                                                                                                                              \
+    DECLARE_MIN_MAX(rec);                                                                                                                            \
+    DECLARE_MIN_MAX(i2s_time);                                                                                                                       \
     DECLARE_MIN_MAX(buffering);
 
-#define RESET_ALL_MIN_MAX                                                                          \
-    RESET_MIN_MAX(o);                                                                              \
-    RESET_MIN_MAX(s);                                                                              \
-    RESET_MIN_MAX(rec);                                                                            \
-    RESET_MIN_MAX(i2s_time);                                                                       \
+#define RESET_ALL_MIN_MAX                                                                                                                            \
+    RESET_MIN_MAX(o);                                                                                                                                \
+    RESET_MIN_MAX(s);                                                                                                                                \
+    RESET_MIN_MAX(rec);                                                                                                                              \
+    RESET_MIN_MAX(i2s_time);                                                                                                                         \
     RESET_MIN_MAX(buffering);
 
 #define STATS_PERIOD_MS 5000
@@ -101,7 +103,7 @@ extern struct buffer* streambuf;
 extern struct buffer* outputbuf;
 extern u8_t* silencebuf;
 
-const struct adac_s* dac_set[] = {&dac_tas57xx, &dac_tas5713, &dac_ac101, &dac_wm8978, NULL};
+const struct adac_s* dac_set[] = {&dac_tas57xx, &dac_tas5713, &dac_ac101, &dac_wm8978, &dac_cs4265, NULL};
 const struct adac_s* adac = &dac_external;
 
 static log_level loglevel;
@@ -122,20 +124,17 @@ static size_t dma_buf_frames;
 static TaskHandle_t output_i2s_task;
 static struct {
     int gpio, active;
-} amp_control = {CONFIG_AMP_GPIO, CONFIG_AMP_GPIO_LEVEL},
-  mute_control = {CONFIG_MUTE_GPIO, CONFIG_MUTE_GPIO_LEVEL};
+} amp_control = {-1, 0}, mute_control = {-1, 0};
 
 DECLARE_ALL_MIN_MAX;
 
-static int _i2s_write_frames(frames_t out_frames, bool silence, s32_t gainL, s32_t gainR,
-    u8_t flags, s32_t cross_gain_in, s32_t cross_gain_out, ISAMPLE_T** cross_ptr);
+static int _i2s_write_frames(
+    frames_t out_frames, bool silence, s32_t gainL, s32_t gainR, u8_t flags, s32_t cross_gain_in, s32_t cross_gain_out, ISAMPLE_T** cross_ptr);
 static void output_thread_i2s(void* arg);
 static void i2s_stats(uint32_t now);
 
 static void spdif_convert(ISAMPLE_T* src, size_t frames, u32_t* dst);
 static void (*jack_handler_chain)(bool inserted);
-
-#define I2C_PORT 0
 
 /****************************************************************************************
  * AUDO packet handler
@@ -151,7 +150,7 @@ static bool handler(u8_t* data, int len) {
         if (jack_mutes_amp != (pkt->config == 0)) {
             jack_mutes_amp = pkt->config == 0;
             platform->dev.dac.jack_mutes_amp = jack_mutes_amp;
-            configurator_raise_changed();
+            config_raise_changed(false);
 
             if (jack_mutes_amp && jack_inserted_svc()) {
                 adac->speaker(false);
@@ -181,8 +180,7 @@ static void jack_handler(bool inserted) {
     if (jack_mutes_amp) {
         LOG_INFO("switching amplifier %s", inserted ? "OFF" : "ON");
         adac->speaker(!inserted);
-        if (amp_control.gpio != -1)
-            gpio_set_level_x(amp_control.gpio, inserted ? !amp_control.active : amp_control.active);
+        if (amp_control.gpio != -1) gpio_set_level_x(amp_control.gpio, inserted ? !amp_control.active : amp_control.active);
     }
 
     // activate headset
@@ -195,19 +193,17 @@ static void jack_handler(bool inserted) {
 /****************************************************************************************
  * Get inactivity callback
  */
-static uint32_t i2s_idle_callback(void) {
-    return output.state <= OUTPUT_STOPPED ? pdTICKS_TO_MS(xTaskGetTickCount()) - i2s_idle_since : 0;
-}
+static uint32_t i2s_idle_callback(void) { return output.state <= OUTPUT_STOPPED ? pdTICKS_TO_MS(xTaskGetTickCount()) - i2s_idle_since : 0; }
 
 /****************************************************************************************
  * Initialize the DAC output
  */
 void output_init_i2s() {
     int silent_do = -1;
-    config = &platform->services.squeezelite;
-    sys_DAC* dac_config = platform->has_dev && platform->dev.has_dac ? &platform->dev.dac : NULL;
-    sys_SPDIF* spdif_config =
-        platform->has_dev && platform->dev.has_spdif ? &platform->dev.spdif : NULL;
+    LOG_DEBUG("Initializing I2S output");
+    config = get_profile(NULL);
+    sys_dac_config* dac_config = platform->has_dev && platform->dev.has_dac ? &platform->dev.dac : NULL;
+    sys_dev_spdif* spdif_config = platform->has_dev && platform->dev.has_spdif ? &platform->dev.spdif : NULL;
     loglevel = log_level_from_sys_level(config->log.output);
     esp_err_t res;
 
@@ -216,8 +212,8 @@ void output_init_i2s() {
     slimp_handler = handler;
     if (dac_config) jack_mutes_amp = dac_config->jack_mutes_amp;
     if (platform->has_gpios) {
-        amp_control.gpio = platform->has_gpios && platform->gpios.has_amp   ? platform->gpios.amp.pin:-1;
-        amp_control.active = platform->has_gpios && platform->gpios.has_amp ? platform->gpios.amp.level:0;
+        amp_control.gpio = platform->has_gpios && platform->gpios.has_amp ? platform->gpios.amp.pin : -1;
+        amp_control.active = platform->has_gpios && platform->gpios.has_amp ? platform->gpios.amp.level : 0;
     }
 
 #if BYTES_PER_FRAME == 8
@@ -236,16 +232,25 @@ void output_init_i2s() {
 
     running = true;
 
-    i2s_pin_config_t i2s_dac_pin = {-1, -1, -1, -1}, i2s_spdif_pin = {-1, -1, -1, -1};
+    i2s_pin_config_t i2s_dac_pin = {-1, -1, -1, -1, -1}, i2s_spdif_pin = {-1, -1, -1, -1, -1};
     if (dac_config) {
-        i2s_dac_pin.bck_io_num = dac_config->has_bck ? dac_config->bck.pin : -1;
-        i2s_dac_pin.data_out_num = dac_config->has_dout ? dac_config->dout.pin : -1;
-        i2s_dac_pin.ws_io_num = dac_config->has_ws ? dac_config->ws.pin : -1;
+        i2s_dac_pin.bck_io_num = dac_config->bck;
+        i2s_dac_pin.data_out_num = dac_config->dout;
+        i2s_dac_pin.ws_io_num = dac_config->ws;
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
+        if (dac_config->mck != sys_dac_mck_NONE && dac_config->mck != sys_dac_mck_INVALID1) {
+            LOG_INFO("Using I2S Master clock %s", sys_dac_mck_name(dac_config->mck));
+            i2s_dac_pin.mck_io_num = dac_config->mck - sys_dac_mck_GPIO0;
+        } else {
+            LOG_INFO("Configuration does not specify an I2S Master Clock");
+            i2s_dac_pin.mck_io_num = -1;
+        }
+#endif
     }
     if (spdif_config) {
-        i2s_spdif_pin.bck_io_num = spdif_config->has_clk ? spdif_config->clk.pin : -1;
-        i2s_spdif_pin.data_out_num = spdif_config->has_data ? spdif_config->data.pin : -1;
-        i2s_spdif_pin.ws_io_num = spdif_config->has_dc ? spdif_config->dc.pin : -1;
+        i2s_spdif_pin.bck_io_num = spdif_config->clk;
+        i2s_spdif_pin.data_out_num = spdif_config->data;
+        i2s_spdif_pin.ws_io_num = spdif_config->ws;
     }
 
     if (i2s_dac_pin.data_out_num == -1 && i2s_spdif_pin.data_out_num == -1) {
@@ -266,16 +271,16 @@ void output_init_i2s() {
     i2s_config.dma_buf_len = DMA_BUF_FRAMES;
     i2s_config.dma_buf_count = DMA_BUF_COUNT;
 
-    if (config->output_type == sys_OutputTypeEnum_OUTPUT_SPDIF) {
+    if (config->output_type == sys_squeezelite_outputs_SPDIF) {
         spdif.enabled = true;
+        LOG_DEBUG("Configuring SPDIF");
         if ((spdif.buf = heap_caps_malloc(SPDIF_BLOCK * 16, MALLOC_CAP_INTERNAL)) == NULL) {
             LOG_ERROR("Cannot allocate SPDIF buffer");
         }
 
-        if (i2s_spdif_pin.bck_io_num == -1 || i2s_spdif_pin.ws_io_num == -1 ||
-            i2s_spdif_pin.data_out_num == -1) {
-            LOG_WARN("Cannot initialize I2S for SPDIF bck:%d ws:%d do:%d", i2s_spdif_pin.bck_io_num,
-                i2s_spdif_pin.ws_io_num, i2s_spdif_pin.data_out_num);
+        if (i2s_spdif_pin.bck_io_num == -1 || i2s_spdif_pin.ws_io_num == -1 || i2s_spdif_pin.data_out_num == -1) {
+            LOG_WARN(
+                "Cannot initialize I2S for SPDIF bck:%d ws:%d do:%d", i2s_spdif_pin.bck_io_num, i2s_spdif_pin.ws_io_num, i2s_spdif_pin.data_out_num);
         }
 
         i2s_config.sample_rate = output.current_sample_rate * 2;
@@ -291,15 +296,14 @@ void output_init_i2s() {
         dma_buf_frames = i2s_config.dma_buf_len * i2s_config.dma_buf_count / 2;
 
         // silence DAC output if sharing the same ws/bck
-        if (i2s_dac_pin.ws_io_num == i2s_spdif_pin.ws_io_num &&
-            i2s_dac_pin.bck_io_num == i2s_spdif_pin.bck_io_num)
+        if (i2s_dac_pin.ws_io_num == i2s_spdif_pin.ws_io_num && i2s_dac_pin.bck_io_num == i2s_spdif_pin.bck_io_num)
             silent_do = i2s_dac_pin.data_out_num;
 
         res = i2s_driver_install(CONFIG_I2S_NUM, &i2s_config, 0, NULL);
         res |= i2s_set_pin(CONFIG_I2S_NUM, &i2s_spdif_pin);
-        LOG_INFO("SPDIF using I2S bck:%d, ws:%d, do:%d", i2s_spdif_pin.bck_io_num,
-            i2s_spdif_pin.ws_io_num, i2s_spdif_pin.data_out_num);
+        LOG_INFO("SPDIF using I2S bck:%d, ws:%d, do:%d", i2s_spdif_pin.bck_io_num, i2s_spdif_pin.ws_io_num, i2s_spdif_pin.data_out_num);
     } else {
+        LOG_DEBUG("Configuring DAC");
         i2s_config.sample_rate = output.current_sample_rate;
         i2s_config.bits_per_sample = BYTES_PER_FRAME * 8 / 2;
         // Counted in frames (but i2s allocates a buffer <= 4092 bytes)
@@ -312,17 +316,30 @@ void output_init_i2s() {
         mute_control.gpio = dac_config && dac_config->has_mute ? dac_config->mute.pin : -1;
         mute_control.active = dac_config && dac_config->has_mute ? dac_config->mute.level : 0;
         bool mck_required = false;
-        for (int i = 0; adac == &dac_external && dac_set[i]; i++)
-            if (dac_set[i]->model == dac_config->model) adac = dac_set[i];
-        res = adac->init(NULL, I2C_PORT, &i2s_config, &mck_required) ? ESP_OK : ESP_FAIL;
-
+        LOG_DEBUG("Looking for %s DAC Driver", sys_dac_models_name(dac_config->model));
+        for (int i = 0; adac == &dac_external && dac_set[i]; i++) {
+            if (dac_set[i]->model == dac_config->model) {
+                LOG_DEBUG("Found Driver");
+                adac = dac_set[i];
+            } else {
+                LOG_DEBUG("Skipping %s", sys_dac_models_name(dac_set[i]->model));
+            }
+        }
+        if (!adac) {
+            LOG_ERROR("Invalid adac structure");
+            return;
+        }
+        if (!adac->init) {
+            LOG_ERROR("adac doesn't have a valid init");
+            return;
+        }
+        LOG_DEBUG("Calling DAC init for %s", sys_dac_models_name(adac->model));
+        res = adac->init(&platform->dev.dac, &i2s_config, &mck_required) ? ESP_OK : ESP_FAIL;
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4, 4, 0)
-        int mck_io_num = (dac_config->mck - sys_MCKEnum_MCK0) < 0 && mck_required
-                             ? 0
-                             : dac_config->mck - sys_MCKEnum_MCK0;
-
+        int mck_io_num = (((int)dac_config->mck) - ((int)sys_MCKEnum_MCK0)) < 0 && mck_required ? 0
+                         : mck_required                                                         ? dac_config->mck - sys_MCKEnum_MCK0
+                                                                                                : -1;
         LOG_INFO("configuring MCLK on GPIO %d", mck_io_num);
-
         if (mck_io_num == GPIO_NUM_0) {
             PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO0_U, FUNC_GPIO0_CLK_OUT1);
             WRITE_PERI_REG(PIN_CTRL, CONFIG_I2S_NUM == I2S_NUM_0 ? 0xFFF0 : 0xFFFF);
@@ -336,22 +353,28 @@ void output_init_i2s() {
             LOG_WARN("invalid MCK gpio %d", mck_io_num);
         }
 #else
-        if (mck_required && i2s_dac_pin.mck_io_num == -1) i2s_dac_pin.mck_io_num = 0;
-        LOG_INFO("configuring MCLK on GPIO %d", i2s_dac_pin.mck_io_num);
-#endif
-
-        res |= i2s_driver_install(CONFIG_I2S_NUM, &i2s_config, 0, NULL);
-        res |= i2s_set_pin(CONFIG_I2S_NUM, &i2s_dac_pin);
-
-        if (res == ESP_OK && mute_control.gpio >= 0) {
-            gpio_pad_select_gpio(mute_control.gpio);
-            gpio_set_direction(mute_control.gpio, GPIO_MODE_OUTPUT);
-            gpio_set_level(mute_control.gpio, mute_control.active);
+        if (res == ESP_OK) {
+            if (mck_required && i2s_dac_pin.mck_io_num == -1) {
+                LOG_DEBUG("Defaulting MCLK on GPIO %d", i2s_dac_pin.mck_io_num);
+                i2s_dac_pin.mck_io_num = 0;
+            } else {
+                LOG_DEBUG("MCLK configured on GPIO %d", i2s_dac_pin.mck_io_num);
+            }
         }
+#endif
+        if (res == ESP_OK) {
+            res |= i2s_driver_install(CONFIG_I2S_NUM, &i2s_config, 0, NULL);
+            res |= i2s_set_pin(CONFIG_I2S_NUM, &i2s_dac_pin);
 
-        LOG_INFO("%s DAC using I2S bck:%d, ws:%d, do:%d, mute:%d:%d (res:%d)",
-            sys_EthModelEnum_name(dac_config->model), i2s_dac_pin.bck_io_num, i2s_dac_pin.ws_io_num,
-            i2s_dac_pin.data_out_num, mute_control.gpio, mute_control.active, res);
+            if (res == ESP_OK && mute_control.gpio >= 0) {
+                gpio_pad_select_gpio(mute_control.gpio);
+                gpio_set_direction(mute_control.gpio, GPIO_MODE_OUTPUT);
+                gpio_set_level(mute_control.gpio, mute_control.active);
+            }
+
+            LOG_INFO("%s DAC using I2S bck:%d, ws:%d, do:%d, mute:%d:%d (res:%d)", sys_dac_models_name(dac_config->model), i2s_dac_pin.bck_io_num,
+                i2s_dac_pin.ws_io_num, i2s_dac_pin.data_out_num, mute_control.gpio, mute_control.active, res);
+        }
     }
 
     if (res != ESP_OK) {
@@ -368,8 +391,7 @@ void output_init_i2s() {
 
     LOG_INFO("Initializing I2S mode %s with rate: %d, bits per sample: %d, buffer frames: %d, "
              "number of buffers: %d ",
-        spdif.enabled ? "S/PDIF" : "normal", i2s_config.sample_rate, i2s_config.bits_per_sample,
-        i2s_config.dma_buf_len, i2s_config.dma_buf_count);
+        spdif.enabled ? "S/PDIF" : "normal", i2s_config.sample_rate, i2s_config.bits_per_sample, i2s_config.dma_buf_len, i2s_config.dma_buf_count);
 
     i2s_stop(CONFIG_I2S_NUM);
     i2s_zero_dma_buffer(CONFIG_I2S_NUM);
@@ -408,10 +430,8 @@ void output_init_i2s() {
     // create task as a FreeRTOS task but uses stack in internal RAM
     {
         static DRAM_ATTR StaticTask_t xTaskBuffer __attribute__((aligned(4)));
-        static EXT_RAM_ATTR StackType_t xStack[OUTPUT_THREAD_STACK_SIZE]
-            __attribute__((aligned(4)));
-        output_i2s_task = xTaskCreateStaticPinnedToCore((TaskFunction_t)output_thread_i2s,
-            "output_i2s", OUTPUT_THREAD_STACK_SIZE, NULL,
+        static EXT_RAM_ATTR StackType_t xStack[OUTPUT_THREAD_STACK_SIZE] __attribute__((aligned(4)));
+        output_i2s_task = xTaskCreateStaticPinnedToCore((TaskFunction_t)output_thread_i2s, "output_i2s", OUTPUT_THREAD_STACK_SIZE, NULL,
             CONFIG_ESP32_PTHREAD_TASK_PRIO_DEFAULT + 1, xStack, &xTaskBuffer, 0);
     }
 }
@@ -439,17 +459,15 @@ void output_close_i2s(void) {
  * change volume
  */
 bool output_volume_i2s(unsigned left, unsigned right) {
-    if (mute_control.gpio >= 0)
-        gpio_set_level(
-            mute_control.gpio, (left | right) ? !mute_control.active : mute_control.active);
+    if (mute_control.gpio >= 0) gpio_set_level(mute_control.gpio, (left | right) ? !mute_control.active : mute_control.active);
     return adac->volume(left, right);
 }
 
 /****************************************************************************************
  * Write frames to the output buffer
  */
-static int _i2s_write_frames(frames_t out_frames, bool silence, s32_t gainL, s32_t gainR,
-    u8_t flags, s32_t cross_gain_in, s32_t cross_gain_out, ISAMPLE_T** cross_ptr) {
+static int _i2s_write_frames(
+    frames_t out_frames, bool silence, s32_t gainL, s32_t gainR, u8_t flags, s32_t cross_gain_in, s32_t cross_gain_out, ISAMPLE_T** cross_ptr) {
     if (!silence) {
         if (output.fade == FADE_ACTIVE && output.fade_dir == FADE_CROSS && *cross_ptr) {
             _apply_cross(outputbuf, out_frames, cross_gain_in, cross_gain_out, cross_ptr);
@@ -463,8 +481,7 @@ static int _i2s_write_frames(frames_t out_frames, bool silence, s32_t gainL, s32
 
     // don't update visu if we don't have enough data in buffer
     if (silence || output.external || _buf_used(outputbuf) > outputbuf->size >> 2) {
-        output_visu_export(obuf + oframes * BYTES_PER_FRAME, out_frames, output.current_sample_rate,
-            silence, (gainL + gainR) / 2);
+        output_visu_export(obuf + oframes * BYTES_PER_FRAME, out_frames, output.current_sample_rate, silence, (gainL + gainR) / 2);
     }
 
     oframes += out_frames;
@@ -503,8 +520,7 @@ static void output_thread_i2s(void* arg) {
                 led_blink(LED_GREEN, 200, 1000);
             } else if (output.state == OUTPUT_RUNNING) {
                 if (!jack_mutes_amp || !jack_inserted_svc()) {
-                    if (amp_control.gpio != -1)
-                        gpio_set_level_x(amp_control.gpio, amp_control.active);
+                    if (amp_control.gpio != -1) gpio_set_level_x(amp_control.gpio, amp_control.active);
                     adac->speaker(true);
                 }
                 led_on(LED_GREEN);
@@ -530,8 +546,7 @@ static void output_thread_i2s(void* arg) {
         output.frames_played_dmp = output.frames_played;
         // try to estimate how much we have consumed from the DMA buffer (calculation is incorrect
         // at the very beginning ...)
-        output.device_frames =
-            dma_buf_frames - ((output.updated - fullness) * output.current_sample_rate) / 1000;
+        output.device_frames = dma_buf_frames - ((output.updated - fullness) * output.current_sample_rate) / 1000;
         // we'll try to produce iframes if we have any, but we might return less if outpuf does not
         // have enough
         _output_frames(iframes);
@@ -572,8 +587,7 @@ static void output_thread_i2s(void* arg) {
 
         // this does not work well as set_sample_rates resets the fifos (and it's too early)
         if (i2s_config.sample_rate != output.current_sample_rate) {
-            LOG_INFO("changing sampling rate %u to %u", i2s_config.sample_rate,
-                output.current_sample_rate);
+            LOG_INFO("changing sampling rate %u to %u", i2s_config.sample_rate, output.current_sample_rate);
             if (synced) {
                 /*
                     //  can sleep for a buffer_queue - 1 and then eat a buffer (discard) if we are
@@ -582,8 +596,7 @@ static void output_thread_i2s(void* arg) {
                 */
             }
             i2s_config.sample_rate = output.current_sample_rate;
-            i2s_set_sample_rates(CONFIG_I2S_NUM,
-                spdif.enabled ? i2s_config.sample_rate * 2 : i2s_config.sample_rate);
+            i2s_set_sample_rates(CONFIG_I2S_NUM, spdif.enabled ? i2s_config.sample_rate * 2 : i2s_config.sample_rate);
             i2s_zero_dma_buffer(CONFIG_I2S_NUM);
 
             equalizer_set_samplerate(output.current_sample_rate);
@@ -607,8 +620,7 @@ static void output_thread_i2s(void* arg) {
             }
 #if BYTES_PER_FRAME == 4
         } else if (i2s_config.bits_per_sample == 32) {
-            i2s_write_expand(
-                CONFIG_I2S_NUM, obuf, oframes * BYTES_PER_FRAME, 16, 32, &bytes, portMAX_DELAY);
+            i2s_write_expand(CONFIG_I2S_NUM, obuf, oframes * BYTES_PER_FRAME, 16, 32, &bytes, portMAX_DELAY);
 #endif
         } else {
             i2s_write(CONFIG_I2S_NUM, obuf, oframes * BYTES_PER_FRAME, &bytes, portMAX_DELAY);
@@ -617,8 +629,7 @@ static void output_thread_i2s(void* arg) {
         fullness = gettime_ms();
 
         if (bytes != oframes * BYTES_PER_FRAME) {
-            LOG_WARN("I2S DMA Overflow! available bytes: %d, I2S wrote %d bytes",
-                oframes * BYTES_PER_FRAME, bytes);
+            LOG_WARN("I2S DMA Overflow! available bytes: %d, I2S wrote %d bytes", oframes * BYTES_PER_FRAME, bytes);
         }
 
         SET_MIN_MAX(TIME_MEASUREMENT_GET(timer_start), i2s_time);
@@ -643,8 +654,7 @@ static void i2s_stats(uint32_t now) {
     if (output.state <= OUTPUT_STOPPED || now < last + STATS_PERIOD_MS) return;
     last = now;
 
-    LOG_INFO("Output State: %d, current sample rate: %d, bytes per frame: %d", output.state,
-        output.current_sample_rate, BYTES_PER_FRAME);
+    LOG_INFO("Output State: %d, current sample rate: %d, bytes per frame: %d", output.state, output.current_sample_rate, BYTES_PER_FRAME);
     LOG_INFO(LINE_MIN_MAX_FORMAT_HEAD1);
     LOG_INFO(LINE_MIN_MAX_FORMAT_HEAD2);
     LOG_INFO(LINE_MIN_MAX_FORMAT_HEAD3);
@@ -673,27 +683,20 @@ static void i2s_stats(uint32_t now) {
 
 static const u8_t VUCP24[2] = {0xCC, 0x32};
 
-static const u16_t spdif_bmclookup[256] = {0xcccc, 0xb333, 0xd333, 0xaccc, 0xcb33, 0xb4cc, 0xd4cc,
-    0xab33, 0xcd33, 0xb2cc, 0xd2cc, 0xad33, 0xcacc, 0xb533, 0xd533, 0xaacc, 0xccb3, 0xb34c, 0xd34c,
-    0xacb3, 0xcb4c, 0xb4b3, 0xd4b3, 0xab4c, 0xcd4c, 0xb2b3, 0xd2b3, 0xad4c, 0xcab3, 0xb54c, 0xd54c,
-    0xaab3, 0xccd3, 0xb32c, 0xd32c, 0xacd3, 0xcb2c, 0xb4d3, 0xd4d3, 0xab2c, 0xcd2c, 0xb2d3, 0xd2d3,
-    0xad2c, 0xcad3, 0xb52c, 0xd52c, 0xaad3, 0xccac, 0xb353, 0xd353, 0xacac, 0xcb53, 0xb4ac, 0xd4ac,
-    0xab53, 0xcd53, 0xb2ac, 0xd2ac, 0xad53, 0xcaac, 0xb553, 0xd553, 0xaaac, 0xcccb, 0xb334, 0xd334,
-    0xaccb, 0xcb34, 0xb4cb, 0xd4cb, 0xab34, 0xcd34, 0xb2cb, 0xd2cb, 0xad34, 0xcacb, 0xb534, 0xd534,
-    0xaacb, 0xccb4, 0xb34b, 0xd34b, 0xacb4, 0xcb4b, 0xb4b4, 0xd4b4, 0xab4b, 0xcd4b, 0xb2b4, 0xd2b4,
-    0xad4b, 0xcab4, 0xb54b, 0xd54b, 0xaab4, 0xccd4, 0xb32b, 0xd32b, 0xacd4, 0xcb2b, 0xb4d4, 0xd4d4,
-    0xab2b, 0xcd2b, 0xb2d4, 0xd2d4, 0xad2b, 0xcad4, 0xb52b, 0xd52b, 0xaad4, 0xccab, 0xb354, 0xd354,
-    0xacab, 0xcb54, 0xb4ab, 0xd4ab, 0xab54, 0xcd54, 0xb2ab, 0xd2ab, 0xad54, 0xcaab, 0xb554, 0xd554,
-    0xaaab, 0xcccd, 0xb332, 0xd332, 0xaccd, 0xcb32, 0xb4cd, 0xd4cd, 0xab32, 0xcd32, 0xb2cd, 0xd2cd,
-    0xad32, 0xcacd, 0xb532, 0xd532, 0xaacd, 0xccb2, 0xb34d, 0xd34d, 0xacb2, 0xcb4d, 0xb4b2, 0xd4b2,
-    0xab4d, 0xcd4d, 0xb2b2, 0xd2b2, 0xad4d, 0xcab2, 0xb54d, 0xd54d, 0xaab2, 0xccd2, 0xb32d, 0xd32d,
-    0xacd2, 0xcb2d, 0xb4d2, 0xd4d2, 0xab2d, 0xcd2d, 0xb2d2, 0xd2d2, 0xad2d, 0xcad2, 0xb52d, 0xd52d,
-    0xaad2, 0xccad, 0xb352, 0xd352, 0xacad, 0xcb52, 0xb4ad, 0xd4ad, 0xab52, 0xcd52, 0xb2ad, 0xd2ad,
-    0xad52, 0xcaad, 0xb552, 0xd552, 0xaaad, 0xccca, 0xb335, 0xd335, 0xacca, 0xcb35, 0xb4ca, 0xd4ca,
-    0xab35, 0xcd35, 0xb2ca, 0xd2ca, 0xad35, 0xcaca, 0xb535, 0xd535, 0xaaca, 0xccb5, 0xb34a, 0xd34a,
-    0xacb5, 0xcb4a, 0xb4b5, 0xd4b5, 0xab4a, 0xcd4a, 0xb2b5, 0xd2b5, 0xad4a, 0xcab5, 0xb54a, 0xd54a,
-    0xaab5, 0xccd5, 0xb32a, 0xd32a, 0xacd5, 0xcb2a, 0xb4d5, 0xd4d5, 0xab2a, 0xcd2a, 0xb2d5, 0xd2d5,
-    0xad2a, 0xcad5, 0xb52a, 0xd52a, 0xaad5, 0xccaa, 0xb355, 0xd355, 0xacaa, 0xcb55, 0xb4aa, 0xd4aa,
+static const u16_t spdif_bmclookup[256] = {0xcccc, 0xb333, 0xd333, 0xaccc, 0xcb33, 0xb4cc, 0xd4cc, 0xab33, 0xcd33, 0xb2cc, 0xd2cc, 0xad33, 0xcacc,
+    0xb533, 0xd533, 0xaacc, 0xccb3, 0xb34c, 0xd34c, 0xacb3, 0xcb4c, 0xb4b3, 0xd4b3, 0xab4c, 0xcd4c, 0xb2b3, 0xd2b3, 0xad4c, 0xcab3, 0xb54c, 0xd54c,
+    0xaab3, 0xccd3, 0xb32c, 0xd32c, 0xacd3, 0xcb2c, 0xb4d3, 0xd4d3, 0xab2c, 0xcd2c, 0xb2d3, 0xd2d3, 0xad2c, 0xcad3, 0xb52c, 0xd52c, 0xaad3, 0xccac,
+    0xb353, 0xd353, 0xacac, 0xcb53, 0xb4ac, 0xd4ac, 0xab53, 0xcd53, 0xb2ac, 0xd2ac, 0xad53, 0xcaac, 0xb553, 0xd553, 0xaaac, 0xcccb, 0xb334, 0xd334,
+    0xaccb, 0xcb34, 0xb4cb, 0xd4cb, 0xab34, 0xcd34, 0xb2cb, 0xd2cb, 0xad34, 0xcacb, 0xb534, 0xd534, 0xaacb, 0xccb4, 0xb34b, 0xd34b, 0xacb4, 0xcb4b,
+    0xb4b4, 0xd4b4, 0xab4b, 0xcd4b, 0xb2b4, 0xd2b4, 0xad4b, 0xcab4, 0xb54b, 0xd54b, 0xaab4, 0xccd4, 0xb32b, 0xd32b, 0xacd4, 0xcb2b, 0xb4d4, 0xd4d4,
+    0xab2b, 0xcd2b, 0xb2d4, 0xd2d4, 0xad2b, 0xcad4, 0xb52b, 0xd52b, 0xaad4, 0xccab, 0xb354, 0xd354, 0xacab, 0xcb54, 0xb4ab, 0xd4ab, 0xab54, 0xcd54,
+    0xb2ab, 0xd2ab, 0xad54, 0xcaab, 0xb554, 0xd554, 0xaaab, 0xcccd, 0xb332, 0xd332, 0xaccd, 0xcb32, 0xb4cd, 0xd4cd, 0xab32, 0xcd32, 0xb2cd, 0xd2cd,
+    0xad32, 0xcacd, 0xb532, 0xd532, 0xaacd, 0xccb2, 0xb34d, 0xd34d, 0xacb2, 0xcb4d, 0xb4b2, 0xd4b2, 0xab4d, 0xcd4d, 0xb2b2, 0xd2b2, 0xad4d, 0xcab2,
+    0xb54d, 0xd54d, 0xaab2, 0xccd2, 0xb32d, 0xd32d, 0xacd2, 0xcb2d, 0xb4d2, 0xd4d2, 0xab2d, 0xcd2d, 0xb2d2, 0xd2d2, 0xad2d, 0xcad2, 0xb52d, 0xd52d,
+    0xaad2, 0xccad, 0xb352, 0xd352, 0xacad, 0xcb52, 0xb4ad, 0xd4ad, 0xab52, 0xcd52, 0xb2ad, 0xd2ad, 0xad52, 0xcaad, 0xb552, 0xd552, 0xaaad, 0xccca,
+    0xb335, 0xd335, 0xacca, 0xcb35, 0xb4ca, 0xd4ca, 0xab35, 0xcd35, 0xb2ca, 0xd2ca, 0xad35, 0xcaca, 0xb535, 0xd535, 0xaaca, 0xccb5, 0xb34a, 0xd34a,
+    0xacb5, 0xcb4a, 0xb4b5, 0xd4b5, 0xab4a, 0xcd4a, 0xb2b5, 0xd2b5, 0xad4a, 0xcab5, 0xb54a, 0xd54a, 0xaab5, 0xccd5, 0xb32a, 0xd32a, 0xacd5, 0xcb2a,
+    0xb4d5, 0xd4d5, 0xab2a, 0xcd2a, 0xb2d5, 0xd2d5, 0xad2a, 0xcad5, 0xb52a, 0xd52a, 0xaad5, 0xccaa, 0xb355, 0xd355, 0xacaa, 0xcb55, 0xb4aa, 0xd4aa,
     0xab55, 0xcd55, 0xb2aa, 0xd2aa, 0xad55, 0xcaaa, 0xb555, 0xd555, 0xaaaa};
 
 /*

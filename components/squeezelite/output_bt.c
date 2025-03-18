@@ -16,9 +16,10 @@
 #include "perf_trace.h"
 #include "services.h"
 #include "led.h"
-#include "Configurator.h"
-extern log_level log_level_from_sys_level(sys_DebugLevelEnum level);
-static sys_Squeezelite * config = NULL;
+#include "Config.h"
+extern log_level log_level_from_sys_level(sys_squeezelite_debug_levels level);
+extern sys_squeezelite_config* get_profile(const char* name);
+static sys_squeezelite_config * config = NULL;
 extern struct outputstate output;
 extern struct buffer *outputbuf;
 extern struct buffer *streambuf;
@@ -76,7 +77,8 @@ static uint32_t bt_idle_callback(void) {
  * Init BT sink
  */    
 void output_init_bt() {
-	config = &platform->services.squeezelite;
+	config = get_profile(NULL); // get the active profile
+	if(!config) return;
 	loglevel = log_level_from_sys_level(config->log.output);
 	bt_idle_since = pdTICKS_TO_MS(xTaskGetTickCount());
     services_sleep_setsleeper(bt_idle_callback);

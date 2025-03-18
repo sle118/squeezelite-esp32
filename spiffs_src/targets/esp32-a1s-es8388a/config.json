@@ -1,0 +1,91 @@
+{
+  "gpios": {
+    "redLED": {
+      "gpio": {
+        "pin": 22,
+        "level": "LOW"
+      },
+      "brightness": 50,
+      "led_type": "GPIO"
+    },
+    "greenLED": {
+      "gpio": {
+        "pin": 19,
+        "level": "LOW"
+      },
+      "brightness": 50,
+      "led_type": "GPIO"
+    },
+    "amp": {
+      "pin": 21,
+      "level": "HIGH"
+    },
+    "jack": {
+      "pin": 39,
+      "level": "LOW"
+    }
+  },
+  "dev": {
+    "dac": {
+      "bck": 27,
+      "ws": 25,
+      "dout": 26,
+      "din": -1,
+      "model": "ES8388",
+      "i2c": {
+        "port": "PORT0",
+        "speed": 400000,
+        "sda": 33,
+        "scl": 32
+      },
+      "addr": 16,
+      "jack_mutes_amp": false
+    },
+    "root_button_profile": "default",
+    "buttons_profiles": [
+      {
+        "profile_name": "default",
+        "buttons": [
+          {
+            "gpio": {"pin":5},
+            "normal": {
+              "pressed": {
+                "type":"A_TOGGLE"
+              }
+            }
+          },
+          {
+            "gpio": {"pin":18},
+            "pull": true,
+            "shifter": 5,
+            "normal": {
+              "pressed": {
+                "type":"A_VOLUP"
+              }
+            },
+            "shifted": {
+              "pressed": {
+                "type":"A_NEXT"
+              }
+            }
+          },
+          {
+            "gpio": {"pin":23},
+            "pull": true,
+            "shifter": 5,
+            "normal": {
+              "pressed": {
+                "type":"A_VOLDOWN"
+              }
+            },
+            "shifted": {
+              "pressed": {
+                "type":"A_PREV"
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

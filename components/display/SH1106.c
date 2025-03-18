@@ -152,9 +152,9 @@ static const struct GDS_Device SH1106 = {
 #endif		
 };	
 
-struct GDS_Device* SH1106_Detect(sys_Display * Driver, struct GDS_Device* Device) {
+struct GDS_Device* SH1106_Detect(sys_display_config * Driver, struct GDS_Device* Device) {
 	// if (!strcasestr(Driver, "SH1106")) return NULL;
-	if(Driver->common.driver != sys_DisplayDriverEnum_SH1106) return NULL;
+	if(Driver->common.driver != sys_display_drivers_SH1106) return NULL;
 	
 	if (!Device) Device = calloc(1, sizeof(struct GDS_Device));
 	*Device = SH1106;
