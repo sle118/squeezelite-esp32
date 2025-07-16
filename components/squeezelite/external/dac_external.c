@@ -146,29 +146,11 @@ static i2c_json_array_mode_t i2c_json_array_mode(cJSON *array) {
 	       I2C_JSON_ARRAY_INVALID;
 }
 
-bool i2c_json_execute(char *set) {
-	cJSON *json_set = cJSON_GetObjectItemCaseSensitive(i2c_json, set);
-	if (!json_set) return true;
-
-	if (!cJSON_IsArray(json_set)) {
-		ESP_LOGE(TAG, "i2c_json_execute must be called on a JSON array");
-		return false;
-	}
-
-	i2c_json_array_mode_t mode = i2c_json_array_mode(json_set);
-	if (mode == I2C_JSON_ARRAY_FLAT) {
-		return i2c_json_execute_array(json_set);
-	} else if (mode == I2C_JSON_ARRAY_OBJECTS) {
-		return i2c_json_execute_objects(json_set);
-	} else {
-		ESP_LOGE(TAG, "Mixed array elements (objects + scalars) not supported");
-		return false;
-	}
-}
 
 static bool i2c_json_execute_objects(cJSON *json_set) {
     if (!cJSON_IsArray(json_set)) return false;
 
+	cJSON *item;
 	cJSON_ArrayForEach(item, json_set) {
         cJSON *action;
 
@@ -268,6 +250,10 @@ static i2c_cmd_type_t i2c_resolve_command(const char *s) {
  * - Bitwise operations:
  *     ["&", reg, val] — Read-modify-write: AND value into register
  *     ["|", reg, val] — Read-modify-write: OR value into register
+ *
+ * - GPIO config:
+ *     ["g", gpio, state]
+ *     Sets gpio to state
  *
  * Notes:
  * - All entries are parsed in order from the start of the array.
@@ -394,4 +380,25 @@ static bool i2c_json_execute_array(cJSON *array) {
         return false;  // Unknown pattern
     }
     return true;
+}
+
+
+bool i2c_json_execute(char *set) {
+	cJSON *json_set = cJSON_GetObjectItemCaseSensitive(i2c_json, set);
+	if (!json_set) return true;
+
+	if (!cJSON_IsArray(json_set)) {
+		ESP_LOGE(TAG, "i2c_json_execute must be called on a JSON array");
+		return false;
+	}
+
+	i2c_json_array_mode_t mode = i2c_json_array_mode(json_set);
+	if (mode == I2C_JSON_ARRAY_FLAT) {
+		return i2c_json_execute_array(json_set);
+	} else if (mode == I2C_JSON_ARRAY_OBJECTS) {
+		return i2c_json_execute_objects(json_set);
+	} else {
+		ESP_LOGE(TAG, "Mixed array elements (objects + scalars) not supported");
+		return false;
+	}
 }
