@@ -148,6 +148,19 @@ void bt_disconnect(void) {
 	ESP_LOGD(BT_AV_TAG, "forced disconnection %d", s_audio);
 }
 
+/* Set Bluetooth discoverable mode based on settings */
+void bt_set_discoverable() {
+    char *bt_visible = config_alloc_get_default(NVS_TYPE_STR, "bt_visible", "Y", 0);
+    if (bt_visible && strcmp(bt_visible, "Y") == 0) {
+        esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE);
+        ESP_LOGI(BT_AV_TAG, "Bluetooth discoverable");
+    } else {
+        esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_NON_DISCOVERABLE);
+        ESP_LOGI(BT_AV_TAG, "Bluetooth hidden but connectable");
+    }
+    free(bt_visible);
+}
+
 /* update metadata if any */
 void update_metadata(bool force) {
 	if ((s_metadata.updated || force) && s_audio == AUDIO_PLAYING) {
@@ -281,7 +294,7 @@ static void bt_av_hdl_a2d_evt(uint16_t event, void *p_param)
         ESP_LOGD(BT_AV_TAG, "A2DP connection state: %s, [%02x:%02x:%02x:%02x:%02x:%02x]",
              s_a2d_conn_state_str[a2d->conn_stat.state], bda[0], bda[1], bda[2], bda[3], bda[4], bda[5]);
         if (a2d->conn_stat.state == ESP_A2D_CONNECTION_STATE_DISCONNECTED) {
-            esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE);
+            bt_set_discoverable();
 			(*bt_app_a2d_cmd_cb)(BT_SINK_DISCONNECTED);
         } else if (a2d->conn_stat.state == ESP_A2D_CONNECTION_STATE_CONNECTED){
 			abs_volume = -1;
@@ -654,9 +667,9 @@ static void bt_av_hdl_stack_evt(uint16_t event, void *p_param)
     switch (event) {
     case BT_APP_EVT_STACK_UP: {
         /* set up device name */
-        bt_name = (char * )config_alloc_get_default(NVS_TYPE_STR, "bt_name", CONFIG_BT_NAME, 0);
-        esp_bt_dev_set_device_name(bt_name);
-        free(bt_name);
+		bt_name = (char * )config_alloc_get_default(NVS_TYPE_STR, "bt_name", CONFIG_BT_NAME, 0);
+		esp_bt_dev_set_device_name(bt_name);
+		free(bt_name);
         esp_bt_gap_register_callback(bt_app_gap_cb);
 
         /* initialize AVRCP controller */
@@ -676,15 +689,7 @@ static void bt_av_hdl_stack_evt(uint16_t event, void *p_param)
         esp_a2d_sink_init();
 
         /* set discoverable and connectable mode, wait to be connected */
-        char *bt_visible = config_alloc_get(NVS_TYPE_STR, "bt_visible");
-        if (bt_visible && strcmp(bt_visible, "Y") == 0) {
-            esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE);
-            ESP_LOGI(BT_AV_TAG, "Bluetooth discoverable");
-        } else {
-            esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_NON_DISCOVERABLE);
-            ESP_LOGI(BT_AV_TAG, "Bluetooth hidden but connectable");
-        }
-        if (bt_visible) free(bt_visible);
+        bt_set_discoverable();
         break;
     }
     default:
