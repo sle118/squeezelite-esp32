@@ -654,10 +654,21 @@ static void bt_av_hdl_stack_evt(uint16_t event, void *p_param)
     switch (event) {
     case BT_APP_EVT_STACK_UP: {
         /* set up device name */
-		bt_name = (char * )config_alloc_get_default(NVS_TYPE_STR, "bt_name", CONFIG_BT_NAME, 0);
-		esp_bt_dev_set_device_name(bt_name);
-		free(bt_name);
+        bt_name = (char * )config_alloc_get_default(NVS_TYPE_STR, "bt_name", CONFIG_BT_NAME, 0);
+        esp_bt_dev_set_device_name(bt_name);
+        free(bt_name);
         esp_bt_gap_register_callback(bt_app_gap_cb);
+
+        // Leer visibilidad desde NVS y configurar modo de escaneo
+        char *bt_visible = config_alloc_get(NVS_TYPE_STR, "bt_visible");
+        if (bt_visible && strcmp(bt_visible, "Y") == 0) {
+            esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE);
+            ESP_LOGI(BT_AV_TAG, "Bluetooth discoverable");
+        } else {
+            esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_NON_DISCOVERABLE);
+            ESP_LOGI(BT_AV_TAG, "Bluetooth hidden but connectable");
+        }
+        if (bt_visible) free(bt_visible);
 
         /* initialize AVRCP controller */
         esp_avrc_ct_init();
