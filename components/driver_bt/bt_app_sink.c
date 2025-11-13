@@ -659,17 +659,6 @@ static void bt_av_hdl_stack_evt(uint16_t event, void *p_param)
         free(bt_name);
         esp_bt_gap_register_callback(bt_app_gap_cb);
 
-        // Leer visibilidad desde NVS y configurar modo de escaneo
-        char *bt_visible = config_alloc_get(NVS_TYPE_STR, "bt_visible");
-        if (bt_visible && strcmp(bt_visible, "Y") == 0) {
-            esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE);
-            ESP_LOGI(BT_AV_TAG, "Bluetooth discoverable");
-        } else {
-            esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_NON_DISCOVERABLE);
-            ESP_LOGI(BT_AV_TAG, "Bluetooth hidden but connectable");
-        }
-        if (bt_visible) free(bt_visible);
-
         /* initialize AVRCP controller */
         esp_avrc_ct_init();
         esp_avrc_ct_register_callback(bt_app_rc_ct_cb);
@@ -687,7 +676,15 @@ static void bt_av_hdl_stack_evt(uint16_t event, void *p_param)
         esp_a2d_sink_init();
 
         /* set discoverable and connectable mode, wait to be connected */
-        esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE);
+        char *bt_visible = config_alloc_get(NVS_TYPE_STR, "bt_visible");
+        if (bt_visible && strcmp(bt_visible, "Y") == 0) {
+            esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE);
+            ESP_LOGI(BT_AV_TAG, "Bluetooth discoverable");
+        } else {
+            esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_NON_DISCOVERABLE);
+            ESP_LOGI(BT_AV_TAG, "Bluetooth hidden but connectable");
+        }
+        if (bt_visible) free(bt_visible);
         break;
     }
     default:
