@@ -47,6 +47,7 @@ EXT_RAM_ATTR static struct {
     struct arg_lit *cspot;
     #endif     
  	struct arg_lit *btspeaker;
+	struct arg_lit *btvisible;
  	struct arg_lit *airplay;
  	struct arg_str *telnet;
 
