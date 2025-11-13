@@ -670,8 +670,9 @@ static int do_set_services(int argc, char **argv)
 		return 1;
 	}
 
-	nerrors += enable_disable(f,"enable_airplay",set_services_args.airplay);
-	nerrors += enable_disable(f,"enable_bt_sink",set_services_args.btspeaker);
+    nerrors += enable_disable(f,"enable_airplay",set_services_args.airplay);
+    nerrors += enable_disable(f,"enable_bt_sink",set_services_args.btspeaker);
+    nerrors += enable_disable(f,"bt_visible",set_services_args.btvisible);
     #if CONFIG_CSPOT_SINK	
     nerrors += enable_disable(f,"enable_cspot",set_services_args.cspot);
     #endif    
@@ -714,6 +715,7 @@ cJSON * set_services_cb(){
 	cJSON * values = cJSON_CreateObject();
 	char * p=NULL;
     console_set_bool_parameter(values,"enable_bt_sink",set_services_args.btspeaker);
+    console_set_bool_parameter(values,"bt_visible",set_services_args.btvisible);
     console_set_bool_parameter(values,"enable_airplay",set_services_args.airplay);
     #if CONFIG_CSPOT_SINK	
     console_set_bool_parameter(values,"enable_cspot",set_services_args.cspot);
@@ -742,7 +744,8 @@ static void register_set_services(){
     #if CONFIG_CSPOT_SINK	
     set_services_args.cspot = arg_lit0(NULL, "cspot", "Spotify (cspot)");
     #endif
-	set_services_args.btspeaker = arg_lit0(NULL, "BT_Speaker", "Bluetooth Speaker");
+    set_services_args.btspeaker = arg_lit0(NULL, "BT_Speaker", "Bluetooth Speaker");
+    set_services_args.btvisible = arg_lit0(NULL, "BT_Visible", "Enable Bluetooth visibility");
 	set_services_args.telnet= arg_str0("t", "telnet","Disabled|Telnet Only|Telnet and Serial","Telnet server. Use only for troubleshooting");
 #if WITH_TASKS_INFO    
 	set_services_args.stats= arg_lit0(NULL, "stats", "System Statistics. Use only for troubleshooting");
