@@ -2,6 +2,10 @@
 name: Cross-Build
 
 on:
+  workflow_dispatch:
+
+
+on:
   push:
     branches: 
       - 'master-cmake'
