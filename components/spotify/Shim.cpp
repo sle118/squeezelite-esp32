@@ -33,6 +33,16 @@
 #include "nvs_utilities.h"
 #include "tools.h"
 
+#if __has_include("client_info.h")
+#include "client_info.h"
+#endif
+
+#if !defined(CLIENT_ID) || !defined(CLIENT_SECRET)
+#warning "missing Spotify's CLIENT_ID and/or CLIENT_SECRET (set env varibles or in client_info.h"
+#define CLIENT_ID "<your client id>"
+#define CLIENT_SECRET "<your client secret>"
+#endif
+
 static class cspotPlayer *player;
 
 static const struct {
@@ -365,6 +375,8 @@ void cspotPlayer::runTask() {
 
         ctx->session->connectWithRandomAp();
         ctx->config.authData = ctx->session->authenticate(blob);
+        ctx->config.clientId = CLIENT_ID;
+        ctx->config.clientSecret = CLIENT_SECRET;
 
         // Auth successful
         if (ctx->config.authData.size() > 0) {

@@ -24,6 +24,8 @@ struct Context {
     AudioFormat audioFormat = AudioFormat::AudioFormat_OGG_VORBIS_160;
     std::string deviceId;
     std::string deviceName;
+    std::string clientId;
+    std::string clientSecret;
     std::vector<uint8_t> authData;
     int volume;
 
