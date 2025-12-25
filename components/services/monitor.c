@@ -248,7 +248,8 @@ void monitor_svc_init(void) {
 	// re-use button management for jack handler, it's a GPIO after all
 	if (jack.gpio != -1) {
 		ESP_LOGI(TAG,"Adding jack (%s) detection GPIO %d", jack.active ? "high" : "low", jack.gpio);
-		button_create(NULL, jack.gpio, jack.active ? BUTTON_HIGH : BUTTON_LOW, false, 250, jack_handler_default, 0, -1);
+		// Use GPIO pull so the line does not float (Muse jack detect is active-low and needs pull-up)
+		button_create(NULL, jack.gpio, jack.active ? BUTTON_HIGH : BUTTON_LOW, true, 250, jack_handler_default, 0, -1);
 	}
 
 #ifdef CONFIG_SPKFAULT_GPIO_LEVEL
