@@ -238,13 +238,14 @@ Ground -------------------------- coax signal ground
 ### Display
 The NVS parameter "display_config" sets the parameters for an optional display. It can be I2C (see [here](#i2c) for shared bus) or SPI (see [here](#spi) for shared bus) Syntax is
 ```
-I2C,width=<pixels>,height=<pixels>[address=<i2c_address>][,reset=<gpio>][,HFlip][,VFlip][driver=SSD1306|SSD1326[:1|4]|SSD1327|SH1106]
-SPI,width=<pixels>,height=<pixels>,cs=<gpio>[,back=<gpio>][,reset=<gpio>][,speed=<speed>][,HFlip][,VFlip][driver=SSD1306|SSD1322|SSD1326[:1|4]|SSD1327|SH1106|SSD1675|ST7735|ST7789[:x=<offset>][:y=<offset>]|ILI9341[:16|18][,rotate]]
+I2C,width=<pixels>,height=<pixels>[address=<i2c_address>][,reset=<gpio>][,HFlip][,VFlip][,invert][driver=SSD1306|SSD1326[:1|4]|SSD1327|SH1106]
+SPI,width=<pixels>,height=<pixels>,cs=<gpio>[,back=<gpio>][,reset=<gpio>][,speed=<speed>][,HFlip][,VFlip][,invert][driver=SSD1306|SSD1322|SSD1326[:1|4]|SSD1327|SH1106|SSD1675|ST7735|ST7789[:x=<offset>][:y=<offset>]|ILI9341[:16|18][,rotate]]
 ```
 - back: a LED backlight used by some older devices (ST7735). It is PWM controlled for brightness
 - reset: some display have a reset pin that is should normally be pulled up if unused. Most displays require reset and will not initialize well otherwise.
 - VFlip and HFlip are optional can be used to change display orientation
 - rotate: for non-square *drivers*, move to portrait mode. Note that *width* and *height* must be inverted then
+- invert: invert each pixel colorspace
 - Default speed is 8000000 (8MHz) but SPI can work up to 26MHz or even 40MHz
 - SH1106 is 128x64 monochrome I2C/SPI [here](https://www.waveshare.com/wiki/1.3inch_OLED_HAT)
 - SSD1306 is 128x32 monochrome I2C/SPI [here](https://www.buydisplay.com/i2c-blue-0-91-inch-oled-display-module-128x32-arduino-raspberry-pi)
