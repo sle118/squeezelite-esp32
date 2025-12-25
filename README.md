@@ -148,12 +148,12 @@ VCC - 3.3V
 GND - GND  
 FLT - GND  
 DMP - GND  
-SCL - GND  
+SCK - GND  
 BCK - (BCK - see below)  
 DIN - (DO - see below)  
-LCK - (WS - see below)
+LCK - (WS - see below)  
 FMT - GND  
-XMT - 3.3V 
+XMT - 3.3V  
 
 Use the `squeezelite-esp32-I2S-4MFlash-sdkconfig.defaults` configuration file.
 
