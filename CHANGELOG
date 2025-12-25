@@ -1,3 +1,6 @@
+2025-12-25
+ - Use dedicated client_id and client_secret for spotify
+ 
 2025-02-17
  - reverse some checks on display not NULL in gds.c. As it is about being fast, I'd prefer the caller to know that there is no display and don't call. I'm sure I have missed something when there is only led_vu and no display, but people will remind me soon enough :-)
 
