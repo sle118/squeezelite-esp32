@@ -24,7 +24,7 @@ set(CSPOT_TARGET_ESP32 ON)
 set(_secret $ENV{SPOTIFY_SECRET})
 if(_secret)
   separate_arguments(_secret)
-  set_source_files_properties(shim.cpp PROPERTIES COMPILE_OPTIONS "${_secret}")
+  set_source_files_properties(Shim.cpp PROPERTIES COMPILE_OPTIONS "${_secret}")
 endif()
 
 # because CMake is so broken, the cache set below overrides a normal "set" for the first build
