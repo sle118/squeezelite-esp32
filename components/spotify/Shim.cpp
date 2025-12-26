@@ -37,7 +37,7 @@
 #if __has_include("client_info.h")
 #include "client_info.h"
 #else
-#warning "missing Spotify's CLIENT_ID and/or CLIENT_SECRET (set env varibles or in client_info.h"
+#warning "missing Spotify's CLIENT_ID and/or CLIENT_SECRET (set SPOTIFY_SECRET env variable or set it in client_info.h)"
 #define CLIENT_ID "<your client id>"
 #define CLIENT_SECRET "<your client secret>"
 #endif
@@ -133,7 +133,7 @@ size_t cspotPlayer::pcmWrite(uint8_t *pcm, size_t bytes, std::string_view trackI
     }
 
     return dataHandler(pcm, bytes);
-}    
+}
 
 extern "C" {
     static esp_err_t handleGET(httpd_req_t *request) {
