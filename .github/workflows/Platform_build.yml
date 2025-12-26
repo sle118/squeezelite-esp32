@@ -137,8 +137,7 @@ jobs:
     - name: Build the firmware
       if: ${{ needs.bootstrap.outputs.mock == 0 }} 
       env:
-        #SPOTIFY_SECRET: -DCLIENT_ID="${{ secrets.SPOTIFY_CLIENT_ID }}" -DCLIENT_SECRET="${{ secrets.SPOTIFY_CLIENT_SECRET }}"
-        SPOTIFY_SECRET: -DCLIENT_ID="toto" -DCLIENT_SECRET="tutu"
+        SPOTIFY_SECRET: -DCLIENT_ID="${{ secrets.SPOTIFY_CLIENT_ID }}" -DCLIENT_SECRET="${{ secrets.SPOTIFY_CLIENT_SECRET }}"
       run: |
         . ${IDF_PYTHON_ENV_PATH}/bin/activate
         echo "Copying target sdkconfig"
