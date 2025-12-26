@@ -24,11 +24,8 @@ set(CSPOT_TARGET_ESP32 ON)
 set(_secret $ENV{SPOTIFY_SECRET})
 if(_secret)
   separate_arguments(_secret)
-  set_source_files_properties(shim.cpp PROPERTIES COMPILE_OPTIONS "${_secret}")
+  set_source_files_properties(Shim.cpp PROPERTIES COMPILE_OPTIONS "${_secret}")
 endif()
-
-message(STATUS "THESE ARE SECRETS1! $ENV{SPOTIFY_SECRET}")
-message(STATUS "THESE ARE SECRETS2! ${_secret}")
 
 # because CMake is so broken, the cache set below overrides a normal "set" for the first build
 set(BELL_EXTERNAL_VORBIS "idf::codecs" CACHE STRING "provide own codecs")
