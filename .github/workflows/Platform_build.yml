@@ -135,6 +135,8 @@ jobs:
       with:
         name: prebuilt_objects
     - name: Build the firmware
+      env:
+        EXTRA_CFLAGS: CLIENT_ID=${{ secrets.SPOTIFY_CLIENT_ID }} CLIENT_SECRET=${{ secrets.SPOTIFY_CLIENT_SECRET }}"
       if: ${{ needs.bootstrap.outputs.mock == 0 }} 
       run: |
         . ${IDF_PYTHON_ENV_PATH}/bin/activate
