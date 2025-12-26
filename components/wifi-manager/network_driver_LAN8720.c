@@ -12,7 +12,7 @@ static esp_err_t start(spi_device_handle_t spi_handle, eth_config_t* ethernet_co
 
     mac_config.smi_mdc_gpio_num = ethernet_config->mdc;
     mac_config.smi_mdio_gpio_num = ethernet_config->mdio;
-    phy_config.phy_addr = -1; # As per Espressif demo: Set to -1 to driver find the PHY address automatically.
+    phy_config.phy_addr = -1; // As per Espressif demo: Set to -1 to driver find the PHY address automatically.
     phy_config.reset_gpio_num = ethernet_config->rst;
 
     esp_eth_mac_t* mac = esp_eth_mac_new_esp32(&mac_config);
