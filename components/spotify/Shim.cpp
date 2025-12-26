@@ -32,15 +32,15 @@
 #include "platform_config.h"
 #include "nvs_utilities.h"
 #include "tools.h"
-
+ 
+#if !defined(CLIENT_ID) || !defined(CLIENT_SECRET)
 #if __has_include("client_info.h")
 #include "client_info.h"
-#endif
-
-#if !defined(CLIENT_ID) || !defined(CLIENT_SECRET)
+#else
 #warning "missing Spotify's CLIENT_ID and/or CLIENT_SECRET (set env varibles or in client_info.h"
 #define CLIENT_ID "<your client id>"
 #define CLIENT_SECRET "<your client secret>"
+#endif
 #endif
 
 static class cspotPlayer *player;

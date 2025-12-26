@@ -21,6 +21,12 @@ set(BELL_DISABLE_MQTT ON)
 set(BELL_DISABLE_WEBSERVER ON)
 set(CSPOT_TARGET_ESP32 ON)
 
+set(_secret $ENV{SPOTIFY_SECRET})
+if(_secret)
+  separate_arguments(_secret)
+  set_source_files_properties(shim.cpp PROPERTIES COMPILE_OPTIONS "${_secret}")
+endif()
+
 # because CMake is so broken, the cache set below overrides a normal "set" for the first build
 set(BELL_EXTERNAL_VORBIS "idf::codecs" CACHE STRING "provide own codecs")
 set(BELL_EXTERNAL_CJSON "idf::json" CACHE STRING "provide own CJSON")
