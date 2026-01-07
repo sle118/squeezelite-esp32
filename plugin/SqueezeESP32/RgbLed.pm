@@ -15,7 +15,7 @@ use Slim::Utils::Strings qw(string cstring);
 
 use Slim::Utils::Log;
 use Slim::Utils::Prefs;
-use Plugins::SqueezeESP32::Player
+use Plugins::SqueezeESP32::Player;
 
 my $log = logger('player.RgbLed');
 
@@ -72,10 +72,10 @@ sub updateLED {
 	my $client = shift;
 	my $on = shift || 1;
 	my $cprefs = $prefs->client($client);
-	
+
 	my $visu = $cprefs->get('led_visualizer') || 0;
 	my $bright = $cprefs->get('led_brightness') || 20;
-	
+
 	$visu = 0 if ($visu < 0 || $visu > ledVisualizerNModes || !(Slim::Player::Source::playmode($client) eq 'play') || !$on);
 	my $modes  = ledVisualizerModes;
 	my $params = $modes->[$visu]{'params'};
@@ -87,9 +87,9 @@ sub updateLED {
 
 sub ledVisualParams {
 	my $client = shift;
-	
+
 	my $visu = $prefs->client($client)->get('led_visualizer') || 0;
-	
+
 	return $ledvisualizers[$visu]{params};
 }
 
@@ -100,8 +100,8 @@ sub ledVisualModeOptions {
 		'-1' => ' '
 	};
 
-	my $modes  = ledVisualizerModes; 
-	my $nmodes = ledVisualizerNModes; 
+	my $modes  = ledVisualizerModes;
+	my $nmodes = ledVisualizerNModes;
 
 	for (my $i = 0; $i <= $nmodes; $i++) {
 
@@ -128,7 +128,7 @@ sub sendDMX {
 
 	# get our parameters
 	my $client   = $request->client();
-	
+
 	my $count = 0;
 	my $outData;
 	my @values = split(',', $request->getParam('_data') || '');
@@ -139,7 +139,7 @@ sub sendDMX {
 	$count /= 3;
 
 	my $data = pack('nn', $request->getParam('_xoff') || 0, $count ) . $outData;
-	
+
 	# changed from dmxt to ledd (matches 'ledc' for tricolor led in receiver player)
 	$client->sendFrame( ledd => \$data );
 }
@@ -155,28 +155,28 @@ sub setLEDVisu {
 
 	my $client   = $request->client();
 	return if (!$client->hasLED);
-	
+
 	my $cprefs = $prefs->client($client);
-	
+
 	my $visu = $cprefs->get('led_visualizer') || 0;
 	my $mode = $request->getParam('_mode') || -1;
 	if ($mode == -1) {
 		$visu+=1;
 	} else {
 		$visu = $mode;
-	} 
+	}
 	$visu = 0 if ($visu < 0 || $visu > ledVisualizerNModes);
 	$cprefs->set('led_visualizer', $visu);
-	
+
 	my $bright = $request->getParam('_bright') || -1;
 	if ($bright >= 0 && $bright < 256) {
 		$cprefs->set('led_brightness', $bright);
 	}
-	
+
 	updateLED($client);
 
 	# display name
-	my $modes  = ledVisualizerModes; 
+	my $modes  = ledVisualizerModes;
 	my $desc = $modes->[$visu]{'desc'};
 	my $name = '';
 	for (my $j = 0; $j < scalar @$desc; $j++) {
@@ -193,7 +193,7 @@ sub setLEDVisu {
 sub onNotification {
 	my $request = shift;
 	my $client  = $request->client || return;
-	
+
 	foreach my $player ($client->syncGroupActiveMembers) {
 		next unless $player->isa('Plugins::SqueezeESP32::Player');
 		updateLED($player) if $player->hasLED;
@@ -208,9 +208,9 @@ sub setMainMode {
 		$client->update();
 		return;
 	}
-	
+
 	Slim::Buttons::Common::pushModeLeft($client, 'INPUT.Choice', {
-		'listRef'         => [ 
+		'listRef'         => [
 			{
 				name      => string('PLUGIN_SQUEEZEESP32_LED_VISUALIZER'),
 				onPlay   => sub { Slim::Control::Request::executeRequest($client, ['led_visual']); },
@@ -247,7 +247,7 @@ sub setLedvuBrightMode {
 		'increment'    => 1,
 		'onChange'     => sub {
 			my ($client, $value) = @_;
-			
+
 			$bright = $bright + $value;
 			if ($bright > 0 && $bright <= 255) {
 				$prefs->client($client)->set('led_brightness', $bright);
