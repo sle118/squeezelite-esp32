@@ -257,29 +257,30 @@ void gpio_volume_update(unsigned gain)
 		return;
 
 	uint8_t volume = gain_to_volume(gain);
-	
+
 	// Calculate masks
 	uint32_t total_mask = (1 << cfg.width) - 1;
 	uint32_t target_bits = 0;
-	
+
 	if (cfg.mode == GPIO_VOLUME_MODE_LEDBAR) {
 		// Calculate number of LEDs based on volume 0..100
 		// Ensure volume 100 lights up all LEDs, volume 0 lights up 0
 		int num_leds = (volume * cfg.width) / 100;
 		if (num_leds > cfg.width) num_leds = cfg.width;
-		
+
 		target_bits = (1 << num_leds) - 1;
 	} else {
 		// BINARY or LATCHING: map volume directly to binary value
-		uint8_t max_bits = (1 << cfg.width) - 1;
-		target_bits = volume > max_bits ? max_bits : volume;
+		uint32_t max_bits = (1UL << cfg.width) - 1;
+		target_bits = ((uint32_t)volume * max_bits + 50) / 100;
+		// target_bits = volume > max_bits ? max_bits : volume;
 	}
 
 	// If the target is the same as the last set volume, DO NOTHING.
 	if (target_bits == last_volume) {
 		last_gain = gain; // Update gain even if volume index didn't change
-		return; 
-	}   
+		return;
+	}
 
 	ESP_LOGI(TAG, "Update: gain=%u volume=%u target_bits=0x%02x", gain, volume, target_bits);
 
@@ -290,7 +291,7 @@ void gpio_volume_update(unsigned gain)
 
 		// Calculate changed bits
 		uint32_t diff = target_bits ^ last_volume;
-		
+
 		if (diff) {
 			// Bits changing from 0 to 1 need to go LOUD
 			uint32_t to_loud = diff & target_bits;
@@ -298,7 +299,7 @@ void gpio_volume_update(unsigned gain)
 			uint32_t to_quiet = diff & (~target_bits);
 
 			latch_byte(to_loud, to_quiet);
-			
+
 			last_volume = target_bits;
 		}
 	}
@@ -306,9 +307,9 @@ void gpio_volume_update(unsigned gain)
 	{
 		// For non-latching, we just set the levels.
 		// Construct the value mask based on cfg.loud (polarity)
-		
+
 		uint32_t val_mask = 0;
-		
+
 		if (cfg.loud) {
 			// Active High: target bits are 1
 			val_mask = target_bits;
@@ -342,8 +343,9 @@ void gpio_volume_apply_startup_volume(unsigned gain)
 		if (num_leds > cfg.width) num_leds = cfg.width;
 		target_bits = (1 << num_leds) - 1;
 	} else {
-		uint8_t max_bits = (1 << cfg.width) - 1;
-		target_bits = volume > max_bits ? max_bits : volume;
+		uint32_t max_bits = (1UL << cfg.width) - 1;
+		target_bits = ((uint32_t)volume * max_bits + 50) / 100;
+		// target_bits = volume > max_bits ? max_bits : volume;
 	}
 
 	if (cfg.mode == GPIO_VOLUME_MODE_LATCHING)
