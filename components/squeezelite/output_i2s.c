@@ -48,6 +48,7 @@ sure that using rate_delay would fix that
 #include "accessors.h"
 #include "equalizer.h"
 #include "globdefs.h"
+#include "gpio_volume.h"
 
 #define LOCK   mutex_lock(outputbuf->mutex)
 #define UNLOCK mutex_unlock(outputbuf->mutex)
@@ -441,6 +442,23 @@ void output_init_i2s(log_level level, char *device, unsigned output_buf_size, ch
 	
 	adac->headset(jack_inserted_svc());	
     
+	// Initialize GPIO Volume Service
+	char *gv_cfg = config_alloc_get(NVS_TYPE_STR, "gpio_volume");
+	if (gv_cfg)
+	{
+		LOG_INFO("TAG", "Found gpio_volume config: %s", gv_cfg);
+		if (gpio_volume_init(gv_cfg))
+		{
+			unsigned v = (output.gainL > output.gainR) ? output.gainL : output.gainR;
+			gpio_volume_apply_startup_volume(v);
+		}
+		free(gv_cfg);
+	}
+	else
+	{
+		LOG_WARN("TAG", "gpio_volume key NOT FOUND in NVS");
+	}
+
     // do we want stats
 	p = config_alloc_get_default(NVS_TYPE_STR, "stats", "n", 0);
 	if (p && (*p == '1' || *p == 'Y' || *p == 'y')) {
@@ -485,6 +503,18 @@ void output_close_i2s(void) {
  */
 bool output_volume_i2s(unsigned left, unsigned right) {
 	if (mute_control.gpio >= 0) gpio_set_level(mute_control.gpio, (left | right) ? !mute_control.active : mute_control.active);
+
+	int dacmaxvol = gpio_volume_fixed();
+
+    if (dacmaxvol >= 0)
+		gpio_volume_update(left > right ? left : right);
+
+	if (dacmaxvol == 1)
+	{
+		left = 65536U;
+		right = 65536U;
+	}
+
 	return adac->volume(left, right);
 } 
 

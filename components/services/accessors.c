@@ -262,6 +262,53 @@ void config_eth_init( eth_config_t *  target ){
 }
 
 /****************************************************************************************
+ * Get GPIO Volume config structure
+ */
+const gpio_volume_cfg_t *config_gpio_volume_get()
+{
+	static gpio_volume_cfg_t gpio_vol = {
+		.dacmaxvol = false,
+		.lsb0 = -1,
+		.lsb1 = -1,
+		.high0 = -1,
+		.high1 = -1,
+		.width = 0,
+		.time_ms = 5
+	};
+
+	char *config = config_alloc_get_default(NVS_TYPE_STR, "gpio_volume", NULL, 0);
+
+	if (config && *config)
+	{
+		// memset(&gpio_vol, 0, sizeof(gpio_vol));
+
+		// Use the same parsing logic as the service
+		PARSE_PARAM(config, "lsb0", '=', gpio_vol.lsb0);
+		PARSE_PARAM(config, "lsb1", '=', gpio_vol.lsb1);
+		PARSE_PARAM(config, "high0", '=', gpio_vol.high0);
+		PARSE_PARAM(config, "high1", '=', gpio_vol.high1);
+		PARSE_PARAM(config, "width", '=', gpio_vol.width);
+		PARSE_PARAM(config, "time", '=', gpio_vol.time_ms);
+
+		// Handle Booleans 
+		gpio_vol.dacmaxvol = strcasestr(config, "dacmaxvol=1") ? true : false;
+		gpio_vol.loud = strcasestr(config, "loud=0") ? false : true;
+		gpio_vol.highON = strcasestr(config, "highON=0") ? false : true;
+		gpio_vol.lowON = strcasestr(config, "lowON=0") ? false : true;
+
+		if (strcasestr(config, "mode=ledbar"))
+			gpio_vol.mode = GPIO_VOLUME_MODE_LEDBAR;
+		else if (strcasestr(config, "mode=latching"))
+			gpio_vol.mode = GPIO_VOLUME_MODE_LATCHING;
+		else
+			gpio_vol.mode = GPIO_VOLUME_MODE_BINARY;
+
+		free(config);
+	}
+	return &gpio_vol;
+}
+
+/****************************************************************************************
  * 
  */
 esp_err_t config_i2c_set(const i2c_config_t * config, int port){
@@ -475,6 +522,44 @@ esp_err_t config_spi_set(const spi_bus_config_t * config, int host, int dc){
 	}
 	return err;
 }
+
+/****************************************************************************************
+ * Set GPIO Volume configuration
+ *
+esp_err_t config_gpio_volume_set(const gpio_volume_cfg_t *config)
+{
+	int buffer_size = 512;
+	esp_err_t err = ESP_OK;
+	char *buf = malloc_init_external(buffer_size);
+
+	if (buf)
+	{
+		const char *mode_str = "binary";
+		if (config->mode == GPIO_VOLUME_MODE_LEDBAR)
+			mode_str = "ledbar";
+		else if (config->mode == GPIO_VOLUME_MODE_LATCHING)
+			mode_str = "latching";
+
+		snprintf(buf, buffer_size,
+				 "mode=%s,dacmaxvol=%d,lsb0=%d,lsb1=%d,width=%d,time=%d,loud=%d,high0=%d,high1=%d,highON=%d,lowON=%d",
+				 mode_str, config->dacmaxvol, config->lsb0, config->lsb1, config->width,
+				 config->time_ms, config->loud, config->high0, config->high1,
+				 config->highON, config->lowON);
+
+		log_send_messaging(MESSAGING_INFO, "Updating GPIO Volume config to %s", buf);
+		err = config_set_value(NVS_TYPE_STR, "gpio_volume", buf);
+		if (err != ESP_OK) {
+			log_send_messaging(MESSAGING_ERROR, "Error: %s", esp_err_to_name(err));
+		}
+		free(buf);
+	}
+	else
+	{
+		err = ESP_ERR_NO_MEM;
+	}
+	return err;
+}
+*/
 
 /****************************************************************************************
  * 
@@ -823,7 +908,46 @@ cJSON * get_GPIO_nvs_list(cJSON * list) {
 	ADD_GPIO_STRUCT_MEMBER_TO_ARRAY(ilist,gpios,green,"other");
 	ADD_GPIO_STRUCT_MEMBER_TO_ARRAY(ilist,gpios,red,"other");
 	ADD_GPIO_STRUCT_MEMBER_TO_ARRAY(ilist,gpios,spkfault,"other");
+
 	return ilist;
+}
+
+/****************************************************************************************
+ *
+ */
+cJSON * get_Volume_GPIO(cJSON * list) {
+    cJSON * ilist = list ? list : cJSON_CreateArray();
+    
+    // Use the parsed structure instead of raw string parsing in the UI loop
+    const gpio_volume_cfg_t *vol = config_gpio_volume_get();
+
+    // 1. List all GPIOs in the primary bank (lsb0)
+    if (vol->lsb0 >= 0 && vol->width > 0) {
+        for (int i = 0; i < vol->width; i++) {
+            char name[16];
+            snprintf(name, sizeof(name), "lsb0-%d", i);
+            cJSON_AddItemToArray(ilist, get_gpio_entry(name, "vol", vol->lsb0 + i, false));
+        }
+    }
+
+    // 2. List all GPIOs in the secondary bank (lsb1) if defined
+    if (vol->lsb1 >= 0 && vol->width > 0) {
+        for (int i = 0; i < vol->width; i++) {
+            char name[16];
+            snprintf(name, sizeof(name), "lsb1-%d", i);
+            cJSON_AddItemToArray(ilist, get_gpio_entry(name, "vol", vol->lsb1 + i, false));
+        }
+    }
+
+    // 3. Add the control/rail pins if defined
+    if (vol->high0 >= 0) {
+        cJSON_AddItemToArray(ilist, get_gpio_entry("high0", "vol", vol->high0, false));
+    }
+    if (vol->high1 >= 0) {
+        cJSON_AddItemToArray(ilist, get_gpio_entry("high1", "vol", vol->high1, false));
+    }
+
+    return ilist;
 }
 
 /****************************************************************************************
@@ -1200,5 +1324,6 @@ cJSON * get_gpio_list(bool refresh) {
 	gpio_list=get_ledvu_GPIO(gpio_list);
 	gpio_list=get_psram_gpio_list(gpio_list);
 	gpio_list=get_eth_GPIO(gpio_list);
+	gpio_list=get_Volume_GPIO(gpio_list);
 	return gpio_list;
 }

@@ -400,6 +400,10 @@ void services_init(void) {
 	// now set potential power GPIO on expander
 	parse_set_GPIO(set_exp_power_gpio);
 
+	// generate gpio_volume nvs key
+	char *dummy = config_alloc_get_default(NVS_TYPE_STR, "gpio_volume", "", 0);
+	if (dummy) free(dummy);
+
 	// system-wide PWM timer configuration
 	ledc_timer_config_t pwm_timer = {
 		.duty_resolution = LEDC_TIMER_13_BIT,

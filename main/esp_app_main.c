@@ -116,6 +116,7 @@ const DefaultStringVal defaultStringVals[] = {
     {"target", CONFIG_TARGET},
     {"led_vu_config", ""},
 	{"autoexec", "1"},	
+	{"gpio_volume",""},	
 #ifdef CONFIG_BT_SINK
     {"bt_sink_pin", STR(CONFIG_BT_SINK_PIN)},
     {"bt_sink_volume", "127"},

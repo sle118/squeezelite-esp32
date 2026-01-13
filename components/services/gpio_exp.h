@@ -59,3 +59,5 @@ esp_err_t   gpio_isr_handler_remove_x(int gpio);
 #define     gpio_set_intr_type_x(gpio, type) do { if (gpio < GPIO_NUM_MAX) gpio_set_intr_type(gpio, type); } while (0)
 #define     gpio_intr_enable_x(gpio) do { if (gpio < GPIO_NUM_MAX) gpio_intr_enable(gpio); } while (0)
 #define     gpio_pad_select_gpio_x(gpio) do { if (gpio < GPIO_NUM_MAX) gpio_pad_select_gpio(gpio); } while (0)
+
+esp_err_t   gpio_exp_set_level_multi(int gpio_base, uint32_t mask, uint32_t value, struct gpio_exp_s *expander);

@@ -13,6 +13,7 @@
 #include "driver/i2s.h"
 #include "driver/spi_master.h"
 #include "gpio_exp.h"
+#include "gpio_volume.h"
 #include "cJSON.h"
 extern const char *i2c_name_type;
 extern const char *spi_name_type;
