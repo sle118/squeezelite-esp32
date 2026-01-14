@@ -351,12 +351,12 @@ esp_err_t gpio_exp_set_level(int gpio, int level, bool direct, gpio_exp_t *expan
 			expander->model->write(expander);
 		}
 */
-		// Corrected mask analysis
-        // original mask creates a race condition that fails with calls in rapid succession
+		// Corrected: Original code had race condition when multiple rapid calls occurred
+		// because mask operation didn't properly isolate the target bit before comparison
 		uint32_t new_value = level ? mask : 0;
 		uint32_t current_bit = expander->shadow & mask;
 
-		// only write if shadow not up to date
+		// Only write if the bit actually needs to change
 		if ((current_bit != new_value) && expander->model->write) {
 			expander->shadow = (expander->shadow & ~mask) | new_value;
 			expander->model->write(expander);
@@ -380,36 +380,39 @@ esp_err_t gpio_exp_set_level(int gpio, int level, bool direct, gpio_exp_t *expan
  * Set multiple GPIO levels at once (efficient batch write)
  */
 esp_err_t gpio_exp_set_level_multi(int gpio_base, uint32_t mask, uint32_t value, gpio_exp_t *expander) {
-    int gpio = gpio_base;
-    if ((expander = find_expander(expander, &gpio)) == NULL) return ESP_ERR_INVALID_ARG;
-    
-    // Normalize mask and value to expander's GPIO numbering
-    mask = mask << gpio;
-    value = value << gpio;
-    
-    // Check all bits are configured for output
-    if ((expander->w_mask & mask) != mask) {
-        ESP_LOGW(TAG, "Not all GPIOs in mask 0x%x are set for output", mask);
-        return ESP_ERR_INVALID_ARG;
-    }
-    
-    xSemaphoreTake(expander->mutex, pdMS_TO_TICKS(portMAX_DELAY));
-    
-    // Update shadow register with all bits at once
-    uint32_t new_value = value & mask;
-    expander->shadow = (expander->shadow & ~mask) | new_value;
-    
-    // Single write operation
-    if (expander->model->write) {
-        expander->model->write(expander);
-    }
-    
-    xSemaphoreGive(expander->mutex);
-    
-    ESP_LOGD(TAG, "Set multi-level mask=0x%x value=0x%x for GPIO %u => wrote 0x%x", 
-             mask >> gpio, value >> gpio, expander->first + gpio, expander->shadow);
-    
-    return ESP_OK;
+	int gpio = gpio_base;
+	if ((expander = find_expander(expander, &gpio)) == NULL) {
+		ESP_LOGE(TAG, "No expander found for GPIO %d", gpio_base);
+		return ESP_ERR_INVALID_ARG;
+	}
+
+	// Normalize mask and value to expander's GPIO numbering
+	mask = mask << gpio;
+	value = value << gpio;
+	
+	// Check all bits are configured for output
+	if ((expander->w_mask & mask) != mask) {
+		ESP_LOGW(TAG, "Not all GPIOs in mask 0x%x are set for output", mask);
+		return ESP_ERR_INVALID_ARG;
+	}
+	
+	xSemaphoreTake(expander->mutex, pdMS_TO_TICKS(portMAX_DELAY));
+	
+	// Update shadow register with all bits at once
+	uint32_t new_value = value & mask;
+	expander->shadow = (expander->shadow & ~mask) | new_value;
+	
+	// Single write operation
+	if (expander->model->write) {
+		expander->model->write(expander);
+	}
+	
+	xSemaphoreGive(expander->mutex);
+	
+	ESP_LOGD(TAG, "Set multi-level mask=0x%x value=0x%x for GPIO %u => wrote 0x%x", 
+			mask >> gpio, value >> gpio, expander->first + gpio, expander->shadow);
+	
+	return ESP_OK;
 }
 
 /******************************************************************************

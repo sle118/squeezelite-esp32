@@ -273,7 +273,11 @@ const gpio_volume_cfg_t *config_gpio_volume_get()
 		.high0 = -1,
 		.high1 = -1,
 		.width = 0,
-		.time_ms = 5
+		.time_ms = 5,
+		.loud = true,
+		.highON = true,
+		.lowON = true,
+		.mode = GPIO_VOLUME_MODE_BINARY
 	};
 
 	char *config = config_alloc_get_default(NVS_TYPE_STR, "gpio_volume", NULL, 0);
@@ -528,7 +532,7 @@ esp_err_t config_spi_set(const spi_bus_config_t * config, int host, int dc){
  *
 esp_err_t config_gpio_volume_set(const gpio_volume_cfg_t *config)
 {
-	int buffer_size = 512;
+	int buffer_size = 256;
 	esp_err_t err = ESP_OK;
 	char *buf = malloc_init_external(buffer_size);
 
@@ -916,38 +920,38 @@ cJSON * get_GPIO_nvs_list(cJSON * list) {
  *
  */
 cJSON * get_Volume_GPIO(cJSON * list) {
-    cJSON * ilist = list ? list : cJSON_CreateArray();
-    
-    // Use the parsed structure instead of raw string parsing in the UI loop
-    const gpio_volume_cfg_t *vol = config_gpio_volume_get();
+	cJSON * ilist = list ? list : cJSON_CreateArray();
 
-    // 1. List all GPIOs in the primary bank (lsb0)
-    if (vol->lsb0 >= 0 && vol->width > 0) {
-        for (int i = 0; i < vol->width; i++) {
-            char name[16];
-            snprintf(name, sizeof(name), "lsb0-%d", i);
-            cJSON_AddItemToArray(ilist, get_gpio_entry(name, "vol", vol->lsb0 + i, false));
-        }
-    }
+	// Use the parsed structure instead of raw string parsing in the UI loop
+	const gpio_volume_cfg_t *vol = config_gpio_volume_get();
 
-    // 2. List all GPIOs in the secondary bank (lsb1) if defined
-    if (vol->lsb1 >= 0 && vol->width > 0) {
-        for (int i = 0; i < vol->width; i++) {
-            char name[16];
-            snprintf(name, sizeof(name), "lsb1-%d", i);
-            cJSON_AddItemToArray(ilist, get_gpio_entry(name, "vol", vol->lsb1 + i, false));
-        }
-    }
+	// 1. List all GPIOs in the primary bank (lsb0)
+	if (vol->lsb0 >= 0 && vol->width > 0) {
+		for (int i = 0; i < vol->width; i++) {
+			char name[16];
+			snprintf(name, sizeof(name), "lsb0-%d", i);
+			cJSON_AddItemToArray(ilist, get_gpio_entry(name, "vol", vol->lsb0 + i, false));
+		}
+	}
 
-    // 3. Add the control/rail pins if defined
-    if (vol->high0 >= 0) {
-        cJSON_AddItemToArray(ilist, get_gpio_entry("high0", "vol", vol->high0, false));
-    }
-    if (vol->high1 >= 0) {
-        cJSON_AddItemToArray(ilist, get_gpio_entry("high1", "vol", vol->high1, false));
-    }
+	// 2. List all GPIOs in the secondary bank (lsb1) if defined
+	if (vol->lsb1 >= 0 && vol->width > 0) {
+		for (int i = 0; i < vol->width; i++) {
+			char name[16];
+			snprintf(name, sizeof(name), "lsb1-%d", i);
+			cJSON_AddItemToArray(ilist, get_gpio_entry(name, "vol", vol->lsb1 + i, false));
+		}
+	}
 
-    return ilist;
+	// 3. Add the control/rail pins if defined
+	if (vol->high0 >= 0) {
+		cJSON_AddItemToArray(ilist, get_gpio_entry("high0", "vol", vol->high0, false));
+	}
+	if (vol->high1 >= 0) {
+		cJSON_AddItemToArray(ilist, get_gpio_entry("high1", "vol", vol->high1, false));
+	}
+
+	return ilist;
 }
 
 /****************************************************************************************

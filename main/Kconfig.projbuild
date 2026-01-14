@@ -234,11 +234,12 @@ menu "Squeezelite-ESP32"
 				depends on MUTE_GPIO != -1
 				default 1
 			config GPIO_VOLUME
-				string "GPIO Volume"
+				string "GPIO Volume Control Configuration"
 				default ""
 				help
-					Set parameters for R-2R relay control.
-					Format: mode=<ledbar|binary|latching>,width=<bits>,lsb0=<pin>[,lsb1=<pin>][,dacmaxvol=0|1][,time=<ms>][,loud=0|1][,high0=<pin>,high1=<pin>][,lowON=0|1][,highON=0|1]
+					Configure external volume control hardware (relay attenuators, LED bars).
+
+					Format: mode=<ledbar|binary|latching>,width=<1-16>,lsb0=<pin>[,lsb1=<pin>][,dacmaxvol=0|1][,time=<ms>][,loud=0|1][,high0=<pin>,high1=<pin>][,lowON=0|1][,highON=0|1]
 		endmenu
 
 		menu "SPDIF settings"

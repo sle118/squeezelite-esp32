@@ -54,8 +54,15 @@ static inline void gv_gpio_out(int gpio, int level)
 		return;
 	}
 
-	gpio_exp_set_direction(gpio, GPIO_MODE_OUTPUT, NULL);
-	gpio_exp_set_level(gpio, level, true, NULL);
+	esp_err_t err = gpio_exp_set_direction(gpio, GPIO_MODE_OUTPUT, NULL);
+	if (err != ESP_OK) {
+	ESP_LOGE(TAG, "Failed to set GPIO %d direction: %s", gpio, esp_err_to_name(err));
+	}
+	err = gpio_exp_set_level(gpio, level, true, NULL);
+	if (err != ESP_OK) {
+	ESP_LOGE(TAG, "Failed to set GPIO %d level: %s", gpio, esp_err_to_name(err));
+	}
+
 }
 
 /* =========================================================
@@ -72,7 +79,7 @@ bool gpio_volume_init(const char *cfgstr)
 
 	// memset(&cfg, 0, sizeof(cfg));
 
-	cfg.dacmaxvol = get_int(cfgstr, "dacmaxvol", false);
+	cfg.mode = get_mode(cfgstr);
 	cfg.lsb0 = get_int(cfgstr, "lsb0", -1);
 	cfg.lsb1 = get_int(cfgstr, "lsb1", -1);
 	cfg.high0 = get_int(cfgstr, "high0", -1);
@@ -80,14 +87,14 @@ bool gpio_volume_init(const char *cfgstr)
 	cfg.width = get_int(cfgstr, "width", 0);
 	cfg.time_ms = get_int(cfgstr, "time", 5);
 
+	cfg.dacmaxvol = get_int(cfgstr, "dacmaxvol", false);
 	cfg.loud = get_bool(cfgstr, "loud", true);
 	cfg.highON = get_bool(cfgstr, "highON", true);
 	cfg.lowON = get_bool(cfgstr, "lowON", true);
-	cfg.mode = get_mode(cfgstr);
 
 	ESP_LOGI(TAG,
-			 "gpio_volume: mode=%d dacmaxvol=%d width=%d lsb0=%d",
-			 cfg.mode, cfg.dacmaxvol, cfg.width, cfg.lsb0);
+			 "gpio_volume: mode=%d dacmaxvol=%d width=%d lsb0=%d lsb1=%d high0=%d high1=%d time=%d" ,
+			 cfg.mode, cfg.dacmaxvol, cfg.width, cfg.lsb0, cfg.lsb1, cfg.high0, cfg.high1, cfg.time_ms);
 
 	if (cfg.width <= 0 || cfg.lsb0 < 0)
 	{
@@ -108,7 +115,7 @@ bool gpio_volume_init(const char *cfgstr)
 				gpio_exp_set_direction(cfg.lsb1 + i, GPIO_MODE_OUTPUT, NULL);
 			}
 		}
-		
+
 		// Mode B: Toggle Rails
 		if (cfg.high0 >= 0) {
 			gpio_exp_set_direction(cfg.high0, GPIO_MODE_OUTPUT, NULL);
@@ -215,9 +222,9 @@ static void latch_byte(uint32_t to_loud_mask, uint32_t to_quiet_mask)
 
 			// Activate select pins for bits moving to Loud
 			gpio_exp_set_level_multi(cfg.lsb0, to_loud_mask, active_vals_loud, NULL);
-			
+
 			vTaskDelay(pdMS_TO_TICKS(cfg.time_ms));
-			
+
 			// Deactivate select pins
 			gpio_exp_set_level_multi(cfg.lsb0, to_loud_mask, inactive_vals_loud, NULL);
 
@@ -227,20 +234,28 @@ static void latch_byte(uint32_t to_loud_mask, uint32_t to_quiet_mask)
 	}
 }
 
+#define VOLUME_LOW_GAIN_THRESHOLD 926
+#define VOLUME_DB_PER_STEP_HIGH 0.4950495f  // 50/101
+#define VOLUME_DB_PER_STEP_LOW 1.4851485f   // 150/101
+#define VOLUME_LOW_GAIN_OFFSET 36.997f
+#define VOLUME_LOW_STEP_OFFSET 75.5f
+
 static uint8_t gain_to_volume(unsigned gain) {
 	// 1. Convert 16-bit gain to attenuation value
 	// 100 is max volume, going down 1 notch per 50/101 dB until 25
 	// 25 .. 0 is 1 notch per 150/101 dB
 	// https://github.com/LMS-Community/slimserver/blob/0821de50e7c3acd4f35b10aaccf99c64269e4187/Slim/Player/Squeezebox2.pm#L253
-	
+
 	if (gain == 0) return 0;
 	if (gain > 61953) return 100;
 
 	float dB = 20.0f * log10f((float)gain / 65536.0f);
 
-	uint8_t steps = (uint8_t) (-dB * 101.0f / 50.0f + 0.5f);
-	if (gain < 926 ) {
-		steps = (uint8_t) ( -(dB + 36.997f) * 101.0f / 150.0f + 75.5f);
+	uint8_t steps;
+	if (gain < VOLUME_LOW_GAIN_THRESHOLD ) {
+		steps = (uint8_t) (-(dB + VOLUME_LOW_GAIN_OFFSET) / VOLUME_DB_PER_STEP_LOW + VOLUME_LOW_STEP_OFFSET);
+	} else {
+		steps = (uint8_t) (-dB / VOLUME_DB_PER_STEP_HIGH + 0.5f);
 	}
 	ESP_LOGD(TAG, "Update: gain=%u dB=%6.2f steps=%u", gain, dB, steps);
 
@@ -265,7 +280,7 @@ void gpio_volume_update(unsigned gain)
 	if (cfg.mode == GPIO_VOLUME_MODE_LEDBAR) {
 		// Calculate number of LEDs based on volume 0..100
 		// Ensure volume 100 lights up all LEDs, volume 0 lights up 0
-		int num_leds = (volume * cfg.width) / 100;
+		int num_leds = (volume * cfg.width + 50) / 100;
 		if (num_leds > cfg.width) num_leds = cfg.width;
 
 		target_bits = (1 << num_leds) - 1;
