@@ -351,7 +351,8 @@ esp_err_t gpio_exp_set_level(int gpio, int level, bool direct, gpio_exp_t *expan
 			expander->model->write(expander);
 		}
 */
-		// Corrected mask analysis 
+		// Corrected mask analysis
+        // original mask creates a race condition that fails with calls in rapid succession
 		uint32_t new_value = level ? mask : 0;
 		uint32_t current_bit = expander->shadow & mask;
 
