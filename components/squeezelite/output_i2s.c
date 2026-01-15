@@ -335,6 +335,10 @@ void output_init_i2s(log_level level, char *device, unsigned output_buf_size, ch
 		
 		res = i2s_driver_install(CONFIG_I2S_NUM, &i2s_config, 0, NULL);
 		res |= i2s_set_pin(CONFIG_I2S_NUM, &i2s_spdif_pin);
+
+		// max drive capability for lowest output impedance for S/PDIF
+		gpio_set_drive_capability(i2s_spdif_pin.data_out_num, GPIO_DRIVE_CAP_3); 
+
 		LOG_INFO("SPDIF using I2S bck:%d, ws:%d, do:%d", i2s_spdif_pin.bck_io_num, i2s_spdif_pin.ws_io_num, i2s_spdif_pin.data_out_num);
 	} else {
 		i2s_config.sample_rate = output.current_sample_rate;
