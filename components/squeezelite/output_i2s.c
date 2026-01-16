@@ -1,4 +1,4 @@
-/* 
+/*
  *  Squeezelite for esp32
  *
  *  (c) Sebastien 2019
@@ -8,8 +8,8 @@
  *  https://opensource.org/licenses/MIT
  *
  */
- 
-/* 
+
+/*
 Synchronisation is a bit of a hack with i2s. The esp32 driver is always
 full when it starts, so there is a delay of the total length of buffers.
 In other words, i2s_write blocks at first call, until at least one buffer
@@ -18,14 +18,14 @@ has been written (it uses a queue with produce / consume).
 The first hack is to consume that length at the beginning of tracks when
 synchronization is active. It's about ~180ms @ 44.1kHz
 
-The second hack is that we never know exactly the number of frames in the 
+The second hack is that we never know exactly the number of frames in the
 DMA buffers when we update the output.frames_played_dmp. We assume that
 after i2s_write, these buffers are always full so by measuring the gap
 between time after i2s_write and update of frames_played_dmp, we have a
-good idea of the error. 
+good idea of the error.
 
 The third hack is when sample rate changes, buffers are reset and we also
-do the change too early, but can't do that exaclty at the right time. So 
+do the change too early, but can't do that exaclty at the right time. So
 there might be a pop and a de-sync when sampling rate change happens. Not
 sure that using rate_delay would fix that
 */
@@ -56,14 +56,14 @@ sure that using rate_delay would fix that
 #define SPDIF_BLOCK	256
 
 /* we produce FRAME_BLOCK (2048) per loop of the i2s thread so it's better if they fit
- * inside a set of DMA buffer nicely, i.e. DMA_BUF_FRAMES * DMA_BUF_COUNT is a multiple 
- * of FRAME_BLOCK so that each DMA buffer is filled and we fully empty a FRAME_BLOCK at 
- * each loop. Because one DMA buffer in esp32 is 4092 or below, when using 16 bits 
+ * inside a set of DMA buffer nicely, i.e. DMA_BUF_FRAMES * DMA_BUF_COUNT is a multiple
+ * of FRAME_BLOCK so that each DMA buffer is filled and we fully empty a FRAME_BLOCK at
+ * each loop. Because one DMA buffer in esp32 is 4092 or below, when using 16 bits
  * samples and 2 channels, the best multiple is 512 (512*2*2=2048) and we use 6 of these.
  * In SPDIF, as we virtually use 32 bits per sample, the next proper multiple would
  * be 256 but such DMA buffers are too small and this causes stuttering. So we will use
- * non-multiples which means that at every loop one DMA buffer will be not fully filled. 
- * At least, let's make sure it's not a too small amount of samples so 450*4*2=3600 fits 
+ * non-multiples which means that at every loop one DMA buffer will be not fully filled.
+ * At least, let's make sure it's not a too small amount of samples so 450*4*2=3600 fits
  * nicely in one DMA buffer and 2048/450 = 4 buffers + ~1/2 buffer which is acceptable.
  */
 #define DMA_BUF_FRAMES	512
@@ -85,7 +85,7 @@ sure that using rate_delay would fix that
 	RESET_MIN_MAX(rec);	\
 	RESET_MIN_MAX(i2s_time);	\
 	RESET_MIN_MAX(buffering);
-	
+
 #define STATS_PERIOD_MS 5000
 static void (*pseudo_idle_chain)(uint32_t now);
 
@@ -97,6 +97,8 @@ extern struct outputstate output;
 extern struct buffer *streambuf;
 extern struct buffer *outputbuf;
 extern u8_t *silencebuf;
+
+volatile uint32_t total_underruns = 0;
 
 const struct adac_s *dac_set[] = { &dac_tas57xx, &dac_tas5713, &dac_ac101, &dac_wm8978, NULL };
 const struct adac_s *adac = &dac_external;
@@ -139,33 +141,33 @@ static void (*jack_handler_chain)(bool inserted);
  */
 static bool handler(u8_t *data, int len){
 	bool res = true;
-	
+
 	if (!strncmp((char*) data, "audo", 4)) {
 		struct audo_packet *pkt = (struct audo_packet*) data;
 		// 0 = headphone (internal speakers off), 1 = sub out,
-		// 2 = always on (internal speakers on), 3 = always off	
+		// 2 = always on (internal speakers on), 3 = always off
 
 		if (jack_mutes_amp != (pkt->config == 0)) {
 			jack_mutes_amp = pkt->config == 0;
-			config_set_value(NVS_TYPE_STR, "jack_mutes_amp", jack_mutes_amp ? "y" : "n");		
-			
+			config_set_value(NVS_TYPE_STR, "jack_mutes_amp", jack_mutes_amp ? "y" : "n");
+
 			if (jack_mutes_amp && jack_inserted_svc()) {
 				adac->speaker(false);
 				if (amp_control.gpio != -1) gpio_set_level_x(amp_control.gpio, !amp_control.active);
 			} else {
 				adac->speaker(true);
 				if (amp_control.gpio != -1) gpio_set_level_x(amp_control.gpio, amp_control.active);
-			}	
+			}
 		}
 
 		LOG_INFO("got AUDO %02x", pkt->config);
 	} else {
 		res = false;
 	}
-	
+
 	// chain protocol handlers (bitwise or is fine)
 	if (*slimp_handler_chain) res |= (*slimp_handler_chain)(data, len);
-	
+
 	return res;
 }
 
@@ -179,10 +181,10 @@ static void jack_handler(bool inserted) {
 		adac->speaker(!inserted);
 		if (amp_control.gpio != -1) gpio_set_level_x(amp_control.gpio, inserted ? !amp_control.active : amp_control.active);
 	}
-	
+
 	// activate headset
 	adac->headset(inserted);
-	
+
 	// and chain if any
 	if (jack_handler_chain) (jack_handler_chain)(inserted);
 }
@@ -190,15 +192,15 @@ static void jack_handler(bool inserted) {
 /****************************************************************************************
  * amp GPIO
  */
-#ifndef AMP_LOCKED 
+#ifndef AMP_LOCKED
 static void set_amp_gpio(int gpio, char *value) {
 	char *p;
-	
+
 	if (strcasestr(value, "amp")) {
 		amp_control.gpio = gpio;
 		if ((p = strchr(value, ':')) != NULL) amp_control.active = atoi(p + 1);
-	}	
-}	
+	}
+}
 #endif
 
 /****************************************************************************************
@@ -218,8 +220,8 @@ static void set_i2s_pin(char *config, i2s_pin_config_t *pin_config) {
 	PARSE_PARAM(config, "do", '=', pin_config->data_out_num);
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
     pin_config->mck_io_num = strcasestr(config, "mck") ? 0 : -1;
-    PARSE_PARAM(config, "mck", '=', pin_config->mck_io_num);   
-#endif    
+    PARSE_PARAM(config, "mck", '=', pin_config->mck_io_num);
+#endif
 }
 
 /* When a panic occurs during playback, the I2S interface can produce a loud noise burst.
@@ -234,9 +236,9 @@ void __real_esp_panic_handler(void*);
 
 void __wrap_esp_panic_handler (void* info) {
     esp_rom_printf("I2S abort!\r\n");
-    
+
     i2s_stop(CONFIG_I2S_NUM);
-    
+
     /* Call the original panic handler function to finish processing this error */
     __real_esp_panic_handler(info);
 }
@@ -252,12 +254,12 @@ void output_init_i2s(log_level level, char *device, unsigned output_buf_size, ch
 
 	// chain SLIMP handlers
 	slimp_handler_chain = slimp_handler;
-	slimp_handler = handler;	
-	
+	slimp_handler = handler;
+
 	p = config_alloc_get_default(NVS_TYPE_STR, "jack_mutes_amp", "n", 0);
 	jack_mutes_amp = (strcmp(p,"1") == 0 ||strcasecmp(p,"y") == 0);
 	free(p);
-	
+
 #if BYTES_PER_FRAME == 8
 	output.format = S32_LE;
 #else
@@ -265,73 +267,73 @@ void output_init_i2s(log_level level, char *device, unsigned output_buf_size, ch
 #endif
 
 	output.write_cb = &_i2s_write_frames;
-	
+
 	obuf = malloc(FRAME_BLOCK * BYTES_PER_FRAME);
 	if (!obuf) {
 		LOG_ERROR("Cannot allocate i2s buffer");
 		return;
 	}
-		
+
 	running = true;
 
 	// get SPDIF configuration from NVS or compile
-	char *spdif_config = config_alloc_get_str("spdif_config", CONFIG_SPDIF_CONFIG, "bck=" STR(CONFIG_SPDIF_BCK_IO) 
+	char *spdif_config = config_alloc_get_str("spdif_config", CONFIG_SPDIF_CONFIG, "bck=" STR(CONFIG_SPDIF_BCK_IO)
 											  ",ws=" STR(CONFIG_SPDIF_WS_IO) ",do=" STR(CONFIG_SPDIF_DO_IO));
-											  
-	char *dac_config = config_alloc_get_str("dac_config", CONFIG_DAC_CONFIG, "model=i2s,bck=" STR(CONFIG_I2S_BCK_IO) 
+
+	char *dac_config = config_alloc_get_str("dac_config", CONFIG_DAC_CONFIG, "model=i2s,bck=" STR(CONFIG_I2S_BCK_IO)
 											",ws=" STR(CONFIG_I2S_WS_IO) ",do=" STR(CONFIG_I2S_DO_IO) ",mck=" STR(CONFIG_I2S_MCK_IO)
 											",sda=" STR(CONFIG_I2C_SDA) ",scl=" STR(CONFIG_I2C_SCL)
-											",mute=" STR(CONFIG_MUTE_GPIO));	
+											",mute=" STR(CONFIG_MUTE_GPIO));
 
-    i2s_pin_config_t i2s_dac_pin, i2s_spdif_pin;											
-	set_i2s_pin(spdif_config, &i2s_spdif_pin);										
-	set_i2s_pin(dac_config, &i2s_dac_pin);										
-    
+    i2s_pin_config_t i2s_dac_pin, i2s_spdif_pin;
+	set_i2s_pin(spdif_config, &i2s_spdif_pin);
+	set_i2s_pin(dac_config, &i2s_dac_pin);
+
     if (i2s_dac_pin.data_out_num == -1 && i2s_spdif_pin.data_out_num == -1) {
         LOG_WARN("DAC and SPDIF not configured, NOT launching i2s thread");
         return;
     }
-    
+
 	// common I2S initialization
 	i2s_config.mode = I2S_MODE_MASTER | I2S_MODE_TX;
 	i2s_config.channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT;
 	i2s_config.communication_format = I2S_COMM_FORMAT_STAND_I2S;
 	// in case of overflow, do not replay old buffer
-	i2s_config.tx_desc_auto_clear = true;		
+	i2s_config.tx_desc_auto_clear = true;
 #ifndef CONFIG_IDF_TARGET_ESP32S3
     i2s_config.use_apll = true;
-#endif 
+#endif
 	i2s_config.intr_alloc_flags = ESP_INTR_FLAG_LEVEL1; //Interrupt level 1
-    i2s_config.dma_buf_len = DMA_BUF_FRAMES;	
+    i2s_config.dma_buf_len = DMA_BUF_FRAMES;
 	i2s_config.dma_buf_count = DMA_BUF_COUNT;
-	
+
 	if (strcasestr(device, "spdif")) {
-		spdif.enabled = true;	
+		spdif.enabled = true;
 		if ((spdif.buf = heap_caps_malloc(SPDIF_BLOCK * 16, MALLOC_CAP_INTERNAL)) == NULL) {
 			LOG_ERROR("Cannot allocate SPDIF buffer");
 		}
-	
+
 		if (i2s_spdif_pin.bck_io_num == -1 || i2s_spdif_pin.ws_io_num == -1 || i2s_spdif_pin.data_out_num == -1) {
-			LOG_WARN("Cannot initialize I2S for SPDIF bck:%d ws:%d do:%d", i2s_spdif_pin.bck_io_num, 
-																		   i2s_spdif_pin.ws_io_num, 
+			LOG_WARN("Cannot initialize I2S for SPDIF bck:%d ws:%d do:%d", i2s_spdif_pin.bck_io_num,
+																		   i2s_spdif_pin.ws_io_num,
 																		   i2s_spdif_pin.data_out_num);
 		}
-									
+
 		i2s_config.sample_rate = output.current_sample_rate * 2;
 		i2s_config.bits_per_sample = 32;
 		// Normally counted in frames, but 16 sample are transformed into 32 bits in spdif
-		i2s_config.dma_buf_len = DMA_BUF_FRAMES_SPDIF;	
+		i2s_config.dma_buf_len = DMA_BUF_FRAMES_SPDIF;
 		i2s_config.dma_buf_count = DMA_BUF_COUNT_SPDIF;
-		/* 
-		   In DMA, we have room for (LEN * COUNT) frames of 32 bits samples that 
+		/*
+		   In DMA, we have room for (LEN * COUNT) frames of 32 bits samples that
 		   we push at sample_rate * 2. Each of these pseudo-frames is a single true
 		   audio frame. So the real depth in true frames is (LEN * COUNT / 2)
-		*/   
-		dma_buf_frames = i2s_config.dma_buf_len * i2s_config.dma_buf_count / 2;	
-		
+		*/
+		dma_buf_frames = i2s_config.dma_buf_len * i2s_config.dma_buf_count / 2;
+
 		// silence DAC output if sharing the same ws/bck
-		if (i2s_dac_pin.ws_io_num == i2s_spdif_pin.ws_io_num && i2s_dac_pin.bck_io_num == i2s_spdif_pin.bck_io_num)	silent_do = i2s_dac_pin.data_out_num;		
-		
+		if (i2s_dac_pin.ws_io_num == i2s_spdif_pin.ws_io_num && i2s_dac_pin.bck_io_num == i2s_spdif_pin.bck_io_num)	silent_do = i2s_dac_pin.data_out_num;
+
 		res = i2s_driver_install(CONFIG_I2S_NUM, &i2s_config, 0, NULL);
 		res |= i2s_set_pin(CONFIG_I2S_NUM, &i2s_spdif_pin);
 		LOG_INFO("SPDIF using I2S bck:%d, ws:%d, do:%d", i2s_spdif_pin.bck_io_num, i2s_spdif_pin.ws_io_num, i2s_spdif_pin.data_out_num);
@@ -339,12 +341,12 @@ void output_init_i2s(log_level level, char *device, unsigned output_buf_size, ch
 		i2s_config.sample_rate = output.current_sample_rate;
 		i2s_config.bits_per_sample = BYTES_PER_FRAME * 8 / 2;
 		// Counted in frames (but i2s allocates a buffer <= 4092 bytes)
-		i2s_config.dma_buf_len = DMA_BUF_FRAMES;	
+		i2s_config.dma_buf_len = DMA_BUF_FRAMES;
 		i2s_config.dma_buf_count = DMA_BUF_COUNT;
 		dma_buf_frames = i2s_config.dma_buf_len * i2s_config.dma_buf_count;
-		
+
 		// silence SPDIF output
-		silent_do = i2s_spdif_pin.data_out_num;		
+		silent_do = i2s_spdif_pin.data_out_num;
 
 		char model[32] = "i2s";
 		if ((p = strcasestr(dac_config, "model")) != NULL) sscanf(p, "%*[^=]=%31[^,]", model);
@@ -353,13 +355,13 @@ void output_init_i2s(log_level level, char *device, unsigned output_buf_size, ch
 			sscanf(p, "%*[^=]=%7[^,]", mute);
 			mute_control.gpio = atoi(mute);
 			if ((p = strchr(mute, ':')) != NULL) mute_control.active = atoi(p + 1);
-		}	
+		}
 
         bool mck_required = false;
 		for (int i = 0; adac == &dac_external && dac_set[i]; i++) if (strcasestr(dac_set[i]->model, model)) adac = dac_set[i];
 		res = adac->init(dac_config, I2C_PORT, &i2s_config, &mck_required) ? ESP_OK : ESP_FAIL;
-        
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4, 4, 0)        
+
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4, 4, 0)
         int mck_io_num = strcasestr(dac_config, "mck") || mck_required ? 0 : -1;
         PARSE_PARAM(dac_config, "mck", '=', mck_io_num);
 
@@ -380,52 +382,52 @@ void output_init_i2s(log_level level, char *device, unsigned output_buf_size, ch
 #else
         if (mck_required && i2s_dac_pin.mck_io_num == -1) i2s_dac_pin.mck_io_num = 0;
         LOG_INFO("configuring MCLK on GPIO %d", i2s_dac_pin.mck_io_num);
-#endif    
-       
+#endif
+
 		res |= i2s_driver_install(CONFIG_I2S_NUM, &i2s_config, 0, NULL);
 		res |= i2s_set_pin(CONFIG_I2S_NUM, &i2s_dac_pin);
-        	
+
 		if (res == ESP_OK && mute_control.gpio >= 0) {
 			gpio_pad_select_gpio(mute_control.gpio);
 			gpio_set_direction(mute_control.gpio, GPIO_MODE_OUTPUT);
 			gpio_set_level(mute_control.gpio, mute_control.active);
-		}		
-				
-		LOG_INFO("%s DAC using I2S bck:%d, ws:%d, do:%d, mute:%d:%d (res:%d)", model, i2s_dac_pin.bck_io_num, i2s_dac_pin.ws_io_num, 
+		}
+
+		LOG_INFO("%s DAC using I2S bck:%d, ws:%d, do:%d, mute:%d:%d (res:%d)", model, i2s_dac_pin.bck_io_num, i2s_dac_pin.ws_io_num,
 																   i2s_dac_pin.data_out_num, mute_control.gpio, mute_control.active, res);
-	}	
-			
+	}
+
 	free(dac_config);
 	free(spdif_config);
-	
+
 	if (res != ESP_OK) {
 		LOG_WARN("no DAC configured");
 		return;
-	}	
-	
+	}
+
 	// turn off GPIO than is not used (SPDIF of DAC DO when shared)
 	if (silent_do >= 0) {
 		gpio_pad_select_gpio(silent_do);
 		gpio_set_direction(silent_do, GPIO_MODE_OUTPUT);
 		gpio_set_level(silent_do, 0);
-	}	
+	}
 
-	LOG_INFO("Initializing I2S mode %s with rate: %d, bits per sample: %d, buffer frames: %d, number of buffers: %d ", 
-			spdif.enabled ? "S/PDIF" : "normal", 
+	LOG_INFO("Initializing I2S mode %s with rate: %d, bits per sample: %d, buffer frames: %d, number of buffers: %d ",
+			spdif.enabled ? "S/PDIF" : "normal",
 			i2s_config.sample_rate, i2s_config.bits_per_sample, i2s_config.dma_buf_len, i2s_config.dma_buf_count);
-	
+
 	i2s_stop(CONFIG_I2S_NUM);
 	i2s_zero_dma_buffer(CONFIG_I2S_NUM);
 	isI2SStarted=false;
-    
+
     equalizer_set_samplerate(output.current_sample_rate);
-	
+
 	adac->power(ADAC_STANDBY);
 
 	jack_handler_chain = jack_handler_svc;
 	jack_handler_svc = jack_handler;
-	
-#ifndef AMP_LOCKED	
+
+#ifndef AMP_LOCKED
 	parse_set_GPIO(set_amp_gpio);
 #endif
 
@@ -433,14 +435,14 @@ void output_init_i2s(log_level level, char *device, unsigned output_buf_size, ch
 		gpio_pad_select_gpio_x(amp_control.gpio);
 		gpio_set_direction_x(amp_control.gpio, GPIO_MODE_OUTPUT);
 		gpio_set_level_x(amp_control.gpio, !amp_control.active);
-		LOG_INFO("setting amplifier GPIO %d (active:%d)", amp_control.gpio, amp_control.active);	
-	}	
+		LOG_INFO("setting amplifier GPIO %d (active:%d)", amp_control.gpio, amp_control.active);
+	}
 
 	if (jack_mutes_amp && jack_inserted_svc()) adac->speaker(false);
 	else adac->speaker(true);
-	
-	adac->headset(jack_inserted_svc());	
-    
+
+	adac->headset(jack_inserted_svc());
+
     // do we want stats
 	p = config_alloc_get_default(NVS_TYPE_STR, "stats", "n", 0);
 	if (p && (*p == '1' || *p == 'Y' || *p == 'y')) {
@@ -450,14 +452,14 @@ void output_init_i2s(log_level level, char *device, unsigned output_buf_size, ch
     free(p);
 
     // register a callback for inactivity
-    i2s_idle_since = pdTICKS_TO_MS(xTaskGetTickCount());    
+    i2s_idle_since = pdTICKS_TO_MS(xTaskGetTickCount());
     services_sleep_setsleeper(i2s_idle_callback);
-    
+
 	// create task as a FreeRTOS task but uses stack in internal RAM
 	{
 		static DRAM_ATTR StaticTask_t xTaskBuffer __attribute__ ((aligned (4)));
 		static EXT_RAM_ATTR StackType_t xStack[OUTPUT_THREAD_STACK_SIZE] __attribute__ ((aligned (4)));
-		output_i2s_task = xTaskCreateStaticPinnedToCore( (TaskFunction_t) output_thread_i2s, "output_i2s", OUTPUT_THREAD_STACK_SIZE, 
+		output_i2s_task = xTaskCreateStaticPinnedToCore( (TaskFunction_t) output_thread_i2s, "output_i2s", OUTPUT_THREAD_STACK_SIZE,
 											  NULL, CONFIG_ESP32_PTHREAD_TASK_PRIO_DEFAULT + 10, xStack, &xTaskBuffer, 0 );
 	}
 }
@@ -469,14 +471,14 @@ void output_close_i2s(void) {
 	LOCK;
 	running = false;
 	UNLOCK;
-	
+
 	while (!ended) vTaskDelay(20 / portTICK_PERIOD_MS);
-	
+
 	i2s_driver_uninstall(CONFIG_I2S_NUM);
 	free(obuf);
-	
+
 	equalizer_close();
-	
+
 	adac->deinit();
 }
 
@@ -486,7 +488,7 @@ void output_close_i2s(void) {
 bool output_volume_i2s(unsigned left, unsigned right) {
 	if (mute_control.gpio >= 0) gpio_set_level(mute_control.gpio, (left | right) ? !mute_control.active : mute_control.active);
 	return adac->volume(left, right);
-} 
+}
 
 /****************************************************************************************
  * Write frames to the output buffer
@@ -497,7 +499,7 @@ static int _i2s_write_frames(frames_t out_frames, bool silence, s32_t gainL, s32
 		if (output.fade == FADE_ACTIVE && output.fade_dir == FADE_CROSS && *cross_ptr) {
 			_apply_cross(outputbuf, out_frames, cross_gain_in, cross_gain_out, cross_ptr);
 		}
-		
+
 		_apply_gain(outputbuf, out_frames, gainL, gainR, flags);
 		memcpy(obuf + oframes * BYTES_PER_FRAME, outputbuf->readp, out_frames * BYTES_PER_FRAME);
 	} else {
@@ -508,9 +510,9 @@ static int _i2s_write_frames(frames_t out_frames, bool silence, s32_t gainL, s32
 	if (silence || _buf_used(outputbuf) >  BYTES_PER_FRAME * output.current_sample_rate / 2) {
 		output_visu_export(obuf + oframes * BYTES_PER_FRAME, out_frames, output.current_sample_rate, silence, (gainL + gainR) / 2);
 	}
-		
+
 	oframes += out_frames;
-	
+
 	return out_frames;
 }
 
@@ -525,13 +527,13 @@ static void output_thread_i2s(void *arg) {
 	uint32_t fullness = gettime_ms();
 	bool synced;
 	output_state state = OUTPUT_OFF - 1;
-        
+
 	while (running) {
-			
+
 		TIME_MEASUREMENT_START(timer_start);
 
 		LOCK;
-		
+
 		// manage led display & analogue
 		if (state != output.state) {
 			LOG_INFO("Output state is %d", output.state);
@@ -547,12 +549,12 @@ static void output_thread_i2s(void *arg) {
 				if (!jack_mutes_amp || !jack_inserted_svc()) {
 					if (amp_control.gpio != -1) gpio_set_level_x(amp_control.gpio, amp_control.active);
 					adac->speaker(true);
-				}	
+				}
 				led_on(LED_GREEN);
-			}	
+			}
 		}
 		state = output.state;
-		
+
 		if (output.state == OUTPUT_OFF) {
 			UNLOCK;
 			if (isI2SStarted) {
@@ -565,7 +567,7 @@ static void output_thread_i2s(void *arg) {
 		} else if (output.state == OUTPUT_STOPPED) {
 			synced = false;
 		}
-					
+
 		oframes = 0;
 		output.updated = gettime_ms();
 		output.frames_played_dmp = output.frames_played;
@@ -575,14 +577,14 @@ static void output_thread_i2s(void *arg) {
 		_output_frames( iframes );
 		// oframes must be a global updated by the write callback
 		output.frames_in_process = oframes;
-              						
+
 		SET_MIN_MAX_SIZED(oframes,rec,iframes);
 		SET_MIN_MAX_SIZED(_buf_used(outputbuf),o,outputbuf->size);
 		SET_MIN_MAX_SIZED(_buf_used(streambuf),s,streambuf->size);
 		SET_MIN_MAX( TIME_MEASUREMENT_GET(timer_start),buffering);
-		
-		/* must skip first whatever is in the pipe (but not when resuming). 
-		This test is incorrect when we pause a track that has just started, 
+
+		/* must skip first whatever is in the pipe (but not when resuming).
+		This test is incorrect when we pause a track that has just started,
 		but this is higly unlikely and I don't have a better one for now */
 		if (output.state == OUTPUT_START_AT) {
 			discard = output.frames_played_dmp ? 0 : output.device_frames;
@@ -595,36 +597,36 @@ static void output_thread_i2s(void *arg) {
 		}
 
 		UNLOCK;
-				
+
 		// now send all the data
 		TIME_MEASUREMENT_START(timer_start);
-		
+
 		if (!isI2SStarted ) {
 			isI2SStarted = true;
 			LOG_INFO("Restarting I2S.");
 			i2s_zero_dma_buffer(CONFIG_I2S_NUM);
 			i2s_start(CONFIG_I2S_NUM);
-			adac->power(ADAC_ON);	
+			adac->power(ADAC_ON);
             if (spdif.enabled) spdif_convert(NULL, 0, NULL);
-		} 
+		}
 
 		// this does not work well as set_sample_rates resets the fifos (and it's too early)
 		if (i2s_config.sample_rate != output.current_sample_rate) {
 			LOG_INFO("changing sampling rate %u to %u", i2s_config.sample_rate, output.current_sample_rate);
 			if (synced) {
-			/* 				
+			/*
 				//  can sleep for a buffer_queue - 1 and then eat a buffer (discard) if we are synced
 				usleep(((DMA_BUF_COUNT - 1) * DMA_BUF_LEN * BYTES_PER_FRAME * 1000) / 44100 * 1000);
 				discard = DMA_BUF_COUNT * DMA_BUF_LEN * BYTES_PER_FRAME;
-			*/		
-			}	
+			*/
+			}
 			i2s_config.sample_rate = output.current_sample_rate;
 			i2s_set_sample_rates(CONFIG_I2S_NUM, spdif.enabled ? i2s_config.sample_rate * 2 : i2s_config.sample_rate);
 			i2s_zero_dma_buffer(CONFIG_I2S_NUM);
 
             equalizer_set_samplerate(output.current_sample_rate);
 		}
-		
+
 		// run equalizer
 		equalizer_process(obuf, oframes * BYTES_PER_FRAME);
 
@@ -635,15 +637,15 @@ static void output_thread_i2s(void *arg) {
 			// need IRAM for speed but can't allocate a FRAME_BLOCK * 16, so process by smaller chunks
 			while (count < oframes) {
 				size_t chunk = min(SPDIF_BLOCK, oframes - count);
-                spdif_convert((ISAMPLE_T*) obuf + count * 2, chunk, (u32_t*) spdif.buf);              
+                spdif_convert((ISAMPLE_T*) obuf + count * 2, chunk, (u32_t*) spdif.buf);
 				i2s_write(CONFIG_I2S_NUM, spdif.buf, chunk * 16, &obytes, portMAX_DELAY);
 				bytes += obytes / (16 / BYTES_PER_FRAME);
 				count += chunk;
 			}
-#if BYTES_PER_FRAME == 4		
-		} else if (i2s_config.bits_per_sample == 32) {  
+#if BYTES_PER_FRAME == 4
+		} else if (i2s_config.bits_per_sample == 32) {
 			i2s_write_expand(CONFIG_I2S_NUM, obuf, oframes * BYTES_PER_FRAME, 16, 32, &bytes, portMAX_DELAY);
-#endif			
+#endif
 		} else {
 			i2s_write(CONFIG_I2S_NUM, obuf, oframes * BYTES_PER_FRAME, &bytes, portMAX_DELAY);
 		}
@@ -652,16 +654,17 @@ static void output_thread_i2s(void *arg) {
 
 		if (bytes != oframes * BYTES_PER_FRAME) {
 			LOG_WARN("I2S DMA Overflow! available bytes: %d, I2S wrote %d bytes", oframes * BYTES_PER_FRAME, bytes);
+			total_underruns++;
 		}
-		
+
 		SET_MIN_MAX( TIME_MEASUREMENT_GET(timer_start),i2s_time);
-		
+
 	}
 
 	if (spdif.enabled) free(spdif.buf);
 	ended = true;
 
-	vTaskDelete(NULL);	
+	vTaskDelete(NULL);
 }
 
 /****************************************************************************************
@@ -669,12 +672,12 @@ static void output_thread_i2s(void *arg) {
  */
 static void i2s_stats(uint32_t now) {
     static uint32_t last;
-    
+
     // first chain to next handler
     if (pseudo_idle_chain) pseudo_idle_chain(now);
-    
+
     // then see if we need to act
-    if (output.state <= OUTPUT_STOPPED || now < last + STATS_PERIOD_MS) return;  
+    if (output.state <= OUTPUT_STOPPED || now < last + STATS_PERIOD_MS) return;
     last = now;
 
 	LOG_INFO( "Output State: %d, current sample rate: %d, bytes per frame: %d", output.state, output.current_sample_rate, BYTES_PER_FRAME);
@@ -707,74 +710,74 @@ static void i2s_stats(uint32_t now) {
 static const u8_t VUCP24[2] = { 0xCC, 0x32 };
 
 static const u16_t spdif_bmclookup[256] = {
-	0xcccc, 0xb333, 0xd333, 0xaccc, 0xcb33, 0xb4cc, 0xd4cc, 0xab33, 
-	0xcd33, 0xb2cc, 0xd2cc, 0xad33, 0xcacc, 0xb533, 0xd533, 0xaacc, 
-	0xccb3, 0xb34c, 0xd34c, 0xacb3, 0xcb4c, 0xb4b3, 0xd4b3, 0xab4c, 
-	0xcd4c, 0xb2b3, 0xd2b3, 0xad4c, 0xcab3, 0xb54c, 0xd54c, 0xaab3, 
-	0xccd3, 0xb32c, 0xd32c, 0xacd3, 0xcb2c, 0xb4d3, 0xd4d3, 0xab2c, 
-	0xcd2c, 0xb2d3, 0xd2d3, 0xad2c, 0xcad3, 0xb52c, 0xd52c, 0xaad3, 
-	0xccac, 0xb353, 0xd353, 0xacac, 0xcb53, 0xb4ac, 0xd4ac, 0xab53, 
-	0xcd53, 0xb2ac, 0xd2ac, 0xad53, 0xcaac, 0xb553, 0xd553, 0xaaac, 
-	0xcccb, 0xb334, 0xd334, 0xaccb, 0xcb34, 0xb4cb, 0xd4cb, 0xab34, 
-	0xcd34, 0xb2cb, 0xd2cb, 0xad34, 0xcacb, 0xb534, 0xd534, 0xaacb, 
-	0xccb4, 0xb34b, 0xd34b, 0xacb4, 0xcb4b, 0xb4b4, 0xd4b4, 0xab4b, 
-	0xcd4b, 0xb2b4, 0xd2b4, 0xad4b, 0xcab4, 0xb54b, 0xd54b, 0xaab4, 
-	0xccd4, 0xb32b, 0xd32b, 0xacd4, 0xcb2b, 0xb4d4, 0xd4d4, 0xab2b, 
-	0xcd2b, 0xb2d4, 0xd2d4, 0xad2b, 0xcad4, 0xb52b, 0xd52b, 0xaad4, 
-	0xccab, 0xb354, 0xd354, 0xacab, 0xcb54, 0xb4ab, 0xd4ab, 0xab54, 
-	0xcd54, 0xb2ab, 0xd2ab, 0xad54, 0xcaab, 0xb554, 0xd554, 0xaaab, 
-	0xcccd, 0xb332, 0xd332, 0xaccd, 0xcb32, 0xb4cd, 0xd4cd, 0xab32, 
-	0xcd32, 0xb2cd, 0xd2cd, 0xad32, 0xcacd, 0xb532, 0xd532, 0xaacd, 
-	0xccb2, 0xb34d, 0xd34d, 0xacb2, 0xcb4d, 0xb4b2, 0xd4b2, 0xab4d, 
-	0xcd4d, 0xb2b2, 0xd2b2, 0xad4d, 0xcab2, 0xb54d, 0xd54d, 0xaab2, 
-	0xccd2, 0xb32d, 0xd32d, 0xacd2, 0xcb2d, 0xb4d2, 0xd4d2, 0xab2d, 
-	0xcd2d, 0xb2d2, 0xd2d2, 0xad2d, 0xcad2, 0xb52d, 0xd52d, 0xaad2, 
-	0xccad, 0xb352, 0xd352, 0xacad, 0xcb52, 0xb4ad, 0xd4ad, 0xab52, 
-	0xcd52, 0xb2ad, 0xd2ad, 0xad52, 0xcaad, 0xb552, 0xd552, 0xaaad, 
-	0xccca, 0xb335, 0xd335, 0xacca, 0xcb35, 0xb4ca, 0xd4ca, 0xab35, 
-	0xcd35, 0xb2ca, 0xd2ca, 0xad35, 0xcaca, 0xb535, 0xd535, 0xaaca, 
-	0xccb5, 0xb34a, 0xd34a, 0xacb5, 0xcb4a, 0xb4b5, 0xd4b5, 0xab4a, 
-	0xcd4a, 0xb2b5, 0xd2b5, 0xad4a, 0xcab5, 0xb54a, 0xd54a, 0xaab5, 
-	0xccd5, 0xb32a, 0xd32a, 0xacd5, 0xcb2a, 0xb4d5, 0xd4d5, 0xab2a, 
-	0xcd2a, 0xb2d5, 0xd2d5, 0xad2a, 0xcad5, 0xb52a, 0xd52a, 0xaad5, 
-	0xccaa, 0xb355, 0xd355, 0xacaa, 0xcb55, 0xb4aa, 0xd4aa, 0xab55, 
-	0xcd55, 0xb2aa, 0xd2aa, 0xad55, 0xcaaa, 0xb555, 0xd555, 0xaaaa	
+	0xcccc, 0xb333, 0xd333, 0xaccc, 0xcb33, 0xb4cc, 0xd4cc, 0xab33,
+	0xcd33, 0xb2cc, 0xd2cc, 0xad33, 0xcacc, 0xb533, 0xd533, 0xaacc,
+	0xccb3, 0xb34c, 0xd34c, 0xacb3, 0xcb4c, 0xb4b3, 0xd4b3, 0xab4c,
+	0xcd4c, 0xb2b3, 0xd2b3, 0xad4c, 0xcab3, 0xb54c, 0xd54c, 0xaab3,
+	0xccd3, 0xb32c, 0xd32c, 0xacd3, 0xcb2c, 0xb4d3, 0xd4d3, 0xab2c,
+	0xcd2c, 0xb2d3, 0xd2d3, 0xad2c, 0xcad3, 0xb52c, 0xd52c, 0xaad3,
+	0xccac, 0xb353, 0xd353, 0xacac, 0xcb53, 0xb4ac, 0xd4ac, 0xab53,
+	0xcd53, 0xb2ac, 0xd2ac, 0xad53, 0xcaac, 0xb553, 0xd553, 0xaaac,
+	0xcccb, 0xb334, 0xd334, 0xaccb, 0xcb34, 0xb4cb, 0xd4cb, 0xab34,
+	0xcd34, 0xb2cb, 0xd2cb, 0xad34, 0xcacb, 0xb534, 0xd534, 0xaacb,
+	0xccb4, 0xb34b, 0xd34b, 0xacb4, 0xcb4b, 0xb4b4, 0xd4b4, 0xab4b,
+	0xcd4b, 0xb2b4, 0xd2b4, 0xad4b, 0xcab4, 0xb54b, 0xd54b, 0xaab4,
+	0xccd4, 0xb32b, 0xd32b, 0xacd4, 0xcb2b, 0xb4d4, 0xd4d4, 0xab2b,
+	0xcd2b, 0xb2d4, 0xd2d4, 0xad2b, 0xcad4, 0xb52b, 0xd52b, 0xaad4,
+	0xccab, 0xb354, 0xd354, 0xacab, 0xcb54, 0xb4ab, 0xd4ab, 0xab54,
+	0xcd54, 0xb2ab, 0xd2ab, 0xad54, 0xcaab, 0xb554, 0xd554, 0xaaab,
+	0xcccd, 0xb332, 0xd332, 0xaccd, 0xcb32, 0xb4cd, 0xd4cd, 0xab32,
+	0xcd32, 0xb2cd, 0xd2cd, 0xad32, 0xcacd, 0xb532, 0xd532, 0xaacd,
+	0xccb2, 0xb34d, 0xd34d, 0xacb2, 0xcb4d, 0xb4b2, 0xd4b2, 0xab4d,
+	0xcd4d, 0xb2b2, 0xd2b2, 0xad4d, 0xcab2, 0xb54d, 0xd54d, 0xaab2,
+	0xccd2, 0xb32d, 0xd32d, 0xacd2, 0xcb2d, 0xb4d2, 0xd4d2, 0xab2d,
+	0xcd2d, 0xb2d2, 0xd2d2, 0xad2d, 0xcad2, 0xb52d, 0xd52d, 0xaad2,
+	0xccad, 0xb352, 0xd352, 0xacad, 0xcb52, 0xb4ad, 0xd4ad, 0xab52,
+	0xcd52, 0xb2ad, 0xd2ad, 0xad52, 0xcaad, 0xb552, 0xd552, 0xaaad,
+	0xccca, 0xb335, 0xd335, 0xacca, 0xcb35, 0xb4ca, 0xd4ca, 0xab35,
+	0xcd35, 0xb2ca, 0xd2ca, 0xad35, 0xcaca, 0xb535, 0xd535, 0xaaca,
+	0xccb5, 0xb34a, 0xd34a, 0xacb5, 0xcb4a, 0xb4b5, 0xd4b5, 0xab4a,
+	0xcd4a, 0xb2b5, 0xd2b5, 0xad4a, 0xcab5, 0xb54a, 0xd54a, 0xaab5,
+	0xccd5, 0xb32a, 0xd32a, 0xacd5, 0xcb2a, 0xb4d5, 0xd4d5, 0xab2a,
+	0xcd2a, 0xb2d5, 0xd2d5, 0xad2a, 0xcad5, 0xb52a, 0xd52a, 0xaad5,
+	0xccaa, 0xb355, 0xd355, 0xacaa, 0xcb55, 0xb4aa, 0xd4aa, 0xab55,
+	0xcd55, 0xb2aa, 0xd2aa, 0xad55, 0xcaaa, 0xb555, 0xd555, 0xaaaa
 };
 
-/* 
- SPDIF is supposed to be (before BMC encoding, from LSB to MSB)				
+/*
+ SPDIF is supposed to be (before BMC encoding, from LSB to MSB)
     0....  1...   191..  0
     BLFMRF MLFWRF MLFWRF BLFMRF (B,M,W=preamble-4, L/R=left/Right-24, F=Flags-4)
-    each xLF pattern is 32 bits 
+    each xLF pattern is 32 bits
 	PPPP AAAA  SSSS SSSS  SSSS SSSS  SSSS VUCP (P=preamble, A=auxiliary, S=sample-20bits, V=valid, U=user data, C=channel status, P=parity)
  After BMC encoding, each bit becomes 2 hence this becomes a 64 bits word. The parity
- is fixed by changing AAAA bits so that VUPC does not change. Then then trick is to 
+ is fixed by changing AAAA bits so that VUPC does not change. Then then trick is to
  start not with a PPPP sequence but with an VUCP sequence to that the 16 bits samples
  are aligned with a BMC word boundary. Input buffer is left first => LRLR...
  The I2S interface must output first the B/M/W preamble which means that second
- 32 bits words must be first and so must be marked right channel. 
+ 32 bits words must be first and so must be marked right channel.
 */
 static void IRAM_ATTR spdif_convert(ISAMPLE_T *src, size_t frames, u32_t *dst) {
-    static u8_t vu, count;    
+    static u8_t vu, count;
 	register u16_t hi, lo;
 #if BYTES_PER_FRAME == 8
 	register u16_t aux;
 #endif
-    
+
     // we assume frame == 0 as well...
     if (!src) {
         count = 0;
         vu = VUCP24[0];
     }
-    
+
 	while (frames--) {
 		// start with left channel
-#if BYTES_PER_FRAME == 4		
+#if BYTES_PER_FRAME == 4
 		hi = spdif_bmclookup[(u8_t)(*src >> 8)];
 		lo = spdif_bmclookup[(u8_t)*src++];
 		if (lo & 1) hi = ~hi;
 
-        if (!count--) {            
+        if (!count--) {
 			*dst++ = (vu << 24) | (PREAMBLE_B << 16) | 0xCCCC;
 			count = 191;
 		} else {
@@ -800,7 +803,7 @@ static void IRAM_ATTR spdif_convert(ISAMPLE_T *src, size_t frames, u32_t *dst) {
 		*dst++ = ((u32_t)lo << 16) | hi;
 
 		// then do right channel, no need to check PREAMBLE_B
-#if BYTES_PER_FRAME == 4		
+#if BYTES_PER_FRAME == 4
 		hi = spdif_bmclookup[(u8_t)(*src >> 8)];
 		lo = spdif_bmclookup[(u8_t)*src++];
 		if (lo & 1) hi = ~hi;
