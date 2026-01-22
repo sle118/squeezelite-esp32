@@ -102,9 +102,15 @@ bool gpio_volume_init(const char *cfgstr)
 		return false;
 	}
 
-	// --- 1. Initialize the primary bank (lsb0) ---
+	// --- 1. Initialize GPIOs ---
 	for (int i = 0; i < cfg.width; i++) {
-		gpio_exp_set_direction(cfg.lsb0 + i, GPIO_MODE_OUTPUT, NULL);
+		int gpio = cfg.lsb0 + i;
+		esp_err_t err = gpio_exp_set_direction(gpio, GPIO_MODE_OUTPUT, NULL);
+		if (err != ESP_OK) {
+			ESP_LOGE(TAG, "Failed to set GPIO %d as output: %s", gpio, esp_err_to_name(err));
+			return false;
+		}
+		ESP_LOGD(TAG, "Initialized GPIO %d as output", gpio);
 	}
 
 	// --- 2. Initialize Latching-specific pins ---
@@ -112,7 +118,13 @@ bool gpio_volume_init(const char *cfgstr)
 		// Mode A: Secondary bank for "Not-Loud"
 		if (cfg.lsb1 >= 0) {
 			for (int i = 0; i < cfg.width; i++) {
-				gpio_exp_set_direction(cfg.lsb1 + i, GPIO_MODE_OUTPUT, NULL);
+				int gpio = cfg.lsb1 + i;
+				esp_err_t err = gpio_exp_set_direction(gpio, GPIO_MODE_OUTPUT, NULL);
+				if (err != ESP_OK) {
+					ESP_LOGE(TAG, "Failed to set GPIO %d as output: %s", gpio, esp_err_to_name(err));
+					return false;
+				}
+				ESP_LOGD(TAG, "Initialized GPIO %d as output", gpio);
 			}
 		}
 
@@ -127,9 +139,13 @@ bool gpio_volume_init(const char *cfgstr)
 			gpio_exp_set_level(cfg.high1, !cfg.highON, true, NULL);
 		}
 	}
+	
+	vTaskDelay(pdMS_TO_TICKS(10)); // Give expander time to update
 
 	configured = true;
 	latching_initialized = false;
+	ESP_LOGI(TAG, "gpio_volume initialization complete");
+
 	return true;
 }
 
@@ -274,7 +290,7 @@ void gpio_volume_update(unsigned gain)
 	uint8_t volume = gain_to_volume(gain);
 
 	// Calculate masks
-	uint32_t total_mask = (1 << cfg.width) - 1;
+	uint32_t total_mask = (1UL << cfg.width) - 1;
 	uint32_t target_bits = 0;
 
 	if (cfg.mode == GPIO_VOLUME_MODE_LEDBAR) {
@@ -351,7 +367,7 @@ void gpio_volume_apply_startup_volume(unsigned gain)
 	uint8_t volume = gain_to_volume(gain);
 	
 	uint32_t target_bits = 0;
-	uint32_t total_mask = (1 << cfg.width) - 1;
+	uint32_t total_mask = (1UL << cfg.width) - 1;
 
 	if (cfg.mode == GPIO_VOLUME_MODE_LEDBAR) {
 		int num_leds = (volume * cfg.width) / 100;
