@@ -85,7 +85,7 @@ bool gpio_volume_init(const char *cfgstr)
 	cfg.high0 = get_int(cfgstr, "high0", -1);
 	cfg.high1 = get_int(cfgstr, "high1", -1);
 	cfg.width = get_int(cfgstr, "width", 0);
-	cfg.time_ms = get_int(cfgstr, "time", 5);
+	cfg.time_ms = get_int(cfgstr, "time", 10);
 
 	cfg.dacmaxvol = get_int(cfgstr, "dacmaxvol", false);
 	cfg.loud = get_bool(cfgstr, "loud", true);
@@ -102,7 +102,7 @@ bool gpio_volume_init(const char *cfgstr)
 		return false;
 	}
 
-	// --- 1. Initialize GPIOs ---
+	// --- 1. Initialize GPIOs (Select or Quiet) ---
 	for (int i = 0; i < cfg.width; i++) {
 		int gpio = cfg.lsb0 + i;
 		esp_err_t err = gpio_exp_set_direction(gpio, GPIO_MODE_OUTPUT, NULL);
@@ -115,7 +115,7 @@ bool gpio_volume_init(const char *cfgstr)
 
 	// --- 2. Initialize Latching-specific pins ---
 	if (cfg.mode == GPIO_VOLUME_MODE_LATCHING) {
-		// Mode A: Secondary bank for "Not-Loud"
+		// Mode A: Secondary bank for Loud
 		if (cfg.lsb1 >= 0) {
 			for (int i = 0; i < cfg.width; i++) {
 				int gpio = cfg.lsb1 + i;
@@ -181,29 +181,29 @@ static void latch_byte(uint32_t to_loud_mask, uint32_t to_quiet_mask)
 
 	if (cfg.lsb1 >= 0)
 	{
-		/* --- MODE A: Two separate banks (lsb0 for Loud, lsb1 for Not-Loud) --- */
+		/* --- MODE A: Two separate banks (lsb0 for Quiet, lsb1 for Loud) --- */ 
 		
-		// 1. Activate relays going to not-loud (lsb1)
+		// 1. Activate relays going to quiet (lsb0)
 		if (to_quiet_mask) {
-			gpio_exp_set_level_multi(cfg.lsb1, to_quiet_mask, active_vals_quiet, NULL);
+			gpio_exp_set_level_multi(cfg.lsb0, to_quiet_mask, active_vals_quiet, NULL);
 		}
 
-		// 2. Activate relays going to loud (lsb0)
+		// 2. Activate relays going to loud (lsb1)
 		if (to_loud_mask) {
-			gpio_exp_set_level_multi(cfg.lsb0, to_loud_mask, active_vals_loud, NULL);
+			gpio_exp_set_level_multi(cfg.lsb1, to_loud_mask, active_vals_loud, NULL);
 		}
 
 		// 3. Wait pulse time
 		vTaskDelay(pdMS_TO_TICKS(cfg.time_ms));
 
-		// 4. Turn first set of relays off (not-loud / lsb1)
+		// 4. Turn first set of relays off (quiet / lsb0)
 		if (to_quiet_mask) {
-			gpio_exp_set_level_multi(cfg.lsb1, to_quiet_mask, inactive_vals_quiet, NULL);
+			gpio_exp_set_level_multi(cfg.lsb0, to_quiet_mask, inactive_vals_quiet, NULL);
 		}
 
-		// 5. Turn second set of relays off (loud / lsb0)
+		// 5. Turn second set of relays off (loud / lsb1)
 		if (to_loud_mask) {
-			gpio_exp_set_level_multi(cfg.lsb0, to_loud_mask, inactive_vals_loud, NULL);
+			gpio_exp_set_level_multi(cfg.lsb1, to_loud_mask, inactive_vals_loud, NULL);
 		}
 	}
 	else

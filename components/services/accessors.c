@@ -273,7 +273,7 @@ const gpio_volume_cfg_t *config_gpio_volume_get()
 		.high0 = -1,
 		.high1 = -1,
 		.width = 0,
-		.time_ms = 5,
+		.time_ms = 10,
 		.loud = true,
 		.highON = true,
 		.lowON = true,

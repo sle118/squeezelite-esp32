@@ -395,6 +395,7 @@ CONFIG_APPTRACE_LOCK_ENABLE=y
 # Bluetooth
 #
 # CONFIG_BT_ENABLED is not set
+CONFIG_BT_ALARM_MAX_NUM=50
 # end of Bluetooth
 
 #
