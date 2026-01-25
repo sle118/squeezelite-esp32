@@ -1,9 +1,0 @@
-[submodule "external/lws"]
-	path = external/lws
-	url = https://github.com/warmcat/libwebsockets
-[submodule "external/nlohmann_json"]
-	path = external/nlohmann_json
-	url = https://github.com/nlohmann/json
-[submodule "external/mdnssvc"]
-	path = external/mdnssvc
-	url = https://github.com/philippe44/mdnssvc

@@ -1,4 +1,0 @@
-[mapping:cspot]
-archive: libcspot.a
-entries:
-    * (extram_bss)

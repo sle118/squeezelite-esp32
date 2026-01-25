@@ -1,3 +1,0 @@
-
-CompileFlags:
-   CompilationDatabase: example/build      # Search build/ directory for compile_commands.json

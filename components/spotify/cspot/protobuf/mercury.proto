@@ -1,4 +1,0 @@
-message Header {
-    optional string uri = 0x01;
-    optional string method = 0x03;
-}
