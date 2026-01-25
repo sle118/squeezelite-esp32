@@ -282,10 +282,13 @@ static uint8_t gain_to_volume(unsigned gain) {
 * Main update logic
 * ========================================================= */
 
-void gpio_volume_update(unsigned gain)
+static esp_timer_handle_t vol_update_timer = NULL;
+static unsigned pending_gain = 0;
+
+static void vol_update_timer_cb(void* arg)
 {
-	if (!configured || gain == last_gain)
-		return;
+	// 70ms has passed since last update - apply the pending gain
+	unsigned gain = pending_gain;
 
 	uint8_t volume = gain_to_volume(gain);
 
@@ -295,10 +298,8 @@ void gpio_volume_update(unsigned gain)
 
 	if (cfg.mode == GPIO_VOLUME_MODE_LEDBAR) {
 		// Calculate number of LEDs based on volume 0..100
-		// Ensure volume 100 lights up all LEDs, volume 0 lights up 0
 		int num_leds = (volume * cfg.width + 50) / 100;
 		if (num_leds > cfg.width) num_leds = cfg.width;
-
 		target_bits = (1 << num_leds) - 1;
 	} else {
 		// BINARY or LATCHING: map volume directly to binary value
@@ -306,56 +307,64 @@ void gpio_volume_update(unsigned gain)
 		target_bits = ((uint32_t)volume * max_bits + 50) / 100;
 		// target_bits = volume > max_bits ? max_bits : volume;
 	}
-
-	// If the target is the same as the last set volume, DO NOTHING.
 	if (target_bits == last_volume) {
-		last_gain = gain; // Update gain even if volume index didn't change
+		last_gain = gain;
 		return;
 	}
-
+	
 	ESP_LOGI(TAG, "Update: gain=%u volume=%u target_bits=0x%02x", gain, volume, target_bits);
 
 	if (cfg.mode == GPIO_VOLUME_MODE_LATCHING)
 	{
 		if (!latching_initialized)
 			return;
-
 		// Calculate changed bits
 		uint32_t diff = target_bits ^ last_volume;
-
 		if (diff) {
 			// Bits changing from 0 to 1 need to go LOUD
 			uint32_t to_loud = diff & target_bits;
 			// Bits changing from 1 to 0 need to go QUIET
 			uint32_t to_quiet = diff & (~target_bits);
-
 			latch_byte(to_loud, to_quiet);
-
 			last_volume = target_bits;
 		}
 	}
 	else if (cfg.mode == GPIO_VOLUME_MODE_BINARY || cfg.mode == GPIO_VOLUME_MODE_LEDBAR)
 	{
 		// For non-latching, we just set the levels.
-		// Construct the value mask based on cfg.loud (polarity)
-
-		uint32_t val_mask = 0;
-
-		if (cfg.loud) {
-			// Active High: target bits are 1
-			val_mask = target_bits;
-		} else {
-			// Active Low: target bits are 0 (so we invert target bits, then mask)
-			// But gpio_exp_set_level_multi takes 'val' as the raw level to write.
-			// If bit is in target (active), we want 0. If bit is NOT in target (inactive), we want 1.
-			val_mask = (~target_bits) & total_mask;
-		}
-
+		uint32_t val_mask = cfg.loud ? target_bits : ((~target_bits) & total_mask);
 		gpio_exp_set_level_multi(cfg.lsb0, total_mask, val_mask, NULL);
 		last_volume = target_bits;
 	}
 
 	last_gain = gain;
+}
+
+void gpio_volume_update(unsigned gain)
+{
+	if (!configured || gain == last_gain)
+		return;
+
+	// Store the pending gain
+	pending_gain = gain;
+	last_gain = gain;
+
+	// Cancel any existing timer
+	if (vol_update_timer != NULL) {
+		esp_timer_stop(vol_update_timer);
+	} else {
+		// Create timer on first use
+		esp_timer_create_args_t timer_args = {
+			.callback = vol_update_timer_cb,
+			.name = "vol_update"
+		};
+		esp_timer_create(&timer_args, &vol_update_timer);
+	}
+
+	// Start/restart the timer for 75ms
+	esp_timer_start_once(vol_update_timer, 75 * 1000); // microseconds
+
+	ESP_LOGD(TAG, "Queue volume update: gain=%u (waiting 70ms)", gain);
 }
 
 void gpio_volume_apply_startup_volume(unsigned gain)
