@@ -264,8 +264,6 @@ void config_eth_init( eth_config_t *  target ){
 /****************************************************************************************
  * Get GPIO Volume config structure
  */
-// Replace the existing config_gpio_volume_get() function with this:
-
 const gpio_volume_cfg_t *config_gpio_volume_get()
 {
 	static gpio_volume_cfg_t gpio_vol = {
