@@ -264,19 +264,23 @@ void config_eth_init( eth_config_t *  target ){
 /****************************************************************************************
  * Get GPIO Volume config structure
  */
+// Replace the existing config_gpio_volume_get() function with this:
+
 const gpio_volume_cfg_t *config_gpio_volume_get()
 {
 	static gpio_volume_cfg_t gpio_vol = {
 		.dacmaxvol = false,
 		.lsb0 = -1,
+		.lsb0_level = 1,
 		.lsb1 = -1,
+		.lsb1_level = 1,
 		.high0 = -1,
+		.high0_level = 1,
 		.high1 = -1,
+		.high1_level = 1,
 		.width = 0,
 		.time_ms = 10,
 		.loud = true,
-		.highON = true,
-		.lowON = true,
 		.mode = GPIO_VOLUME_MODE_BINARY
 	};
 
@@ -284,21 +288,63 @@ const gpio_volume_cfg_t *config_gpio_volume_get()
 
 	if (config && *config)
 	{
-		// memset(&gpio_vol, 0, sizeof(gpio_vol));
-
-		// Use the same parsing logic as the service
-		PARSE_PARAM(config, "lsb0", '=', gpio_vol.lsb0);
-		PARSE_PARAM(config, "lsb1", '=', gpio_vol.lsb1);
-		PARSE_PARAM(config, "high0", '=', gpio_vol.high0);
-		PARSE_PARAM(config, "high1", '=', gpio_vol.high1);
+		// Parse GPIOs with optional level suffixes using same helper as in gpio_volume.c
+		char *p;
+		
+		// Parse lsb0 with optional :level
+		if ((p = strstr(config, "lsb0")) != NULL) {
+			p += 4; // strlen("lsb0")
+			if (*p == '=') {
+				gpio_vol.lsb0 = atoi(p + 1);
+				char *colon = strchr(p, ':');
+				if (colon && (colon < strchr(p, ',') || !strchr(p, ','))) {
+					gpio_vol.lsb0_level = atoi(colon + 1);
+				}
+			}
+		}
+		
+		// Parse lsb1 with optional :level
+		if ((p = strstr(config, "lsb1")) != NULL) {
+			p += 4; // strlen("lsb1")
+			if (*p == '=') {
+				gpio_vol.lsb1 = atoi(p + 1);
+				char *colon = strchr(p, ':');
+				if (colon && (colon < strchr(p, ',') || !strchr(p, ','))) {
+					gpio_vol.lsb1_level = atoi(colon + 1);
+				}
+			}
+		}
+		
+		// Parse high0 with optional :level
+		if ((p = strstr(config, "high0")) != NULL) {
+			p += 5; // strlen("high0")
+			if (*p == '=') {
+				gpio_vol.high0 = atoi(p + 1);
+				char *colon = strchr(p, ':');
+				if (colon && (colon < strchr(p, ',') || !strchr(p, ','))) {
+					gpio_vol.high0_level = atoi(colon + 1);
+				}
+			}
+		}
+		
+		// Parse high1 with optional :level
+		if ((p = strstr(config, "high1")) != NULL) {
+			p += 5; // strlen("high1")
+			if (*p == '=') {
+				gpio_vol.high1 = atoi(p + 1);
+				char *colon = strchr(p, ':');
+				if (colon && (colon < strchr(p, ',') || !strchr(p, ','))) {
+					gpio_vol.high1_level = atoi(colon + 1);
+				}
+			}
+		}
+		
 		PARSE_PARAM(config, "width", '=', gpio_vol.width);
 		PARSE_PARAM(config, "time", '=', gpio_vol.time_ms);
 
 		// Handle Booleans 
 		gpio_vol.dacmaxvol = strcasestr(config, "dacmaxvol=1") ? true : false;
 		gpio_vol.loud = strcasestr(config, "loud=0") ? false : true;
-		gpio_vol.highON = strcasestr(config, "highON=0") ? false : true;
-		gpio_vol.lowON = strcasestr(config, "lowON=0") ? false : true;
 
 		if (strcasestr(config, "mode=ledbar"))
 			gpio_vol.mode = GPIO_VOLUME_MODE_LEDBAR;

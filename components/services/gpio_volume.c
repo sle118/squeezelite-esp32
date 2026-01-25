@@ -1,6 +1,7 @@
 #include "gpio_volume.h"
 #include "gpio_exp.h"
 #include "esp_log.h"
+#include "esp_rom_sys.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <string.h>
@@ -46,6 +47,34 @@ static gpio_volume_mode_t get_mode(const char *s)
 	return GPIO_VOLUME_MODE_BINARY;
 }
 
+static void parse_gpio_with_level(const char *s, const char *k, int *gpio, int *level, int def_gpio, int def_level)
+{
+	char *p = strstr(s, k);
+	if (!p) {
+		*gpio = def_gpio;
+		*level = def_level;
+		return;
+	}
+	
+	p += strlen(k);
+	if (*p != '=') {
+		*gpio = def_gpio;
+		*level = def_level;
+		return;
+	}
+	
+	p++; // Skip '='
+	*gpio = atoi(p);
+	
+	// Look for optional :level suffix
+	char *colon = strchr(p, ':');
+	if (colon && (colon < strchr(p, ',') || !strchr(p, ','))) {
+		*level = atoi(colon + 1);
+	} else {
+		*level = def_level;
+	}
+}
+
 static inline void gv_gpio_out(int gpio, int level)
 {
 	if (gpio < GPIO_NUM_MAX)
@@ -56,11 +85,11 @@ static inline void gv_gpio_out(int gpio, int level)
 
 	esp_err_t err = gpio_exp_set_direction(gpio, GPIO_MODE_OUTPUT, NULL);
 	if (err != ESP_OK) {
-	ESP_LOGE(TAG, "Failed to set GPIO %d direction: %s", gpio, esp_err_to_name(err));
+		ESP_LOGE(TAG, "Failed to set GPIO %d direction: %s", gpio, esp_err_to_name(err));
 	}
 	err = gpio_exp_set_level(gpio, level, true, NULL);
 	if (err != ESP_OK) {
-	ESP_LOGE(TAG, "Failed to set GPIO %d level: %s", gpio, esp_err_to_name(err));
+		ESP_LOGE(TAG, "Failed to set GPIO %d level: %s", gpio, esp_err_to_name(err));
 	}
 
 }
@@ -80,21 +109,25 @@ bool gpio_volume_init(const char *cfgstr)
 	// memset(&cfg, 0, sizeof(cfg));
 
 	cfg.mode = get_mode(cfgstr);
-	cfg.lsb0 = get_int(cfgstr, "lsb0", -1);
-	cfg.lsb1 = get_int(cfgstr, "lsb1", -1);
-	cfg.high0 = get_int(cfgstr, "high0", -1);
-	cfg.high1 = get_int(cfgstr, "high1", -1);
+
+	// Parse GPIOs with optional level suffixes
+	parse_gpio_with_level(cfgstr, "lsb0", &cfg.lsb0, &cfg.lsb0_level, -1, 1);
+	parse_gpio_with_level(cfgstr, "lsb1", &cfg.lsb1, &cfg.lsb1_level, -1, 1);
+	parse_gpio_with_level(cfgstr, "high0", &cfg.high0, &cfg.high0_level, -1, 1);
+	parse_gpio_with_level(cfgstr, "high1", &cfg.high1, &cfg.high1_level, -1, 1);
+
 	cfg.width = get_int(cfgstr, "width", 0);
 	cfg.time_ms = get_int(cfgstr, "time", 10);
 
 	cfg.dacmaxvol = get_int(cfgstr, "dacmaxvol", false);
 	cfg.loud = get_bool(cfgstr, "loud", true);
-	cfg.highON = get_bool(cfgstr, "highON", true);
-	cfg.lowON = get_bool(cfgstr, "lowON", true);
 
 	ESP_LOGI(TAG,
-			 "gpio_volume: mode=%d dacmaxvol=%d width=%d lsb0=%d lsb1=%d high0=%d high1=%d time=%d" ,
-			 cfg.mode, cfg.dacmaxvol, cfg.width, cfg.lsb0, cfg.lsb1, cfg.high0, cfg.high1, cfg.time_ms);
+			 "gpio_volume: mode=%d dacmaxvol=%d width=%d lsb0=%d:%d lsb1=%d:%d high0=%d:%d high1=%d:%d time=%d",
+			 cfg.mode, cfg.dacmaxvol, cfg.width, 
+			 cfg.lsb0, cfg.lsb0_level, cfg.lsb1, cfg.lsb1_level,
+			 cfg.high0, cfg.high0_level, cfg.high1, cfg.high1_level, 
+			 cfg.time_ms);
 
 	if (cfg.width <= 0 || cfg.lsb0 < 0)
 	{
@@ -132,15 +165,15 @@ bool gpio_volume_init(const char *cfgstr)
 		if (cfg.high0 >= 0) {
 			gpio_exp_set_direction(cfg.high0, GPIO_MODE_OUTPUT, NULL);
 			// Ensure they start in the inactive state
-			gpio_exp_set_level(cfg.high0, !cfg.highON, true, NULL);
+			gpio_exp_set_level(cfg.high0, !cfg.high0_level, true, NULL);
 		}
 		if (cfg.high1 >= 0) {
 			gpio_exp_set_direction(cfg.high1, GPIO_MODE_OUTPUT, NULL);
-			gpio_exp_set_level(cfg.high1, !cfg.highON, true, NULL);
+			gpio_exp_set_level(cfg.high1, !cfg.high1_level, true, NULL);
 		}
 	}
 	
-	vTaskDelay(pdMS_TO_TICKS(10)); // Give expander time to update
+	vTaskDelay(2); // Give expander time to update 
 
 	configured = true;
 	latching_initialized = false;
@@ -172,17 +205,23 @@ static void latch_byte(uint32_t to_loud_mask, uint32_t to_quiet_mask)
 	// gpio_exp_set_level_multi takes a 'val' mask where bits match the desired level.
 	
 	// Create value masks for the 'active' state
-	uint32_t active_vals_loud  = cfg.lowON ? to_loud_mask : 0; 
-	uint32_t active_vals_quiet = cfg.lowON ? to_quiet_mask : 0;
+	uint32_t active_vals_loud  = cfg.lsb0_level ? to_loud_mask : 0; 
+	uint32_t active_vals_quiet = cfg.lsb0_level ? to_quiet_mask : 0;
 
 	// Create value masks for the 'inactive' state (inverse of active level)
-	uint32_t inactive_vals_loud  = cfg.lowON ? 0 : to_loud_mask;
-	uint32_t inactive_vals_quiet = cfg.lowON ? 0 : to_quiet_mask;
+	uint32_t inactive_vals_loud  = cfg.lsb0_level ? 0 : to_loud_mask;
+	uint32_t inactive_vals_quiet = cfg.lsb0_level ? 0 : to_quiet_mask;
+
+	int64_t start_time = esp_timer_get_time();  // ✓ Start timing
 
 	if (cfg.lsb1 >= 0)
 	{
 		/* --- MODE A: Two separate banks (lsb0 for Quiet, lsb1 for Loud) --- */ 
 		
+		// Need separate active/inactive values for lsb1 based on lsb1_level
+		uint32_t active_vals_loud_lsb1  = cfg.lsb1_level ? to_loud_mask : 0;
+		uint32_t inactive_vals_loud_lsb1 = cfg.lsb1_level ? 0 : to_loud_mask;
+
 		// 1. Activate relays going to quiet (lsb0)
 		if (to_quiet_mask) {
 			gpio_exp_set_level_multi(cfg.lsb0, to_quiet_mask, active_vals_quiet, NULL);
@@ -190,11 +229,15 @@ static void latch_byte(uint32_t to_loud_mask, uint32_t to_quiet_mask)
 
 		// 2. Activate relays going to loud (lsb1)
 		if (to_loud_mask) {
-			gpio_exp_set_level_multi(cfg.lsb1, to_loud_mask, active_vals_loud, NULL);
+			gpio_exp_set_level_multi(cfg.lsb1, to_loud_mask, active_vals_loud_lsb1, NULL);
 		}
 
-		// 3. Wait pulse time
-		vTaskDelay(pdMS_TO_TICKS(cfg.time_ms));
+		int64_t coil_on_time = esp_timer_get_time();
+
+		// 3. Wait pulse time, precise timing, blocking
+		esp_rom_delay_us(cfg.time_ms * 1000);
+
+		int64_t coil_off_time = esp_timer_get_time();
 
 		// 4. Turn first set of relays off (quiet / lsb0)
 		if (to_quiet_mask) {
@@ -203,49 +246,81 @@ static void latch_byte(uint32_t to_loud_mask, uint32_t to_quiet_mask)
 
 		// 5. Turn second set of relays off (loud / lsb1)
 		if (to_loud_mask) {
-			gpio_exp_set_level_multi(cfg.lsb1, to_loud_mask, inactive_vals_loud, NULL);
+			gpio_exp_set_level_multi(cfg.lsb1, to_loud_mask, inactive_vals_loud_lsb1, NULL);
 		}
+
+		int64_t end_time = esp_timer_get_time();  // ✓ End timing
+
+		float coil_active_ms = (coil_off_time - coil_on_time) / 1000.0f;
+		float total_ms = (end_time - start_time) / 1000.0f;
+		ESP_LOGI(TAG, "Latch timing: coil_active=%.2fms (cfg=%dms) total=%.2fms", 
+				 coil_active_ms, cfg.time_ms, total_ms);
 	}
 	else
 	{
 		/* --- MODE B: Toggle / Common Rails (lsb0=Select, high0/1=Direction) --- */
-		
+
+		int64_t quiet_coil_on = 0, quiet_coil_off = 0;
+		int64_t loud_coil_on = 0, loud_coil_off = 0;
+
 		// 1. Toggle to NOT-LOUD (high0 active, high1 inactive)
 		if (to_quiet_mask)
 		{
 			// Set direction for Quiet
-			gv_gpio_out(cfg.high0, cfg.highON);
-			gv_gpio_out(cfg.high1, !cfg.highON);
+			gv_gpio_out(cfg.high0, cfg.high0_level);
+			gv_gpio_out(cfg.high1, !cfg.high1_level);
 
 			// Activate select pins for bits moving to Quiet
 			gpio_exp_set_level_multi(cfg.lsb0, to_quiet_mask, active_vals_quiet, NULL);
-			
-			vTaskDelay(pdMS_TO_TICKS(cfg.time_ms));
-			
+
+			quiet_coil_on = esp_timer_get_time();
+			esp_rom_delay_us(cfg.time_ms * 1000);
+			quiet_coil_off = esp_timer_get_time(); 
+
 			// Deactivate select pins
 			gpio_exp_set_level_multi(cfg.lsb0, to_quiet_mask, inactive_vals_quiet, NULL);
 
 			// Reset direction
-			gv_gpio_out(cfg.high0, !cfg.highON);
+			gv_gpio_out(cfg.high0, !cfg.high0_level);
 		}
 
 		// 2. Toggle to LOUD (high1 active, high0 inactive)
 		if (to_loud_mask)
 		{
 			// Set direction for Loud
-			gv_gpio_out(cfg.high1, cfg.highON);
-			gv_gpio_out(cfg.high0, !cfg.highON);
+			gv_gpio_out(cfg.high1, cfg.high1_level);
+			gv_gpio_out(cfg.high0, !cfg.high0_level);
 
 			// Activate select pins for bits moving to Loud
 			gpio_exp_set_level_multi(cfg.lsb0, to_loud_mask, active_vals_loud, NULL);
 
-			vTaskDelay(pdMS_TO_TICKS(cfg.time_ms));
+			loud_coil_on = esp_timer_get_time();
+			esp_rom_delay_us(cfg.time_ms * 1000);
+			loud_coil_off = esp_timer_get_time();
 
 			// Deactivate select pins
 			gpio_exp_set_level_multi(cfg.lsb0, to_loud_mask, inactive_vals_loud, NULL);
 
 			// Reset direction
-			gv_gpio_out(cfg.high1, !cfg.highON);
+			gv_gpio_out(cfg.high1, !cfg.high1_level);
+		}
+
+		int64_t end_time = esp_timer_get_time();
+		float total_ms = (end_time - start_time) / 1000.0f;
+		
+		if (to_quiet_mask && to_loud_mask) {
+			float quiet_ms = (quiet_coil_off - quiet_coil_on) / 1000.0f;
+			float loud_ms = (loud_coil_off - loud_coil_on) / 1000.0f;
+			ESP_LOGI(TAG, "Latch timing: quiet_coil=%.2fms loud_coil=%.2fms (cfg=%dms) total=%.2fms",
+					 quiet_ms, loud_ms, cfg.time_ms, total_ms);
+		} else if (to_quiet_mask) {
+			float quiet_ms = (quiet_coil_off - quiet_coil_on) / 1000.0f;
+			ESP_LOGI(TAG, "Latch timing: quiet_coil=%.2fms (cfg=%dms) total=%.2fms",
+					 quiet_ms, cfg.time_ms, total_ms);
+		} else {
+			float loud_ms = (loud_coil_off - loud_coil_on) / 1000.0f;
+			ESP_LOGI(TAG, "Latch timing: loud_coil=%.2fms (cfg=%dms) total=%.2fms",
+					 loud_ms, cfg.time_ms, total_ms);
 		}
 	}
 }
@@ -316,8 +391,10 @@ static void vol_update_timer_cb(void* arg)
 
 	if (cfg.mode == GPIO_VOLUME_MODE_LATCHING)
 	{
-		if (!latching_initialized)
+		if (!latching_initialized) {
+			last_gain = gain; 
 			return;
+		}
 		// Calculate changed bits
 		uint32_t diff = target_bits ^ last_volume;
 		if (diff) {
@@ -342,12 +419,13 @@ static void vol_update_timer_cb(void* arg)
 
 void gpio_volume_update(unsigned gain)
 {
-	if (!configured || gain == last_gain)
-		return;
+	if (!configured) return;
+
+	if (gain == pending_gain && vol_update_timer != NULL) return; 
+		// Same gain already queued, no action needed
 
 	// Store the pending gain
 	pending_gain = gain;
-	last_gain = gain;
 
 	// Cancel any existing timer
 	if (vol_update_timer != NULL) {

@@ -12,14 +12,16 @@ typedef enum {
 typedef struct {
 	int dacmaxvol;
 	int lsb0;
+	int lsb0_level;
 	int lsb1;
+	int lsb1_level;
 	int high0;
+	int high0_level;
 	int high1;
+	int high1_level;
 	int width;
 	int time_ms;
 	bool loud;
-	bool highON;
-	bool lowON;
 	gpio_volume_mode_t mode;
 } gpio_volume_cfg_t;
 
