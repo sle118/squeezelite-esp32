@@ -325,7 +325,7 @@ Note that PWM ("led_brightness" below) is not supported for expanded GPIOs and t
 GPIO Volume Control allows to control external volume control hardware such as relay-based attenuators via a GPIO expander.
 Configure via the web interface under NVS Editor with the key `gpio_volume`:
 ```
-mode=<mode>,lsb0=<pin>,width=<bits>[,lsb1=<pin>][,high0=<pin>,high1=<pin>][,dacmaxvol=<0|1>][,time=<ms>][,loud=<0|1>][,lowON=<0|1>][,highON=<0|1>]
+mode=<mode>,lsb0=<pin>[:level],width=<bits>[,lsb1=<pin>[:level]][,high0=<pin>[:level],high1=<pin>[:level]][,dacmaxvol=<0|1>][,time=<ms>][,loud=<0|1>]
 ```
 
 Required Parameters
@@ -335,9 +335,11 @@ Required Parameters
   - `ledbar` - LED bar graph display
   - `latching` - Latching relay control
 
-- **`lsb0`** - First (LSB) GPIO pin number (cf. GPIO expander config)
+- **`lsb0=<pin>[:level]`** - First (LSB) GPIO pin number (cf. GPIO expander config)
+  - Optional `:level` suffix specifies active level (0 or 1, default: 1, only in mode latching)
+  - Examples: `lsb0=64` (uses default level 1), `lsb0=64:0` (active low)
 
-- **`width`** - Number of bits/pins to use (1-8 typical)
+- **`width`** - Number of bits/pins to use (5-16 typical)
 
 Optional Parameters
 
@@ -345,27 +347,24 @@ Optional Parameters
   - `0` - Normal DAC volume control (default)
   - `1` - Force DAC to maximum, use only GPIO for volume
 
-- **`lsb1`** - Second GPIO bank (for latching mode A - two outputs per relay)
+- **`lsb1=<pin>[:level]`** - Second GPIO bank for latching mode A (two outputs per relay)
+  - Optional `:level` suffix specifies active level (0 or 1, default: 1)
+  - Example: `lsb1=72:1`
 
-- **`high0`**, **`high1`** - Control rails (for latching mode B - high side outputs control supply voltage to either "set" or "unset" configuration)
+- **`high0=<pin>[:level]`**, **`high1=<pin>[:level]`** - Control rails for latching mode B (high side outputs control supply voltage to either "set" or "unset" configuration)
+  - Optional `:level` suffix specifies active level (0 or 1, default: 1)
+  - Examples: `high0=70:1,high1=71:0`
 
-- **`time`** - Pulse duration in milliseconds for latching relays (default: 5)
+- **`time`** - Pulse duration in milliseconds for latching relays (default: 10)
 
-- **`loud`** - Active level for outputs:
-  - `1` - Active high (default)
-  - `0` - Active low
+- **`loud`** - Determines whether an active output increases or decreases the volume, equivalent to active level for outputs in binary/LED bar modes:
+  - `1` - Active output increases volume (default)
+  - `0` - Active output decreases volume
 
-- **`lowON`** - Active level for select pins in latching mode:
-  - `1` - Active high (default)
-  - `0` - Active low
-
-- **`highON`** - Active level for control rails in latching mode:
-  - `1` - Active high (default)
-  - `0` - Active low
 
 Binary Mode
 
-Outputs volume as a binary number across the GPIO pins. Volumes 0 ... 100 are transferred to 0 ... 2^(width - 1), with volume levels >= 2^width rendered as 2^width.
+Outputs volume as a binary number across the GPIO pins. Volumes 0 ... 100 are mapped to 0 ... 2^(width - 1)
 
 LED Bar Mode
 
@@ -373,7 +372,7 @@ Displays volume as a bar graph. Volume 0 ... 100 determines how many LEDs light 
 
 Latching Mode
 
-Controls latching relays that maintain their state after a pulse. Relays can either be dual coil or singly coil in an H-bridge. Two sub-modes:
+Controls latching relays that maintain their state after a pulse. Relays can either be dual coil or single coil in an H-bridge. Two sub-modes:
 
 A) Each relay is set/unset by a separate output. One GPIO bank pulses "loud", another pulses "quiet".
 B) Relays toggle state based on which control rail (high0/high1) is active.

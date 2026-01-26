@@ -1,6 +1,6 @@
 # GPIO Volume Control
 
-GPIO Volume Control allows you to use GPIO pins via GPIO expanders to control external volume control hardware such as relay-based attenuators, LED bar graphs, or latching relay networks.
+GPIO Volume Control allows you to use GPIO pins via GPIO expanders to control external hardware such as relay-based attenuators or LED bar graphs.
 
 ## Configuration
 
@@ -20,7 +20,7 @@ mode=<mode>,lsb0=<pin>[:level],width=<bits>[,lsb1=<pin>[:level]][,high0=<pin>[:l
   - Optional `:level` suffix specifies active level (0 or 1, default: 1, only in mode latching)
   - Examples: `lsb0=64` (uses default level 1), `lsb0=64:0` (active low)
 
-- **`width`** - Number of bits/pins to use (1-8 typical)
+- **`width`** - Number of bits/pins to use (5-16 typical)
 
 ### Optional Parameters
 
@@ -46,7 +46,7 @@ mode=<mode>,lsb0=<pin>[:level],width=<bits>[,lsb1=<pin>[:level]][,high0=<pin>[:l
 
 ### Binary Mode
 
-Outputs volume as a binary number across the GPIO pins. Volumes 0 ... 100 are transferred to 0 ... 2^(width) - 1.
+Outputs volume as a binary number across the GPIO pins. Volumes 0 ... 100 are mapped to 0 ... 2^(width) - 1.
 
 **Example:** 6-bit binary (64 steps)
 ```
