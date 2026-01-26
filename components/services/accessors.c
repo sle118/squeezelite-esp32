@@ -267,7 +267,8 @@ void config_eth_init( eth_config_t *  target ){
 const gpio_volume_cfg_t *config_gpio_volume_get()
 {
 	static gpio_volume_cfg_t gpio_vol = {
-		.dacmaxvol = false,
+		.dacmax = false,
+		.visumax = false,
 		.lsb0 = -1,
 		.lsb0_level = 1,
 		.lsb1 = -1,
@@ -341,7 +342,8 @@ const gpio_volume_cfg_t *config_gpio_volume_get()
 		PARSE_PARAM(config, "time", '=', gpio_vol.time_ms);
 
 		// Handle Booleans 
-		gpio_vol.dacmaxvol = strcasestr(config, "dacmaxvol=1") ? true : false;
+		gpio_vol.dacmax = strcasestr(config, "dacmax=1") ? true : false;
+		gpio_vol.visumax = strcasestr(config, "visumax=1") ? true : false;
 		gpio_vol.loud = strcasestr(config, "loud=0") ? false : true;
 
 		if (strcasestr(config, "mode=ledbar"))
@@ -570,44 +572,6 @@ esp_err_t config_spi_set(const spi_bus_config_t * config, int host, int dc){
 	}
 	return err;
 }
-
-/****************************************************************************************
- * Set GPIO Volume configuration
- *
-esp_err_t config_gpio_volume_set(const gpio_volume_cfg_t *config)
-{
-	int buffer_size = 256;
-	esp_err_t err = ESP_OK;
-	char *buf = malloc_init_external(buffer_size);
-
-	if (buf)
-	{
-		const char *mode_str = "binary";
-		if (config->mode == GPIO_VOLUME_MODE_LEDBAR)
-			mode_str = "ledbar";
-		else if (config->mode == GPIO_VOLUME_MODE_LATCHING)
-			mode_str = "latching";
-
-		snprintf(buf, buffer_size,
-				 "mode=%s,dacmaxvol=%d,lsb0=%d,lsb1=%d,width=%d,time=%d,loud=%d,high0=%d,high1=%d,highON=%d,lowON=%d",
-				 mode_str, config->dacmaxvol, config->lsb0, config->lsb1, config->width,
-				 config->time_ms, config->loud, config->high0, config->high1,
-				 config->highON, config->lowON);
-
-		log_send_messaging(MESSAGING_INFO, "Updating GPIO Volume config to %s", buf);
-		err = config_set_value(NVS_TYPE_STR, "gpio_volume", buf);
-		if (err != ESP_OK) {
-			log_send_messaging(MESSAGING_ERROR, "Error: %s", esp_err_to_name(err));
-		}
-		free(buf);
-	}
-	else
-	{
-		err = ESP_ERR_NO_MEM;
-	}
-	return err;
-}
-*/
 
 /****************************************************************************************
  * 

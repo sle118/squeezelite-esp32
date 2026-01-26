@@ -508,12 +508,12 @@ void output_close_i2s(void) {
 bool output_volume_i2s(unsigned left, unsigned right) {
 	if (mute_control.gpio >= 0) gpio_set_level(mute_control.gpio, (left | right) ? !mute_control.active : mute_control.active);
 
-	int dacmaxvol = gpio_volume_fixed();
+	gpio_max_mode_t vol_mode = gpio_volume_get_mode();
 
-    if (dacmaxvol >= 0)
+	if (vol_mode.active)
 		gpio_volume_update(left > right ? left : right);
 
-	if (dacmaxvol == 1)
+	if (vol_mode.dac_fixed)
 	{
 		left = 65536U;
 		right = 65536U;
@@ -527,22 +527,41 @@ bool output_volume_i2s(unsigned left, unsigned right) {
  */
 static int _i2s_write_frames(frames_t out_frames, bool silence, s32_t gainL, s32_t gainR, u8_t flags,
 								s32_t cross_gain_in, s32_t cross_gain_out, ISAMPLE_T **cross_ptr) {
+
+	gpio_max_mode_t vol_mode = gpio_volume_get_mode();
+	void* visu_ptr = obuf + oframes * BYTES_PER_FRAME;
+	s32_t visu_gain = 65536; 
+
 	if (!silence) {
 		if (output.fade == FADE_ACTIVE && output.fade_dir == FADE_CROSS && *cross_ptr) {
 			_apply_cross(outputbuf, out_frames, cross_gain_in, cross_gain_out, cross_ptr);
 		}
-		
-		_apply_gain(outputbuf, out_frames, gainL, gainR, flags);
-		memcpy(obuf + oframes * BYTES_PER_FRAME, outputbuf->readp, out_frames * BYTES_PER_FRAME);
+
+		// Only use digital gain if dac_fixed is false
+		if (vol_mode.dac_fixed) {
+			memcpy(obuf + oframes * BYTES_PER_FRAME, outputbuf->readp, out_frames * BYTES_PER_FRAME);
+			if (!vol_mode.visu_fixed) {
+				_apply_gain(outputbuf, out_frames, gainL, gainR, flags);
+				visu_ptr = outputbuf->readp;
+				visu_gain = (gainL + gainR) / 2;
+			}
+		} else {
+			_apply_gain(outputbuf, out_frames, gainL, gainR, flags);
+			visu_gain = (gainL + gainR) / 2;
+			memcpy(obuf + oframes * BYTES_PER_FRAME, outputbuf->readp, out_frames * BYTES_PER_FRAME);
+		}
 	} else {
 		memcpy(obuf + oframes * BYTES_PER_FRAME, silencebuf, out_frames * BYTES_PER_FRAME);
 	}
 
-	// don't update visu if we don't have enough data in buffer (500 ms)
-	if (silence || _buf_used(outputbuf) >  BYTES_PER_FRAME * output.current_sample_rate / 2) {
-		output_visu_export(obuf + oframes * BYTES_PER_FRAME, out_frames, output.current_sample_rate, silence, (gainL + gainR) / 2);
+	if (!vol_mode.visu_fixed && vol_mode.dac_fixed) {
+
 	}
-		
+	// don't update visu if we don't have enough data in buffer (500 ms)
+	if (silence || _buf_used(outputbuf) > BYTES_PER_FRAME * output.current_sample_rate / 2) {
+		output_visu_export(visu_ptr, out_frames, output.current_sample_rate, silence, visu_gain);
+	}
+
 	oframes += out_frames;
 	
 	return out_frames;

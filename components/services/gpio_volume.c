@@ -119,12 +119,13 @@ bool gpio_volume_init(const char *cfgstr)
 	cfg.width = get_int(cfgstr, "width", 0);
 	cfg.time_ms = get_int(cfgstr, "time", 10);
 
-	cfg.dacmaxvol = get_int(cfgstr, "dacmaxvol", false);
+	cfg.dacmax = get_bool(cfgstr, "dacmax", false);
+	cfg.visumax = get_bool(cfgstr, "visumax", false);
 	cfg.loud = get_bool(cfgstr, "loud", true);
 
 	ESP_LOGI(TAG,
-			 "gpio_volume: mode=%d dacmaxvol=%d width=%d lsb0=%d:%d lsb1=%d:%d high0=%d:%d high1=%d:%d time=%d",
-			 cfg.mode, cfg.dacmaxvol, cfg.width, 
+			 "gpio_volume: mode=%d dacmax=%d visumax=%d width=%d lsb0=%d:%d lsb1=%d:%d high0=%d:%d high1=%d:%d time=%d",
+			 cfg.mode, cfg.dacmax, cfg.visumax, cfg.width, 
 			 cfg.lsb0, cfg.lsb0_level, cfg.lsb1, cfg.lsb1_level,
 			 cfg.high0, cfg.high0_level, cfg.high1, cfg.high1_level, 
 			 cfg.time_ms);
@@ -194,9 +195,17 @@ bool gpio_volume_init(const char *cfgstr)
 	return true;
 }
 
-int gpio_volume_fixed(void)
+gpio_max_mode_t gpio_volume_get_mode(void)
 {
-	return configured ? cfg.dacmaxvol : -1;  // -1 = not configured
+	gpio_max_mode_t mode = { false, false, false };  // Safe defaults
+	
+	if (configured) {
+		mode.active = true;
+		mode.dac_fixed = cfg.dacmax;
+		mode.visu_fixed = cfg.visumax;
+	}
+	
+	return mode;
 }
 
 /* =========================================================
