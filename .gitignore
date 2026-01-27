@@ -13,10 +13,11 @@ test/.vscode/settings.json
 test/.vscode/tasks.json
 test/sdkconfig
 components/wifi-manager/UML-State-Machine-in-C
-components/spotify
 *.bak
 
 envfile.txt
 artifacts
 web-installer
 client_info.h
+
+sdkconfig.s3*
