@@ -1,0 +1,66 @@
+syntax = "proto2";
+
+message AudioFile {
+    optional bytes file_id = 1;
+    optional AudioFormat format = 2;
+}
+
+message Restriction {
+    optional string countries_allowed = 0x2;
+    optional string countries_forbidden = 0x3;
+}
+
+message Image {
+    optional bytes file_id = 0x1;
+}
+
+message ImageGroup {
+    repeated Image image = 0x1;
+}
+
+message Album {
+    optional bytes gid = 0x1;
+    optional string name = 0x2;
+    optional ImageGroup cover_group = 0x11;
+}
+
+message Artist {
+    optional bytes gid = 0x1;
+    optional string name = 0x2;
+}
+
+message Track {
+    optional bytes gid = 1;
+    optional string name = 2;
+    optional sint32 number = 5;
+    optional sint32 disc_number = 6;
+    optional sint32 duration = 0x7;
+    optional Album album = 0x3;
+    repeated Artist artist = 0x4;
+    repeated Restriction restriction = 0xb;
+    repeated AudioFile file = 0xc;
+    repeated Track alternative = 0xd;
+}
+
+message Episode {
+    optional bytes gid = 1;
+    optional string name = 2;
+    optional sint32 duration = 7;
+    optional sint32 number = 65;
+    repeated AudioFile file = 12;
+    repeated Restriction restriction = 0x4B;
+    optional ImageGroup covers = 0x44;
+}
+
+enum AudioFormat {
+    OGG_VORBIS_96 = 0;
+    OGG_VORBIS_160 = 1;
+    OGG_VORBIS_320 = 2;
+    MP3_256 = 3;
+    MP3_320 = 4;
+    MP3_160 = 5;
+    MP3_96 = 6;
+    MP3_160_ENC = 7;
+    AAC_24 = 8;
+    AAC_48 = 9;
+}

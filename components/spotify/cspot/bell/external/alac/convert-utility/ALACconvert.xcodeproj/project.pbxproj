@@ -1,0 +1,362 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		071120831405C91B007FF1B0 /* ALACBitUtilities.c in Sources */ = {isa = PBXBuildFile; fileRef = 071120811405C91B007FF1B0 /* ALACBitUtilities.c */; };
+		074B586A1405B97E0060A703 /* ag_dec.c in Sources */ = {isa = PBXBuildFile; fileRef = 074B58611405B97E0060A703 /* ag_dec.c */; };
+		074B586B1405B97E0060A703 /* ag_enc.c in Sources */ = {isa = PBXBuildFile; fileRef = 074B58621405B97E0060A703 /* ag_enc.c */; };
+		074B586D1405B97E0060A703 /* dp_dec.c in Sources */ = {isa = PBXBuildFile; fileRef = 074B58641405B97E0060A703 /* dp_dec.c */; };
+		074B586E1405B97E0060A703 /* dp_enc.c in Sources */ = {isa = PBXBuildFile; fileRef = 074B58651405B97E0060A703 /* dp_enc.c */; };
+		074B58791405B98B0060A703 /* matrix_dec.c in Sources */ = {isa = PBXBuildFile; fileRef = 074B58751405B98B0060A703 /* matrix_dec.c */; };
+		074B587A1405B98B0060A703 /* matrix_enc.c in Sources */ = {isa = PBXBuildFile; fileRef = 074B58761405B98B0060A703 /* matrix_enc.c */; };
+		075CBE1E142184CB0089DFF0 /* CAFFileALAC.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 075CBE1D142184CB0089DFF0 /* CAFFileALAC.cpp */; };
+		07B7F449141999F800035453 /* ALACDecoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 07B7F445141999F800035453 /* ALACDecoder.cpp */; };
+		07B7F44B141999F800035453 /* ALACEncoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 07B7F447141999F800035453 /* ALACEncoder.cpp */; };
+		07E06D00142968F2002489A3 /* EndianPortable.c in Sources */ = {isa = PBXBuildFile; fileRef = 07E06CFE142968F2002489A3 /* EndianPortable.c */; };
+		A98FBFAD06EBB5AB00E7B080 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A98FBFAC06EBB5AB00E7B080 /* main.cpp */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		8DD76FAF0486AB0100D96B5E /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		071120811405C91B007FF1B0 /* ALACBitUtilities.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ALACBitUtilities.c; sourceTree = "<group>"; };
+		071120821405C91B007FF1B0 /* ALACBitUtilities.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ALACBitUtilities.h; sourceTree = "<group>"; };
+		074B58611405B97E0060A703 /* ag_dec.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ag_dec.c; sourceTree = "<group>"; };
+		074B58621405B97E0060A703 /* ag_enc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ag_enc.c; sourceTree = "<group>"; };
+		074B58631405B97E0060A703 /* aglib.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = aglib.h; sourceTree = "<group>"; };
+		074B58641405B97E0060A703 /* dp_dec.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = dp_dec.c; sourceTree = "<group>"; };
+		074B58651405B97E0060A703 /* dp_enc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = dp_enc.c; sourceTree = "<group>"; };
+		074B58741405B98B0060A703 /* dplib.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = dplib.h; sourceTree = "<group>"; };
+		074B58751405B98B0060A703 /* matrix_dec.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = matrix_dec.c; sourceTree = "<group>"; };
+		074B58761405B98B0060A703 /* matrix_enc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = matrix_enc.c; sourceTree = "<group>"; };
+		074B587B1405B9920060A703 /* matrixlib.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = matrixlib.h; sourceTree = "<group>"; };
+		075CBE12141EC2080089DFF0 /* CAFFileALAC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CAFFileALAC.h; sourceTree = "<group>"; };
+		075CBE1D142184CB0089DFF0 /* CAFFileALAC.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CAFFileALAC.cpp; sourceTree = "<group>"; };
+		075CBE1F142187450089DFF0 /* ALACAudioTypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ALACAudioTypes.h; sourceTree = "<group>"; };
+		07B7F445141999F800035453 /* ALACDecoder.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ALACDecoder.cpp; sourceTree = "<group>"; };
+		07B7F446141999F800035453 /* ALACDecoder.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ALACDecoder.h; sourceTree = "<group>"; };
+		07B7F447141999F800035453 /* ALACEncoder.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ALACEncoder.cpp; sourceTree = "<group>"; };
+		07B7F448141999F800035453 /* ALACEncoder.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ALACEncoder.h; sourceTree = "<group>"; };
+		07E06CFE142968F2002489A3 /* EndianPortable.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = EndianPortable.c; sourceTree = "<group>"; };
+		07E06CFF142968F2002489A3 /* EndianPortable.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EndianPortable.h; sourceTree = "<group>"; };
+		8DD76FB20486AB0100D96B5E /* alacconvert */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = alacconvert; sourceTree = BUILT_PRODUCTS_DIR; };
+		A98FBFAC06EBB5AB00E7B080 /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		8DD76FAD0486AB0100D96B5E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		074B58601405B8160060A703 /* codec */ = {
+			isa = PBXGroup;
+			children = (
+				074B58611405B97E0060A703 /* ag_dec.c */,
+				074B58621405B97E0060A703 /* ag_enc.c */,
+				074B58631405B97E0060A703 /* aglib.h */,
+				074B58641405B97E0060A703 /* dp_dec.c */,
+				074B58651405B97E0060A703 /* dp_enc.c */,
+				074B58741405B98B0060A703 /* dplib.h */,
+				074B58751405B98B0060A703 /* matrix_dec.c */,
+				074B58761405B98B0060A703 /* matrix_enc.c */,
+				074B587B1405B9920060A703 /* matrixlib.h */,
+				075CBE1F142187450089DFF0 /* ALACAudioTypes.h */,
+				071120811405C91B007FF1B0 /* ALACBitUtilities.c */,
+				071120821405C91B007FF1B0 /* ALACBitUtilities.h */,
+				07B7F445141999F800035453 /* ALACDecoder.cpp */,
+				07B7F446141999F800035453 /* ALACDecoder.h */,
+				07B7F447141999F800035453 /* ALACEncoder.cpp */,
+				07B7F448141999F800035453 /* ALACEncoder.h */,
+				07E06CFE142968F2002489A3 /* EndianPortable.c */,
+				07E06CFF142968F2002489A3 /* EndianPortable.h */,
+			);
+			name = codec;
+			path = ../codec;
+			sourceTree = SOURCE_ROOT;
+		};
+		08FB7794FE84155DC02AAC07 /* ALACconvert */ = {
+			isa = PBXGroup;
+			children = (
+				08FB7795FE84155DC02AAC07 /* Source */,
+				1AB674ADFE9D54B511CA2CBB /* Products */,
+			);
+			name = ALACconvert;
+			sourceTree = "<group>";
+		};
+		08FB7795FE84155DC02AAC07 /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				A98FBFAC06EBB5AB00E7B080 /* main.cpp */,
+				075CBE12141EC2080089DFF0 /* CAFFileALAC.h */,
+				075CBE1D142184CB0089DFF0 /* CAFFileALAC.cpp */,
+				074B58601405B8160060A703 /* codec */,
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
+		1AB674ADFE9D54B511CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				8DD76FB20486AB0100D96B5E /* alacconvert */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		8DD76FAA0486AB0100D96B5E /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		8DD76FA90486AB0100D96B5E /* ALACconvert */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A9E1644A087DFBDE006BF7C2 /* Build configuration list for PBXNativeTarget "ALACconvert" */;
+			buildPhases = (
+				8DD76FAA0486AB0100D96B5E /* Headers */,
+				8DD76FAB0486AB0100D96B5E /* Sources */,
+				8DD76FAD0486AB0100D96B5E /* Frameworks */,
+				8DD76FAE0486AB0100D96B5E /* Rez */,
+				8DD76FAF0486AB0100D96B5E /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ALACconvert;
+			productInstallPath = "$(HOME)/bin";
+			productName = ALACconvert;
+			productReference = 8DD76FB20486AB0100D96B5E /* alacconvert */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		08FB7793FE84155DC02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = A9E1644E087DFBDE006BF7C2 /* Build configuration list for PBXProject "ALACconvert" */;
+			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
+			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 08FB7794FE84155DC02AAC07 /* ALACconvert */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				8DD76FA90486AB0100D96B5E /* ALACconvert */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXRezBuildPhase section */
+		8DD76FAE0486AB0100D96B5E /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXRezBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		8DD76FAB0486AB0100D96B5E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A98FBFAD06EBB5AB00E7B080 /* main.cpp in Sources */,
+				074B586A1405B97E0060A703 /* ag_dec.c in Sources */,
+				074B586B1405B97E0060A703 /* ag_enc.c in Sources */,
+				074B586D1405B97E0060A703 /* dp_dec.c in Sources */,
+				074B586E1405B97E0060A703 /* dp_enc.c in Sources */,
+				074B58791405B98B0060A703 /* matrix_dec.c in Sources */,
+				074B587A1405B98B0060A703 /* matrix_enc.c in Sources */,
+				071120831405C91B007FF1B0 /* ALACBitUtilities.c in Sources */,
+				07B7F449141999F800035453 /* ALACDecoder.cpp in Sources */,
+				07B7F44B141999F800035453 /* ALACEncoder.cpp in Sources */,
+				075CBE1E142184CB0089DFF0 /* CAFFileALAC.cpp in Sources */,
+				07E06D00142968F2002489A3 /* EndianPortable.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A9E1644B087DFBDE006BF7C2 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				COPY_PHASE_STRIP = NO;
+				DEBUGGING_SYMBOLS = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_ENABLE_TRIGRAPHS = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PRECOMPILE_PREFIX_HEADER = NO;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = NO;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
+				GCC_WARN_UNKNOWN_PRAGMAS = NO;
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(HOME)/bin";
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = alacconvert;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		A9E1644C087DFBDE006BF7C2 /* Deployment - Fat */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_ENABLE_TRIGRAPHS = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_PRECOMPILE_PREFIX_HEADER = NO;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = NO;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
+				GCC_WARN_UNKNOWN_PRAGMAS = NO;
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(HOME)/bin";
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = alacconvert;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = "Deployment - Fat";
+		};
+		A9E1644D087DFBDE006BF7C2 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_TRIGRAPHS = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_PRECOMPILE_PREFIX_HEADER = NO;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = NO;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
+				GCC_WARN_UNKNOWN_PRAGMAS = NO;
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(HOME)/bin";
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = alacconvert;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		A9E1644F087DFBDE006BF7C2 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				HEADER_SEARCH_PATHS = "";
+			};
+			name = Development;
+		};
+		A9E16450087DFBDE006BF7C2 /* Deployment - Fat */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				HEADER_SEARCH_PATHS = "";
+			};
+			name = "Deployment - Fat";
+		};
+		A9E16451087DFBDE006BF7C2 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				HEADER_SEARCH_PATHS = "";
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A9E1644A087DFBDE006BF7C2 /* Build configuration list for PBXNativeTarget "ALACconvert" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A9E1644B087DFBDE006BF7C2 /* Development */,
+				A9E1644C087DFBDE006BF7C2 /* Deployment - Fat */,
+				A9E1644D087DFBDE006BF7C2 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		A9E1644E087DFBDE006BF7C2 /* Build configuration list for PBXProject "ALACconvert" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A9E1644F087DFBDE006BF7C2 /* Development */,
+				A9E16450087DFBDE006BF7C2 /* Deployment - Fat */,
+				A9E16451087DFBDE006BF7C2 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 08FB7793FE84155DC02AAC07 /* Project object */;
+}

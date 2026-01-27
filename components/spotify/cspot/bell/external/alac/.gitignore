@@ -1,0 +1,6 @@
+*.o*
+*.bak
+build/
+codec/*.a
+.vs/
+*.user

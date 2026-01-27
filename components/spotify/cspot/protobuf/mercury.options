@@ -1,0 +1,2 @@
+Header.uri max_size:256, fixed_length:false
+Header.method max_size:64, fixed_length:false

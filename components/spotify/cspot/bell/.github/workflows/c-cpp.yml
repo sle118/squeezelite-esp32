@@ -1,0 +1,52 @@
+name: C/C++ CI
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    strategy:
+        matrix:
+          os: [macos-latest, ubuntu-latest]
+        fail-fast: false
+    runs-on:  ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+        
+    - name: Install Protoc
+      uses: arduino/setup-protoc@v1
+      with:
+        repo-token: ${{ secrets.GITHUB_TOKEN }} # https://github.com/arduino/setup-protoc/issues/6
+        
+    - name: Setup cmake
+      uses: jwlawson/actions-setup-cmake@v1.4
+      with:
+        cmake-version: '3.18.x'
+
+    - name: Install avachi libraries (mDNS), mbedtls and asound
+      run: sudo apt-get install libavahi-compat-libdnssd-dev libasound2-dev libmbedtls-dev
+      if: ${{ matrix.os == 'ubuntu-latest' }}
+      
+    - name: Install openssl on macos
+      run: |
+        brew install mbedtls@3
+        brew link --force mbedtls@3
+        brew install portaudio
+        brew link --force portaudio
+        export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:/usr/local/Cellar/portaudio/19.6.0/lib/pkgconfig"
+        pkg-config --modversion portaudio-2.0
+        echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> $GITHUB_ENV
+      if: ${{ matrix.os == 'macos-latest' }}
+      
+    - name: Install python dependencies
+      run: python3 -m pip install --upgrade pip setuptools wheel
+      
+    - name: Install grpcio-tools
+      run: sudo pip3 install grpcio-tools
+      
+    - name: cmake
+      run: mkdir -p build && cd build && cmake ..
+      
+    - name: make
+      run: cd build && make
