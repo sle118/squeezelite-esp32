@@ -24,9 +24,13 @@ mode=<mode>,lsb0=<pin>[:level],width=<bits>[,lsb1=<pin>[:level]][,high0=<pin>[:l
 
 ### Optional Parameters
 
-- **`dacmaxvol`** - DAC volume control:
+- **`dacmax`** - DAC volume control:
   - `0` - Normal DAC volume control (default)
   - `1` - Force DAC to maximum, use only GPIO for volume
+
+- **`visumax`** - Volume control for the visualisers:
+  - `0` - Visualisers follow set volume (default)
+  - `1` - Visualisers represent max volume (works only when dacmax=1)
 
 - **`lsb1=<pin>[:level]`** - Second GPIO bank for latching mode A (two outputs per relay)
   - Optional `:level` suffix specifies active level (0 or 1, default: 1)
