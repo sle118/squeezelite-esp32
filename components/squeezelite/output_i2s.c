@@ -529,23 +529,35 @@ static int _i2s_write_frames(frames_t out_frames, bool silence, s32_t gainL, s32
 								s32_t cross_gain_in, s32_t cross_gain_out, ISAMPLE_T **cross_ptr) {
 
 	gpio_max_mode_t vol_mode = gpio_volume_get_mode();
+	
+	// Default: Visu looks at the DMA buffer (obuf)
 	void* visu_ptr = obuf + oframes * BYTES_PER_FRAME;
 	s32_t visu_gain = 65536; 
+	
+	// Check if the current read chunk wraps around the end of the ring buffer
+	bool buffer_wraps = (outputbuf->readp + out_frames * BYTES_PER_FRAME > outputbuf->wrap);
 
 	if (!silence) {
 		if (output.fade == FADE_ACTIVE && output.fade_dir == FADE_CROSS && *cross_ptr) {
 			_apply_cross(outputbuf, out_frames, cross_gain_in, cross_gain_out, cross_ptr);
 		}
 
-		// Only use digital gain if dac_fixed is false
 		if (vol_mode.dac_fixed) {
+			// DAC FIXED: Copy RAW samples to DMA buffer without attenuation
 			memcpy(obuf + oframes * BYTES_PER_FRAME, outputbuf->readp, out_frames * BYTES_PER_FRAME);
+
+			// VISU NOT FIXED: Apply gain to the source buffer
 			if (!vol_mode.visu_fixed) {
 				_apply_gain(outputbuf, out_frames, gainL, gainR, flags);
-				visu_ptr = outputbuf->readp;
-				visu_gain = (gainL + gainR) / 2;
+
+				// Only redirect visu to source buffer if it is contiguous (not wrapping)
+				if (!buffer_wraps) {
+					visu_ptr = outputbuf->readp;
+					visu_gain = (gainL + gainR) / 2;
+				}
 			}
 		} else {
+			// NORMAL MODE: Apply gain first, then copy
 			_apply_gain(outputbuf, out_frames, gainL, gainR, flags);
 			visu_gain = (gainL + gainR) / 2;
 			memcpy(obuf + oframes * BYTES_PER_FRAME, outputbuf->readp, out_frames * BYTES_PER_FRAME);
@@ -554,19 +566,15 @@ static int _i2s_write_frames(frames_t out_frames, bool silence, s32_t gainL, s32
 		memcpy(obuf + oframes * BYTES_PER_FRAME, silencebuf, out_frames * BYTES_PER_FRAME);
 	}
 
-	if (!vol_mode.visu_fixed && vol_mode.dac_fixed) {
-
-	}
-	// don't update visu if we don't have enough data in buffer (500 ms)
-	if (silence || _buf_used(outputbuf) > BYTES_PER_FRAME * output.current_sample_rate / 2) {
+	// Update Visu: skip if the buffer wraps.
+	if (!buffer_wraps && (silence || _buf_used(outputbuf) >  BYTES_PER_FRAME * output.current_sample_rate / 2)) {
 		output_visu_export(visu_ptr, out_frames, output.current_sample_rate, silence, visu_gain);
 	}
-
+		
 	oframes += out_frames;
 	
 	return out_frames;
 }
-
 /****************************************************************************************
  * Main output thread
  */
