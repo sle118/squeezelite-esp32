@@ -230,8 +230,39 @@ It focuses on remediation outcomes (what broke, what was fixed, and where).
   - binary/footprint constraints (IRAM pressure hint and image-size pressure hint)
   - `recovery.bin` partition overflow warning (`recovery` partition too small for current binary)
 - Latest investigated logs:
-  - `build/log/idf_py_stderr_output_52883`
-  - `build/log/idf_py_stdout_output_52883`
+  - `build/log/idf_py_stderr_output_68994`
+  - `build/log/idf_py_stdout_output_68994`
+
+## Footprint Net-Gain Ledger (Recovery App)
+
+Partition policy note: app partition sizes are fixed; this ledger tracks binary reduction only.
+
+Baseline reference (handover):
+- `recovery.bin`: `0x149a60`
+- `recovery` partition: `0x130000`
+- overflow: `0x19a60`
+
+Measured changes applied:
+1. Disable mbedTLS certificate bundle in `sdkconfig`
+   - `# CONFIG_MBEDTLS_CERTIFICATE_BUNDLE is not set`
+   - observed `recovery.bin`: `0x149ae0` (intermediate run)
+2. Disable optional Wi-Fi auth feature families in `sdkconfig`
+   - `# CONFIG_ESP_WIFI_ENABLE_WPA3_SAE is not set`
+   - `# CONFIG_ESP_WIFI_ENABLE_WPA3_OWE_STA is not set`
+   - `# CONFIG_ESP_WIFI_ENTERPRISE_SUPPORT is not set`
+   - observed `recovery.bin`: `0x142e20`
+
+Net result vs baseline:
+- `recovery.bin` delta: `-0x6c40` bytes (`-27,712`)
+- overflow delta: `-0x6c40` bytes (`-27,712`)
+- current overflow: `0x12e20`
+
+Latest size snapshot (`build/recovery.map`):
+- Total image size: `1,322,415` bytes
+- Flash code: `961,016`
+- Flash rodata (+appdesc): `237,152`
+- IRAM: `98,647` (75.26%)
+- DRAM: `33,748` (27.09%)
 
 ## Notes for Contributors
 
