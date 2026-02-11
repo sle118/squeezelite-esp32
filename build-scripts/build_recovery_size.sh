@@ -3,8 +3,61 @@ set -euo pipefail
 
 source /opt/esp/idf/export.sh >/dev/null 2>&1
 
-BUILD_DIR="${1:-build-recovery-trim}"
-DEFAULTS="sdkconfig.defaults;sdkconfig.recovery.defaults"
+usage() {
+  cat <<'EOF'
+Usage:
+  build-scripts/build_recovery_size.sh <platform|defaults-file> [build-dir]
+
+Platform aliases:
+  i2s        -> build-scripts/I2S-4MFlash-sdkconfig.defaults
+  muse       -> build-scripts/Muse-sdkconfig.defaults
+  squeezeamp -> build-scripts/SqueezeAmp-sdkconfig.defaults
+
+Examples:
+  build-scripts/build_recovery_size.sh muse
+  build-scripts/build_recovery_size.sh i2s build-recovery-i2s
+  build-scripts/build_recovery_size.sh build-scripts/Muse-sdkconfig.defaults
+EOF
+}
+
+if [[ "${1:-}" == "" ]] || [[ "${1:-}" == "-h" ]] || [[ "${1:-}" == "--help" ]]; then
+  usage
+  exit 1
+fi
+
+PLATFORM_INPUT="$1"
+BUILD_DIR="${2:-}"
+
+case "${PLATFORM_INPUT,,}" in
+  i2s)
+    PLATFORM_DEFAULTS="build-scripts/I2S-4MFlash-sdkconfig.defaults"
+    ;;
+  muse)
+    PLATFORM_DEFAULTS="build-scripts/Muse-sdkconfig.defaults"
+    ;;
+  squeezeamp)
+    PLATFORM_DEFAULTS="build-scripts/SqueezeAmp-sdkconfig.defaults"
+    ;;
+  *)
+    PLATFORM_DEFAULTS="${PLATFORM_INPUT}"
+    ;;
+esac
+
+if [[ ! -f "${PLATFORM_DEFAULTS}" ]]; then
+  echo "Platform defaults file not found: ${PLATFORM_DEFAULTS}" >&2
+  usage
+  exit 2
+fi
+
+if [[ -z "${BUILD_DIR}" ]]; then
+  base="$(basename "${PLATFORM_DEFAULTS}")"
+  base="${base%-sdkconfig.defaults}"
+  BUILD_DIR="build-recovery-${base}"
+fi
+
+DEFAULTS="${PLATFORM_DEFAULTS};sdkconfig.recovery.defaults"
+echo "Using SDKCONFIG_DEFAULTS=${DEFAULTS}"
+echo "Build directory: ${BUILD_DIR}"
 
 # Build only the recovery ELF (skip squeezelite.elf target).
 idf.py -B "${BUILD_DIR}" -D SDKCONFIG_DEFAULTS="${DEFAULTS}" recovery.elf

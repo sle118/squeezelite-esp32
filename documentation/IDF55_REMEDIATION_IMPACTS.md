@@ -276,4 +276,5 @@ Latest size snapshot (`build/recovery.map`):
   - `build/log/idf_py_stderr_output_*`
   - `build/log/idf_py_stdout_output_*`
 - For recovery-only footprint experiments (without changing shared `sdkconfig`), use:
-  - `build-scripts/build_recovery_size.sh [build-dir]`
+  - `build-scripts/build_recovery_size.sh <platform|defaults-file> [build-dir]`
+  - platform aliases: `i2s`, `muse`, `squeezeamp`
