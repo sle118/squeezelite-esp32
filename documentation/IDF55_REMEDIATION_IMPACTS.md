@@ -242,15 +242,20 @@ Baseline reference (handover):
 - `recovery` partition: `0x130000`
 - overflow: `0x19a60`
 
-Measured changes applied:
-1. Disable mbedTLS certificate bundle in `sdkconfig`
+Measured changes (now moved to a recovery-only profile):
+1. Disable mbedTLS certificate bundle in recovery profile
    - `# CONFIG_MBEDTLS_CERTIFICATE_BUNDLE is not set`
    - observed `recovery.bin`: `0x149ae0` (intermediate run)
-2. Disable optional Wi-Fi auth feature families in `sdkconfig`
+2. Disable optional Wi-Fi auth feature families in recovery profile
    - `# CONFIG_ESP_WIFI_ENABLE_WPA3_SAE is not set`
    - `# CONFIG_ESP_WIFI_ENABLE_WPA3_OWE_STA is not set`
    - `# CONFIG_ESP_WIFI_ENTERPRISE_SUPPORT is not set`
    - observed `recovery.bin`: `0x142e20`
+
+Profile split applied:
+- shared `sdkconfig` restored for full app compatibility
+- recovery trims moved to `sdkconfig.recovery.defaults`
+- helper script added: `build-scripts/build_recovery_size.sh`
 
 Net result vs baseline:
 - `recovery.bin` delta: `-0x6c40` bytes (`-27,712`)
@@ -270,3 +275,5 @@ Latest size snapshot (`build/recovery.map`):
 - For open blockers, refer to latest in-container build logs under:
   - `build/log/idf_py_stderr_output_*`
   - `build/log/idf_py_stdout_output_*`
+- For recovery-only footprint experiments (without changing shared `sdkconfig`), use:
+  - `build-scripts/build_recovery_size.sh [build-dir]`

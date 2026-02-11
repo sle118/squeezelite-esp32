@@ -1,0 +1,10 @@
+# Recovery-only footprint trims. Keep global sdkconfig full-featured.
+# Use with: -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.recovery.defaults"
+
+# TLS certificate bundle is large; disable in recovery profile.
+# CONFIG_MBEDTLS_CERTIFICATE_BUNDLE is not set
+
+# Disable optional Wi-Fi auth feature families in recovery profile.
+# CONFIG_ESP_WIFI_ENABLE_WPA3_SAE is not set
+# CONFIG_ESP_WIFI_ENABLE_WPA3_OWE_STA is not set
+# CONFIG_ESP_WIFI_ENTERPRISE_SUPPORT is not set
