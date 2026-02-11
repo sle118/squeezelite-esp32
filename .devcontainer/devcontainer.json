@@ -1,0 +1,41 @@
+{
+  "name": "squeezelite-esp32 (idf v5.5)",
+  "build": {
+    "dockerfile": "../Dockerfile",
+    "context": ".."
+  },
+  "workspaceFolder": "/workspaces/squeezelite-esp32",
+  "containerUser": "root",
+  "remoteUser": "root",
+  "updateRemoteUserUID": false,
+  "mounts": [
+    "source=${localWorkspaceFolder}/.devcontainer-data,target=/root/.devcontainer-data,type=bind,consistency=cached"
+  ],
+  "containerEnv": {
+    "CODEX_HOME": "/root/.devcontainer-data/codex",
+    "VSCODE_AGENT_FOLDER": "/root/.devcontainer-data/vscode-server"
+  },
+  "postCreateCommand": "mkdir -p /root/.devcontainer-data/codex /root/.devcontainer-data/vscode-server",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      },
+      "extensions": [
+        "openai.chatgpt",
+        "ms-vscode.cpptools-extension-pack",
+        "ms-vscode.cpptools",
+        "ms-vscode.cmake-tools",
+        "ms-vscode.makefile-tools",
+        "ms-vscode.vscode-serial-monitor",
+        "espressif.esp-idf-extension",
+        "github.vscode-github-actions",
+        "dbaeumer.vscode-eslint",
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "drblury.protobuf-vsc",
+        "foxundermoon.shell-format"
+      ]
+    }
+  }
+}

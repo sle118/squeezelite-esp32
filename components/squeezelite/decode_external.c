@@ -208,7 +208,7 @@ static bool bt_sink_cmd_handler(bt_sink_cmd_t cmd, va_list args) {
  * raop sink data handler
  */
 #if CONFIG_AIRPLAY_SINK
-static void raop_sink_data_handler(const uint8_t* data, uint32_t len, u32_t playtime) {
+static void raop_sink_data_handler(const uint8_t* data, size_t len, u32_t playtime) {
 
     raop_sync.playtime = playtime;
     raop_sync.len = len;
@@ -363,7 +363,7 @@ static bool raop_sink_cmd_handler(raop_event_t event, va_list args) {
  * cspot sink data handler
  */
 #if CONFIG_CSPOT_SINK
-static uint32_t cspot_sink_data_handler(const uint8_t* data, uint32_t len) {
+static uint32_t cspot_sink_data_handler(const uint8_t* data, size_t len) {
     return sink_data_handler(data, len, 0);
 }
 

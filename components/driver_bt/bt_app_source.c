@@ -61,7 +61,7 @@ static void bt_app_rc_ct_cb(esp_avrc_ct_cb_event_t event, esp_avrc_ct_cb_param_t
 static void bt_av_hdl_avrc_ct_evt(uint16_t event, void *p_param);
 
 /// callback function for A2DP source audio data stream
-static void a2d_app_heart_beat(void *arg);
+static void a2d_app_heart_beat(TimerHandle_t timer);
 
 /// A2DP application state machine
 static void bt_app_av_sm_hdlr(uint16_t event, void *param);
@@ -365,12 +365,13 @@ int heart_beat_delay[] = {
     1000
 };
 
-static void a2d_app_heart_beat(void *arg)
+static void a2d_app_heart_beat(TimerHandle_t timer)
 {
+    (void)timer;
     bt_app_work_dispatch(bt_app_av_sm_hdlr, BT_APP_HEART_BEAT_EVT, NULL, 0, NULL);
     int tmrduration=heart_beat_delay[bt_app_source_a2d_state];
     if(prev_duration!=tmrduration){
-        xTimerChangePeriod(s_tmr,tmrduration, portMAX_DELAY);
+        xTimerChangePeriod(s_tmr, pdMS_TO_TICKS(tmrduration), portMAX_DELAY);
         ESP_LOGD(TAG,"New heartbeat is %u",tmrduration);
         prev_duration=tmrduration;
     }
@@ -704,7 +705,7 @@ static void bt_av_hdl_stack_evt(uint16_t event, void *p_param)
 
         /* create and start heart beat timer */
         int tmr_id = 0;
-        s_tmr = xTimerCreate("connTmr", ( prev_duration/ portTICK_RATE_MS),pdFALSE, (void *)tmr_id, a2d_app_heart_beat);        
+        s_tmr = xTimerCreate("connTmr", pdMS_TO_TICKS(prev_duration), pdFALSE, (void *)tmr_id, a2d_app_heart_beat);
         xTimerStart(s_tmr, portMAX_DELAY);
         break;
     }

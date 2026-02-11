@@ -62,4 +62,4 @@ esp_err_t   gpio_isr_handler_add_x(int gpio, gpio_isr_t isr_handler, void* args)
 esp_err_t   gpio_isr_handler_remove_x(int gpio);
 #define     gpio_set_intr_type_x(gpio, type) do { if (gpio < GPIO_NUM_MAX) gpio_set_intr_type(gpio, type); } while (0)
 #define     gpio_intr_enable_x(gpio) do { if (gpio < GPIO_NUM_MAX) gpio_intr_enable(gpio); } while (0)
-#define     gpio_pad_select_gpio_x(gpio) do { if (gpio < GPIO_NUM_MAX) gpio_pad_select_gpio(gpio); } while (0)
+#define     gpio_pad_select_gpio_x(gpio) do { if (gpio < GPIO_NUM_MAX) esp_rom_gpio_pad_select_gpio(gpio); } while (0)

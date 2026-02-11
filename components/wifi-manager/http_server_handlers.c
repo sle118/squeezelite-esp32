@@ -97,7 +97,6 @@ char* http_alloc_get_socket_address(httpd_req_t* req, u8_t local, in_port_t* por
     socklen_t len;
     union sockaddr_aligned addr;
     len = sizeof(addr);
-    ip_addr_t* ip_addr = NULL;
     char* ipstr = malloc_init_external(INET6_ADDRSTRLEN);
     typedef int (*getaddrname_fn_t)(int s, struct sockaddr* name, socklen_t* namelen);
     getaddrname_fn_t get_addr = NULL;
@@ -114,19 +113,15 @@ char* http_alloc_get_socket_address(httpd_req_t* req, u8_t local, in_port_t* por
         ESP_LOGE_LOC(TAG, "Failed to retrieve socket address");
         sprintf(ipstr, "N/A (0.0.0.%u)", local);
     } else {
-        if (addr.sin.sin_family != AF_INET) {
-            ip_addr = (ip_addr_t*)&(addr.sin6.sin6_addr);
-            inet_ntop(addr.sa.sa_family, ip_addr, ipstr, INET6_ADDRSTRLEN);
+        if (addr.sin.sin_family == AF_INET6) {
+            inet_ntop(AF_INET6, &addr.sin6.sin6_addr, ipstr, INET6_ADDRSTRLEN);
             ESP_LOGV_LOC(TAG, "Processing an IPV6 address : %s", ipstr);
             *portl = addr.sin6.sin6_port;
-            unmap_ipv4_mapped_ipv6(ip_2_ip4(ip_addr), ip_2_ip6(ip_addr));
         } else {
-            ip_addr = (ip_addr_t*)&(addr.sin.sin_addr);
-            inet_ntop(addr.sa.sa_family, ip_addr, ipstr, INET6_ADDRSTRLEN);
-            ESP_LOGV_LOC(TAG, "Processing an IPV6 address : %s", ipstr);
+            inet_ntop(AF_INET, &addr.sin.sin_addr, ipstr, INET6_ADDRSTRLEN);
+            ESP_LOGV_LOC(TAG, "Processing an IPV4 address : %s", ipstr);
             *portl = addr.sin.sin_port;
         }
-        inet_ntop(AF_INET, ip_addr, ipstr, INET6_ADDRSTRLEN);
         ESP_LOGV_LOC(TAG, "Retrieved ip address:port = %s:%u", ipstr, *portl);
     }
     return ipstr;
@@ -170,7 +165,7 @@ bool is_captive_portal_host_name(httpd_req_t* req) {
             memset(ap_ip_address, 0x00, IP4ADDR_STRLEN_MAX);
             if (ap_ip_address) {
                 ESP_LOGD_LOC(TAG, "Converting soft ip address to string");
-                ip4addr_ntoa_r(&ip_info.ip, ap_ip_address, IP4ADDR_STRLEN_MAX);
+                esp_ip4addr_ntoa(&ip_info.ip, ap_ip_address, IP4ADDR_STRLEN_MAX);
                 ESP_LOGD_LOC(
                     TAG, "TCPIP_ADAPTER_IF_AP is up and has ip address %s ", ap_ip_address);
             }
@@ -971,7 +966,7 @@ char* get_ap_ip_address() {
             ESP_LOGE_LOC(TAG, "Unable to get local AP ip address. Error: %s", esp_err_to_name(err));
         } else {
             ESP_LOGV_LOC(TAG, "Converting soft ip address to string");
-            ip4addr_ntoa_r(&ip_info.ip, ap_ip_address, IP4ADDR_STRLEN_MAX);
+            esp_ip4addr_ntoa(&ip_info.ip, ap_ip_address, IP4ADDR_STRLEN_MAX);
             ESP_LOGD_LOC(TAG, "TCPIP_ADAPTER_IF_AP is up and has ip address %s ", ap_ip_address);
         }
     } else {

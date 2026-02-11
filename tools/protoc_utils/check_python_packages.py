@@ -7,7 +7,7 @@ def check_packages(packages):
     for package in packages:
         try:
             pkg_resources.require(package)
-        except pkg_resources.DistributionNotFound:
+        except (pkg_resources.DistributionNotFound, pkg_resources.VersionConflict):
             missing_packages.append(package)
     return missing_packages
 
@@ -21,7 +21,9 @@ def install_packages(packages):
             return False
     return True
 
-required_packages = ["protobuf", "grpcio-tools"]
+# Nanopb in this tree relies on google.protobuf.reflection.MakeClass,
+# which is not available in newer protobuf releases.
+required_packages = ["protobuf>=3.20,<5"]
 missing_packages = check_packages(required_packages)
 
 if missing_packages:

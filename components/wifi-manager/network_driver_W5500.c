@@ -21,9 +21,11 @@ static esp_err_t reset_hw(esp_eth_phy_t *phy)
 
 static esp_err_t start(spi_device_handle_t spi_handle, sys_dev_eth_config * ethernet_config) {
 #ifdef CONFIG_ETH_SPI_ETHERNET_W5500
-    eth_w5500_config_t eth_config = ETH_W5500_DEFAULT_CONFIG(spi_handle);
+    spi_host_device_t spi_host = ethernet_config->ethType.spi.host - sys_dev_common_hosts_Host0;
+    eth_w5500_config_t eth_config = ETH_W5500_DEFAULT_CONFIG(spi_host, &devcfg);
     eth_mac_config_t mac_config = ETH_MAC_DEFAULT_CONFIG();
     eth_phy_config_t phy_config = ETH_PHY_DEFAULT_CONFIG();
+    (void)spi_handle;
 
     eth_config.int_gpio_num = ethernet_config->ethType.spi.intr;
     phy_config.phy_addr = -1;  // let the system automatically find out the phy address

@@ -120,7 +120,7 @@ bool is_i2c_started(i2c_port_t port) {
         ret = i2c_master_stop(cmd);
     }
     if (ret == ESP_OK) {
-        ret = i2c_master_cmd_begin(port, cmd, 50 / portTICK_RATE_MS);
+        ret = i2c_master_cmd_begin(port, cmd, 50 / portTICK_PERIOD_MS);
     }
     i2c_cmd_link_delete(cmd);
     ESP_LOGD(TAG, "i2c is %s. %s", ret != ESP_ERR_INVALID_STATE ? "started" : "not started",
@@ -658,7 +658,7 @@ static int do_i2cdump_cmd(int argc, char** argv) {
             }
             i2c_master_read_byte(cmd, data + size - 1, NACK_VAL);
             i2c_master_stop(cmd);
-            esp_err_t ret = i2c_master_cmd_begin(loc_i2c_port, cmd, 50 / portTICK_RATE_MS);
+            esp_err_t ret = i2c_master_cmd_begin(loc_i2c_port, cmd, 50 / portTICK_PERIOD_MS);
             i2c_cmd_link_delete(cmd);
             if (ret == ESP_OK) {
                 for (int k = 0; k < size; k++) {
@@ -729,7 +729,7 @@ static int do_i2cset_cmd(int argc, char** argv) {
         i2c_master_write_byte(cmd, i2cset_args.data->ival[i], ACK_CHECK_EN);
     }
     i2c_master_stop(cmd);
-    esp_err_t ret = i2c_master_cmd_begin(loc_i2c_port, cmd, 1000 / portTICK_RATE_MS);
+    esp_err_t ret = i2c_master_cmd_begin(loc_i2c_port, cmd, 1000 / portTICK_PERIOD_MS);
     i2c_cmd_link_delete(cmd);
     if (ret == ESP_OK) {
         cmd_send_messaging(argv[0], MESSAGING_INFO, "i2c Write OK\n");
@@ -786,7 +786,7 @@ static int do_i2cget_cmd(int argc, char** argv) {
     }
     i2c_master_read_byte(cmd, data + len - 1, NACK_VAL);
     i2c_master_stop(cmd);
-    esp_err_t ret = i2c_master_cmd_begin(loc_i2c_port, cmd, 1000 / portTICK_RATE_MS);
+    esp_err_t ret = i2c_master_cmd_begin(loc_i2c_port, cmd, 1000 / portTICK_PERIOD_MS);
     i2c_cmd_link_delete(cmd);
     if (ret == ESP_OK) {
         for (int i = 0; i < len; i++) {
@@ -861,7 +861,7 @@ esp_err_t cmd_i2ctools_scan_bus(FILE* f, int sda, int scl) {
         i2c_master_start(cmd);
         i2c_master_write_byte(cmd, (i << 1) | WRITE_BIT, ACK_CHECK_EN);
         i2c_master_stop(cmd);
-        ret = i2c_master_cmd_begin(i2c_port, cmd, 50 / portTICK_RATE_MS);
+        ret = i2c_master_cmd_begin(i2c_port, cmd, 50 / portTICK_PERIOD_MS);
         i2c_cmd_link_delete(cmd);
         if (ret == ESP_OK) {
 #ifndef CONFIG_WITH_CONFIG_UI
@@ -931,7 +931,7 @@ static int do_i2cdetect_cmd(int argc, char** argv) {
                 i2c_master_start(cmd);
                 i2c_master_write_byte(cmd, (address << 1) | WRITE_BIT, ACK_CHECK_EN);
                 i2c_master_stop(cmd);
-                ret = i2c_master_cmd_begin(loc_i2c_port, cmd, 50 / portTICK_RATE_MS);
+                ret = i2c_master_cmd_begin(loc_i2c_port, cmd, 50 / portTICK_PERIOD_MS);
                 i2c_cmd_link_delete(cmd);
                 if (ret == ESP_OK) {
                     fprintf(f, "%02x ", address);

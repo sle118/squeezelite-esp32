@@ -347,15 +347,39 @@ foreach(FIL ${_nanopb_hdrs})
 endforeach()
 
 # Find the protoc Executable
+# Prefer project-bundled protoc when available.
+if(EXISTS "${CMAKE_SOURCE_DIR}/tools/protobuf/linux-x86_64/bin/protoc")
+  set(_NANOPB_PROTOC_HINTS "${CMAKE_SOURCE_DIR}/tools/protobuf/linux-x86_64/bin")
+elseif(EXISTS "${CMAKE_SOURCE_DIR}/tools/protobuf/win64/bin/protoc.exe")
+  set(_NANOPB_PROTOC_HINTS "${CMAKE_SOURCE_DIR}/tools/protobuf/win64/bin")
+endif()
+
 find_program(PROTOBUF_PROTOC_EXECUTABLE
-    NAMES protoc
+    NAMES protoc protoc.exe
     DOC "The Google Protocol Buffers Compiler"
+    HINTS
+    ${_NANOPB_PROTOC_HINTS}
     PATHS
     ${PROTOBUF_SRC_ROOT_FOLDER}/vsprojects/Release
     ${PROTOBUF_SRC_ROOT_FOLDER}/vsprojects/Debug
     ${NANOPB_SRC_ROOT_FOLDER}/generator-bin
-    ${NANOPB_SRC_ROOT_FOLDER}/generator
 )
+
+# Older configurations may cache nanopb's python wrapper (".../generator/protoc"),
+# which is not a real protoc binary and produces incompatible *_pb2.py output.
+if(PROTOBUF_PROTOC_EXECUTABLE MATCHES "/generator/protoc(\\.exe)?$")
+  unset(PROTOBUF_PROTOC_EXECUTABLE CACHE)
+  find_program(PROTOBUF_PROTOC_EXECUTABLE
+      NAMES protoc protoc.exe
+      DOC "The Google Protocol Buffers Compiler"
+      HINTS
+      ${_NANOPB_PROTOC_HINTS}
+      PATHS
+      ${PROTOBUF_SRC_ROOT_FOLDER}/vsprojects/Release
+      ${PROTOBUF_SRC_ROOT_FOLDER}/vsprojects/Debug
+      ${NANOPB_SRC_ROOT_FOLDER}/generator-bin
+  )
+endif()
 mark_as_advanced(PROTOBUF_PROTOC_EXECUTABLE)
 
 # Find nanopb generator source dir

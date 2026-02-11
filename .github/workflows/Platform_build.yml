@@ -2,7 +2,9 @@ name: Platform Build
 on: 
   push:
     branches: 
-      - '**4.3'
+      - 'refactoring'
+      - 'main'
+      - 'master-cmake'
   workflow_dispatch:
     inputs:
       ui_build:
@@ -18,17 +20,26 @@ jobs:
     name: Global setup
     runs-on: ubuntu-latest
     container:
-      image: sle118/squeezelite-esp32-idfv435
+      image: espressif/idf:release-v5.5
     outputs:
       build_number: ${{ steps.buildnumber.outputs.build_number }}
       ui_build: ${{ steps.build_flags.outputs.ui_build }}
       release_flag: ${{ steps.build_flags.outputs.release_flag }}      
       mock: ${{ steps.build_flags.outputs.mock }}            
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
         submodules: true
+    - name: Install Python build tooling
+      run: |
+        if ! python -m pip --version >/dev/null 2>&1; then
+          apt-get update
+          apt-get install -y --no-install-recommends python3-pip
+          rm -rf /var/lib/apt/lists/*
+        fi
+        python -m pip install --upgrade pip
+        python -m pip install pygit2 requests protobuf grpcio-tools
     - name: Generate common build number
       id: buildnumber
       uses: einaregilsson/build-number@v3
@@ -38,19 +49,20 @@ jobs:
     - name: Set build flags
       id: build_flags
       run: |
-        git config --global --add safe.directory /__w/squeezelite-esp32/squeezelite-esp32   
-        [ ${{github.event.inputs.ui_build}} ] && ui_build_option="--ui_build" || ui_build_option="" 
-        [ ${{github.event.inputs.release_build}}  ] && release_build_option="--force" || release_build_option=""
+        git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+        ui_build_input="${{ github.event.inputs.ui_build || 'false' }}"
+        release_build_input="${{ github.event.inputs.release_build || 'false' }}"
+        [ "${ui_build_input}" = "true" ] && ui_build_option="--ui_build" || ui_build_option=""
+        [ "${release_build_input}" = "true" ] && release_build_option="--force" || release_build_option=""
         echo "ui_build_option=$ui_build_option" >> "$GITHUB_OUTPUT"
         echo "release_build_option=$release_build_option" >> "$GITHUB_OUTPUT"
         echo "Dumping environment"
         env
-        . /opt/esp/python_env/idf4.3_py3.8_env/bin/activate
         # build_flags support the following options
         # --mock - to mock the compilation part - this is to be used for testing only
         # --force - to force a release build even if the last commit message doesn't contain the word "release"
         # --ui_build - to force a ui_build even if the last commit message doesn't contain "[ui-build]"
-        build_tools.py build_flags $ui_build_option $release_build_option
+        python docker/build_tools.py build_flags $ui_build_option $release_build_option
     - name: Show Build Flags        
       run: |
           echo "Running with the following options" 
@@ -58,7 +70,7 @@ jobs:
           echo "Mock flag=${{steps.build_flags.outputs.mock}}"
           echo "Release Flag=${{steps.build_flags.outputs.release_flag}}"      
     - name: Refresh certificates
-      if: ${{ steps.build_flags.outputs.release_flag }}
+      if: ${{ steps.build_flags.outputs.release_flag == '1' }}
       run: |
         git update-index --chmod=+x ./server_certs/getcert.sh
         cd server_certs;./getcert.sh;cat github.pem;cd ..        
@@ -70,13 +82,13 @@ jobs:
         cache: 'npm'
         cache-dependency-path: components/wifi-manager/webapp/package.json   
     - name: Build Web Application
-      if: ${{ steps.build_flags.outputs.ui_build == 1 }} 
+      if: ${{ steps.build_flags.outputs.ui_build == '1' }} 
       run: |
         cd components/wifi-manager/webapp/ 
         npm install 
         npm run-script build
     - name: Update repository with prebuilt items
-      if:  ${{ steps.build_flags.outputs.ui_build == 1 || steps.build_flags.outputs.release_flag == 1 }} 
+      if:  ${{ steps.build_flags.outputs.ui_build == '1' || steps.build_flags.outputs.release_flag == '1' }} 
       run: |
         git config user.name github-actions
         git config user.email github-actions@github.com
@@ -85,10 +97,14 @@ jobs:
         git add components/wifi-manager/webapp/*.c 
         git add components/wifi-manager/webapp/*.cmake 
         git add components/wifi-manager/webapp/dist/*
-        git commit -m "Update prebuilt objects [skip actions]"
-        git push  https://${{secrets.github_token}}@github.com/sle118/squeezelite-esp32.git
+        if git diff --cached --quiet; then
+          echo "No prebuilt updates to commit."
+        else
+          git commit -m "Update prebuilt objects [skip actions]"
+          git push  https://${{secrets.github_token}}@github.com/sle118/squeezelite-esp32.git
+        fi
     - name: Locally store commonly built objects
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: prebuilt_objects
         path: |
@@ -100,7 +116,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: sle118/squeezelite-esp32-idfv435
+      image: espressif/idf:release-v5.5
     needs: [bootstrap]
     strategy:
       matrix:
@@ -112,10 +128,19 @@ jobs:
           - node: bootstrap
             depth: 32
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
         submodules: true
+    - name: Install Python build tooling
+      run: |
+        if ! python -m pip --version >/dev/null 2>&1; then
+          apt-get update
+          apt-get install -y --no-install-recommends python3-pip
+          rm -rf /var/lib/apt/lists/*
+        fi
+        python -m pip install --upgrade pip
+        python -m pip install pygit2 requests protobuf grpcio-tools
     - name: Show Build Flags        
       run: |
           echo "Running with the following options" 
@@ -125,25 +150,24 @@ jobs:
           echo Environment File name: $GITHUB_ENV        
     - name: Set build parameters
       run: |
-        . /opt/esp/python_env/idf4.3_py3.8_env/bin/activate
-        git config --global --add safe.directory /__w/squeezelite-esp32/squeezelite-esp32   
+        git config --global --add safe.directory "${GITHUB_WORKSPACE}"
         git status
-        build_tools.py environment --build ${{ needs.bootstrap.outputs.build_number }} --env_file "$GITHUB_ENV" --node "${{matrix.node}}" --depth ${{matrix.depth}} --major 2 --docker sle118/squeezelite-esp32-idfv435 
+        python docker/build_tools.py environment --build ${{ needs.bootstrap.outputs.build_number }} --env_file "$GITHUB_ENV" --node "${{matrix.node}}" --depth ${{matrix.depth}} --major 2 --docker espressif/idf:release-v5.5 
         
-    - uses: actions/download-artifact@master
+    - uses: actions/download-artifact@v4
       name: Restore common objects
       with:
         name: prebuilt_objects
     - name: Build the firmware
-      if: ${{ needs.bootstrap.outputs.mock == 0 }} 
+      if: ${{ needs.bootstrap.outputs.mock == '0' }} 
       run: |
-        . ${IDF_PYTHON_ENV_PATH}/bin/activate
         echo "Copying target sdkconfig"
         cp build-scripts/${TARGET_BUILD_NAME}-sdkconfig.defaults sdkconfig
         echo "Building project"
+        . /opt/esp/idf/export.sh >/dev/null 2>&1
         idf.py build -DDEPTH=${DEPTH} -DBUILD_NUMBER=${BUILD_NUMBER}-${DEPTH} 
     - name: Build Mock firmware
-      if: ${{ needs.bootstrap.outputs.mock == 1 }} 
+      if: ${{ needs.bootstrap.outputs.mock == '1' }} 
       run: |
         mkdir -p build
         cd build
@@ -160,7 +184,7 @@ jobs:
         echo \"mock content\"> ./partitions.csv        
         echo {  \"write_flash_args\" : [ \"--flash_mode\", \"dio\", \"--flash_size\", \"detect\", \"--flash_freq\", \"80m\" ],  \"flash_settings\" : {      \"flash_mode\": \"dio\",      \"flash_size\": \"detect\",      \"flash_freq\": \"80m\"  },  \"flash_files\" : {      \"0x8000\" : \"partition_table/partition-table.bin\",      \"0xd000\" : \"ota_data_initial.bin\",      \"0x1000\" : \"bootloader/bootloader.bin\",      \"0x10000\" : \"recovery.bin\",      \"0x150000\" : \"squeezelite.bin\"  },  \"partition_table\" : { \"offset\" : \"0x8000\", \"file\" : \"partition_table/partition-table.bin\" },  \"otadata\" : { \"offset\" : \"0xd000\", \"file\" : \"ota_data_initial.bin\" },  \"bootloader\" : { \"offset\" : \"0x1000\", \"file\" : \"bootloader/bootloader.bin\" },  \"app\" : { \"offset\" : \"0x10000\", \"file\" : \"recovery.bin\" },  \"squeezelite\" : { \"offset\" : \"0x150000\", \"file\" : \"squeezelite.bin\" },  \"extra_esptool_args\" : {      \"after\"  : \"hard_reset\",      \"before\" : \"default_reset\"  }  }  > ./flasher_args.json
     - name: Create Release Artifact Zip 
-      if: ${{ needs.bootstrap.outputs.release_flag == 1 && needs.bootstrap.outputs.mock == 0 }}
+      if: ${{ needs.bootstrap.outputs.release_flag == '1' && needs.bootstrap.outputs.mock == '0' }}
       run: |
         if [ -z "${artifact_file_name}" ]
         then
@@ -171,8 +195,8 @@ jobs:
             zip build/${artifact_file_name} partitions*.csv components/ build/*.bin build/bootloader/bootloader.bin build/partition_table/partition-table.bin build/flash_project_args build/size_*.txt
         fi
     - name: Upload Build Artifacts
-      uses: actions/upload-artifact@v3
-      if: ${{ needs.bootstrap.outputs.mock == 0 }}
+      uses: actions/upload-artifact@v4
+      if: ${{ needs.bootstrap.outputs.mock == '0' }}
       with:
         name: ${{ env.artifact_prefix }}
         path: |
@@ -187,7 +211,7 @@ jobs:
           build/partition_table/partition-table.bin
           build_output.zip
     - name: Create Release
-      if: ${{ needs.bootstrap.outputs.release_flag == 1 && needs.bootstrap.outputs.mock == 0 }}
+      if: ${{ needs.bootstrap.outputs.release_flag == '1' && needs.bootstrap.outputs.mock == '0' }}
       id: create_release
       uses: actions/create-release@v1
       env:
@@ -199,7 +223,7 @@ jobs:
         draft: false
         prerelease: false
     - name: Upload Release Asset - Squeezelite binary file
-      if: ${{ needs.bootstrap.outputs.release_flag == 1 && needs.bootstrap.outputs.mock == 0 }}
+      if: ${{ needs.bootstrap.outputs.release_flag == '1' && needs.bootstrap.outputs.mock == '0' }}
       id: upload-release-asset 
       uses: actions/upload-release-asset@v1
       env:
@@ -210,7 +234,7 @@ jobs:
         asset_name: ${{ env.artifact_bin_file_name }}
         asset_content_type: application/octet-stream        
     - name: Upload Release Asset - Zip file
-      if: ${{ needs.bootstrap.outputs.release_flag == 1 && needs.bootstrap.outputs.mock == 0 }}
+      if: ${{ needs.bootstrap.outputs.release_flag == '1' && needs.bootstrap.outputs.mock == '0' }}
       id: upload-release-asset-zip
       uses: actions/upload-release-asset@v1
       env:
@@ -223,7 +247,7 @@ jobs:
   update_web_installer:
     name: Update Web Installer After Release
     needs: [ bootstrap, build ]
-    if: ${{ always() && !cancelled() && needs.bootstrap.outputs.release_flag == 1 && needs.bootstrap.outputs.mock == 0 }}
+    if: ${{ always() && !cancelled() && needs.bootstrap.outputs.release_flag == '1' && needs.bootstrap.outputs.mock == '0' }}
     uses: ./.github/workflows/web_deploy.yml
     secrets:
       WEB_INSTALLER: ${{ secrets.WEB_INSTALLER }}

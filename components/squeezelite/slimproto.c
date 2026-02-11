@@ -46,6 +46,9 @@ static in_addr_t slimproto_ip = 0;
 static u16_t slimproto_hport = 9000;
 static u16_t slimproto_cport = 9090;
 static u8_t	player_id;
+bool (*slimp_handler)(u8_t *data, int len) = NULL;
+void (*slimp_loop)(void) = NULL;
+void (*server_notify)(in_addr_t ip, u16_t hport, u16_t cport) = NULL;
 
 extern struct buffer *streambuf;
 extern struct buffer *outputbuf;

@@ -100,8 +100,8 @@ void 		output_visu_init(log_level level);
 void 		output_visu_close(void);
 
 // optional, please chain if used 
-bool		(*slimp_handler)(u8_t *data, int len);
-void 		(*slimp_loop)(void);
-void 		(*server_notify)(in_addr_t ip, u16_t hport, u16_t cport);
+extern bool		(*slimp_handler)(u8_t *data, int len);
+extern void 		(*slimp_loop)(void);
+extern void 		(*server_notify)(in_addr_t ip, u16_t hport, u16_t cport);
 	   
 #endif // EMBEDDED_H

@@ -237,14 +237,6 @@ void  filter_unique( wifi_ap_record_t * aplist, uint16_t * ap_num);
 
 
 /**
- * @brief A standard wifi event handler as recommended by Espressif
- */
-esp_err_t network_manager_event_handler(void *ctx, system_event_t *event);
-
-
-
-
-/**
  * @brief Start the mDNS service
  */
 void network_manager_initialise_mdns();
@@ -305,5 +297,4 @@ void network_manager_format_state_machine(esp_log_level_t level, const char* pre
 #ifdef __cplusplus
 }
 #endif
-
 

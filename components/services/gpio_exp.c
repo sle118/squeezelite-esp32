@@ -198,14 +198,14 @@ gpio_exp_t* gpio_exp_create(const gpio_exp_config_t *config) {
 	}
 	if(config->phy.ena_pin>=0){
 		ESP_LOGD(TAG,"Enabling expander with pin %d level %d",config->phy.ena_pin,config->phy.ena_lvl);
-		gpio_pad_select_gpio(config->phy.ena_pin);
+		esp_rom_gpio_pad_select_gpio(config->phy.ena_pin);
 		gpio_set_direction(config->phy.ena_pin, GPIO_MODE_DEF_OUTPUT);
 		gpio_set_level(config->phy.ena_pin, config->phy.ena_lvl);
 	}
 
 	// set interrupt if possible
 	if (config->intr >= 0) {
-		gpio_pad_select_gpio(config->intr);
+		esp_rom_gpio_pad_select_gpio(config->intr);
 		gpio_set_direction(config->intr, GPIO_MODE_INPUT);
 
 		switch (expander->model->trigger) {
@@ -702,7 +702,7 @@ static esp_err_t i2c_write(uint8_t port, uint8_t addr, uint8_t reg, uint32_t dat
 	else i2c_master_write_byte(cmd, data, I2C_MASTER_NACK);
     
 	i2c_master_stop(cmd);
-	esp_err_t ret = i2c_master_cmd_begin(port, cmd, 100 / portTICK_RATE_MS);
+	esp_err_t ret = i2c_master_cmd_begin(port, cmd, 100 / portTICK_PERIOD_MS);
     i2c_cmd_link_delete(cmd);
 	
 	if (ret != ESP_OK) {		
@@ -737,7 +737,7 @@ static uint32_t i2c_read(uint8_t port, uint8_t addr, uint8_t reg, int len) {
 	else i2c_master_read_byte(cmd, (uint8_t*) &data, I2C_MASTER_NACK);
 		
     i2c_master_stop(cmd);
-    esp_err_t ret = i2c_master_cmd_begin(port, cmd, 100 / portTICK_RATE_MS);
+    esp_err_t ret = i2c_master_cmd_begin(port, cmd, 100 / portTICK_PERIOD_MS);
     i2c_cmd_link_delete(cmd);
 	
 	if (ret != ESP_OK) {

@@ -292,8 +292,10 @@ static int read_mp4_header(unsigned long *samplerate_p, unsigned char *channels_
 			}
 			if (!memcmp(ptr + 4, "data", 4) && remain > 16 + 48) {
 				// data is stored as hex strings: 0 start end samples
-				u32_t b, c; u64_t d;
-				if (sscanf((const char *)(ptr + 16), "%x %x %x " FMT_x64, &b, &b, &c, &d) == 4) {
+				unsigned b_tmp, c_tmp;
+				u64_t d;
+				if (sscanf((const char *)(ptr + 16), "%x %x %x " FMT_x64, &b_tmp, &b_tmp, &c_tmp, &d) == 4) {
+					u32_t b = b_tmp, c = c_tmp;
 					LOG_DEBUG("iTunSMPB start: %u end: %u samples: " FMT_u64, b, c, d);
 					if (a->sttssamples && a->sttssamples < b + c + d) {
 						LOG_DEBUG("reducing samples as stts count is less");

@@ -5,6 +5,7 @@
 #include "Config.h"
 #include "accessors.h"
 #include "esp_log.h"
+#include "esp_mac.h"
 #include "freertos/timers.h"
 #include "globdefs.h"
 #include "messaging.h"
@@ -61,7 +62,7 @@ bool network_ethernet_wait_for_link(uint16_t max_wait_ms) {
     return link_up;
 }
 
-static void ETH_Timeout(void* timer_id);
+static void ETH_Timeout(TimerHandle_t timer);
 void destroy_network_ethernet() {}
 
 static void network_ethernet_print_config(const network_ethernet_driver_t* eth_config) {
@@ -113,16 +114,7 @@ void init_network_ethernet() {
     esp_event_handler_register(ETH_EVENT, ESP_EVENT_ANY_ID, &eth_event_handler, NULL);
     ethernet_event_group = xEventGroupCreate();
     xEventGroupClearBits(ethernet_event_group, LINK_UP_BIT);
-    spi_device_handle_t spi_handle = NULL;
-    if (sys_eth->which_ethType == sys_dev_eth_config_spi_tag) {
-        err = spi_bus_add_device(sys_eth->ethType.spi.host - sys_dev_common_hosts_Host0, network_driver->devcfg, &spi_handle);
-        if (err != ESP_OK) {
-            ESP_LOGE(TAG, "SPI host failed : %s", esp_err_to_name(err));
-        }
-    }
-    if (err == ESP_OK) {
-        err = network_driver->start(spi_handle, sys_eth);
-    }
+    err = network_driver->start(NULL, sys_eth);
     if (err == ESP_OK) {
         uint8_t mac_address[6];
         esp_read_mac(mac_address, ESP_MAC_ETH);
@@ -141,9 +133,6 @@ void init_network_ethernet() {
     }
     if (err != ESP_OK) {
         messaging_post_message(MESSAGING_ERROR, MESSAGING_CLASS_SYSTEM, "Configuring Ethernet failed: %s", esp_err_to_name(err));
-        if (spi_handle) {
-            spi_bus_remove_device(spi_handle);
-        }
         network_driver->handle = NULL;
     }
 }
@@ -184,4 +173,7 @@ static void eth_event_handler(void* arg, esp_event_base_t event_base, int32_t ev
     }
 }
 
-static void ETH_Timeout(void* timer_id) { network_async_fail(); }
+static void ETH_Timeout(TimerHandle_t timer) {
+    (void)timer;
+    network_async_fail();
+}

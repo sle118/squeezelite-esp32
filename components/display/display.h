@@ -31,7 +31,7 @@ enum displayer_cmd_e 	{ DISPLAYER_SHUTDOWN, DISPLAYER_ACTIVATE, DISPLAYER_SUSPEN
 enum displayer_time_e 	{ DISPLAYER_ELAPSED, DISPLAYER_REMAINING };
 
 enum display_bus_cmd_e { DISPLAY_BUS_TAKE, DISPLAY_BUS_GIVE };
-bool (*display_bus)(void *from, enum display_bus_cmd_e cmd);
+extern bool (*display_bus)(void *from, enum display_bus_cmd_e cmd);
 
 void displayer_scroll(char *string, int speed, int pause);
 void displayer_control(enum displayer_cmd_e cmd, ...);

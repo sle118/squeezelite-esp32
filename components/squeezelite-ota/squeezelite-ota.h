@@ -10,6 +10,7 @@
 #include "esp_image_format.h"
 #include "esp_ota_ops.h"
 #include "network_services.h"
+#include <netinet/in.h>
 
 // ERASE BLOCK needs to be a multiple of sector size. If a different multiple is passed
 // the OTA process will adjust. Here, we need to strike the balance between speed and

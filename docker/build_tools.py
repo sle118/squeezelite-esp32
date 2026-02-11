@@ -1,18 +1,16 @@
 #!/usr/bin/env python
+from __future__ import annotations
 from json import JSONDecodeError
 import math
 import pathlib
 import time
 import traceback
 from typing import Callable, Dict
-import pkg_resources
 import sys
 import os
 import io
 from os import walk
 
-from requests import Response
- 
 class Logger:
     NEWLINE_CHAR = '\n'
     with_crlf = False
@@ -70,16 +68,16 @@ try:
     from genericpath import isdir
 
 except ImportError as ex:
-    Logger.error(
-        f'Failed importing module {ex.name}, using interpreter {sys.executable}. {Logger.NEWLINE_CHAR} Installed packages:')
-    installed_packages = pkg_resources.working_set
-    installed_packages_list = sorted(
-        ["%s==%s" % (i.key, i.version) for i in installed_packages])
-    print(Logger.NEWLINE_CHAR.join(installed_packages_list))
-    print(f'Environment: ')
-    envlist = "\n".join([f"{k}={v}" for k, v in sorted(os.environ.items())])
-    print(f'{envlist}')
-    raise
+    OPTIONAL_IMPORT_ERROR = ex
+    is_help_mode = "-h" in sys.argv[1:] or "--help" in sys.argv[1:]
+    if not is_help_mode:
+        Logger.error(
+            f'Failed importing module {ex.name}, using interpreter {sys.executable}.')
+        print(f'Environment: ')
+        envlist = "\n".join([f"{k}={v}" for k, v in sorted(os.environ.items())])
+        print(f'{envlist}')
+else:
+    OPTIONAL_IMPORT_ERROR = None
 
 tool_version = "1.0.7"
 WEB_INSTALLER_DEFAULT_PATH = './web_installer/'
@@ -203,7 +201,7 @@ parser_environment.add_argument(
 parser_environment.add_argument(
     '--major', type=str, help='Major version', default='2')
 parser_environment.add_argument(
-    '--docker', type=str, help='Docker image to use', default='sle118/squeezelite-esp32-idfv43')
+    '--docker', type=str, help='Docker image to use', default='espressif/idf:release-v5.5')
 
 parser_show = subparsers.add_parser("show",
                                     add_help=False,
@@ -549,7 +547,7 @@ class Releases():
 
     @classmethod
     def get_branch_name(cls) -> str:
-        return re.sub('[^a-zA-Z0-9\-~!@_\.]', '', cls.load_repository().head.shorthand)
+        return re.sub(r'[^a-zA-Z0-9\-~!@_\.]', '', cls.load_repository().head.shorthand)
 
     @classmethod
     def get_release_branch(cls, repo: Repository, platform_release) -> str:
@@ -749,7 +747,7 @@ def handle_environment(args):
     github_env.tag = f'{args.node}.{args.depth}.{args.build}.{github_env.branch_name}'.rstrip()
     github_env.last_commit = commit_message
     github_env.DOCKER_IMAGE_NAME = args.docker
-    github_env.name = f"{args.major}.{str(args.build)}-{args.depth}#v4.3#{args.node}#{github_env.branch_name}"
+    github_env.name = f"{args.major}.{str(args.build)}-{args.depth}#v5.5#{args.node}#{github_env.branch_name}"
     github_env.artifact_prefix = format_artifact_name(
         'squeezelite-esp32-', github_env)
     github_env.artifact_file_name = f"{github_env.artifact_prefix}.zip"
@@ -970,7 +968,7 @@ def handle_show(args):
 
 def extract_files_from_archive(url):
     tempfolder = tempfile.mkdtemp()
-    platform:Response = requests.get(url)
+    platform = requests.get(url)
     Logger.debug(f'Downloading {url} to {tempfolder}')
     Logger.debug(f'Transfer status code: {platform.status_code}. Expanding content')
     z = zipfile.ZipFile(io.BytesIO(platform.content))
@@ -1008,6 +1006,11 @@ def main():
     print(f'Processing command {args.command}')
     func: Callable = getattr(args, 'func', None)
     if func is not None:
+        if OPTIONAL_IMPORT_ERROR is not None and args.command not in {'show', 'list_files'}:
+            Logger.error(f"Required dependency '{OPTIONAL_IMPORT_ERROR.name}' is missing. "
+                         "Install dependencies first: python -m pip install setuptools pygit2 requests protobuf grpcio-tools")
+            print(f'::endgroup::')
+            sys.exit(1)
         # Call whatever subcommand function was selected
         
         e: Exception

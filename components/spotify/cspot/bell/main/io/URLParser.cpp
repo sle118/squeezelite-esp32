@@ -1,4 +1,5 @@
 #include "URLParser.h"
+#include <cstring>
 
 namespace bell {
 

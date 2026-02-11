@@ -611,29 +611,51 @@ See squeezelite command line, but keys options are
 ## Setting up ESP-IDF
 
 ### Docker
-A simple alternative to building the project's binaries is to leverage the same docker image that is being used on the GitHub Actions to build our releases. The instructions below assume that you have cloned  the squeezelite-esp32 code that you want to build locally and that you have opened a command line/bash session in the folder that contains the code. 
-Pull the most recent docker image for the environment: 
+A container-first workflow is recommended for this branch.
+
+This repository now provides:
+- a shared build image definition in `Dockerfile` (based on `espressif/idf:release-v5.5`)
+- a VS Code remote environment in `.devcontainer/devcontainer.json`
+
+#### VS Code Remote Dev Container (recommended)
+Open this repository in VS Code and run **Dev Containers: Reopen in Container**.  
+The container is connected to your current folder and uses the shared toolchain from `Dockerfile`.
+After opening, initialize submodules once:
+`git submodule update --init --recursive`
+
+#### Docker CLI
+Build the project image locally:
 ```
-docker pull sle118/squeezelite-esp32-idfv435
+docker build -t squeezelite-esp32-dev:release-v5.5 .
 ```
-Then run the container interactively :
+Then run it interactively:
 ```
 for windows:
-docker run -v %cd%:/project -w /project -it sle118/squeezelite-esp32-idfv435
+docker run --rm -v %cd%:/project -w /project -it squeezelite-esp32-dev:release-v5.5
 for linux:
-docker run -it -v `pwd`:/workspace/squeezelite-esp32 sle118/squeezelite-esp32-idfv435
+docker run --rm -v `pwd`:/project -w /project -it squeezelite-esp32-dev:release-v5.5
 ```
-The above command will mount this repo into the docker container and start a bash terminal. From there, simply run idf.py build to build, etc. Note that at the time of writing these lines, flashing is not possible for docker running under windows https://github.com/docker/for-win/issues/1018.
+From inside the container:
+```
+. /opt/esp/idf/export.sh
+idf.py build
+```
 
 ### Manual Install of ESP-IDF
-You can install IDF manually on Linux or Windows (using the Subsystem for Linux) following the instructions at: https://www.instructables.com/id/ESP32-Development-on-Windows-Subsystem-for-Linux/ or see here https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/windows-setup.html for a direct install. You also need a few extra Python libraries for cspot by addingsudo `pip3 install protobuf grpcio-tools`
-
-**Use the esp-idf 4.3.5 https://github.com/espressif/esp-idf/tree/release/v4.3.5 ** or the 4.4.5 (and above version) if you want to build for esp32-s3
+If you do not want containers, install ESP-IDF natively:
+1. Install ESP-IDF `release/v5.5`: https://github.com/espressif/esp-idf/tree/release/v5.5
+2. Run the standard ESP-IDF install/export steps for your OS.
+3. Install project Python tooling:
+   `python -m pip install pygit2 requests protobuf grpcio-tools`
+4. Install Node.js 16 and npm (used by `components/wifi-manager/webapp`).
+5. Initialize submodules:
+   `git submodule update --init --recursive`
 
 ## Building SqueezeESP32
-When initially cloning the repo, make sure you do it recursively. For example: `git clone --recursive https://github.com/sle118/squeezelite-esp32.git`
+When initially cloning the repo, make sure you do it recursively:
+`git clone --recursive https://github.com/sle118/squeezelite-esp32.git`
 	
-Don't forget to choose one of the config files in build_scripts/ and rename it sdkconfig.defaults or sdkconfig as many important WiFi/BT options are set there. **The codecs libraries will not be rebuilt by these scripts (it's a tedious process - see below)**
+Don't forget to choose one of the config files in `build-scripts/` and rename it `sdkconfig.defaults` or `sdkconfig` as many important WiFi/BT options are set there. **The codecs libraries will not be rebuilt by these scripts (it's a tedious process - see below)**
 
 Create and tweak your config using `idf.py menuconfig` then build binaries using `idf.py all`. It will build the recovery and the application (squeezelite). then use `idf.py flash` to write everything. Otherwise, if you just want to download squeezelite, do (assuming you have set ESPPORT (e.g. COM10) and ESPBAUD (e.g. 921600)
 ```
@@ -643,7 +665,8 @@ Use `idf.py monitor` to monitor the application (see esp-idf documentation)
 
 Note: You can use `idf.py build -DDEPTH=32` to build the 32 bits version and add the `-DVERSION=<your_version>` to add a custom version name (it will be 0.0-<your_version>). If you want to change the whole version string, see squeezelite.h. You can also disable the SBR extension of AAC codecs as it consumes a lot of CPU and might overload the esp32. Use `-DAAC_DISABLE_SBR=1` for that
 
-If you have already cloned the repository and you are getting compile errors on one of the submodules (e.g. telnet), run the following git command in the root of the repository location: `git submodule update --init --recursive`
+If you have already cloned the repository and you are getting compile errors on one of the submodules (e.g. telnet), run:
+`git submodule update --init --recursive`
 
 ### Rebuild codecs (highly recommended to NOT try that)
 - for codecs libraries, add -mlongcalls if you want to rebuild them, but you should not (use the provided ones in codecs/lib). if you really want to rebuild them, open an issue

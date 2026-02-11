@@ -18,6 +18,7 @@
 #include "driver/rmt.h"
 #include "driver/rtc_io.h"
 #include "esp_log.h"
+#include "esp_rom_gpio.h"
 #include "esp_sleep.h"
 #include "globdefs.h"
 #include "gpio_exp.h"
@@ -58,6 +59,11 @@ static EXT_RAM_ATTR struct {
 } sleep_context;
 
 static const char* TAG = "services";
+
+static void deep_sleep_timer_cb(TimerHandle_t timer) {
+    (void)timer;
+    esp_deep_sleep_start();
+}
 
 bool are_GPIOExp_equal(const sys_exp_config* exp1, const sys_exp_config* exp2) {
     if (exp1 == NULL || exp2 == NULL) {
@@ -135,7 +141,7 @@ void set_gpio_level(sys_gpio_config* gpio, const char* name, gpio_mode_t mode) {
         ESP_LOGW(TAG, "Invalid gpio %d for %s", gpio->pin, name);
         return;
     }
-    gpio_pad_select_gpio(gpio->pin);
+    esp_rom_gpio_pad_select_gpio(gpio->pin);
     gpio_set_direction(gpio->pin, mode);
     gpio_set_level(gpio->pin, gpio->level);
 }
@@ -350,7 +356,7 @@ void services_sleep_activate(sleep_cause_e cause) {
     // we need to use a timer in case the same button is used for sleep and wake-up and it's
     // "pressed" vs "released" selected
     if (cause == SLEEP_ONKEY)
-        xTimerStart(xTimerCreate("sleepTimer", pdMS_TO_TICKS(1000), pdFALSE, NULL, (void (*)(void*))esp_deep_sleep_start), 0);
+        xTimerStart(xTimerCreate("sleepTimer", pdMS_TO_TICKS(1000), pdFALSE, NULL, deep_sleep_timer_cb), 0);
     else
         esp_deep_sleep_start();
 }

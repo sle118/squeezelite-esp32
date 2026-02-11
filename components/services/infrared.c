@@ -450,7 +450,7 @@ err:
  */
 bool infrared_receive(RingbufHandle_t rb, infrared_handler handler) {
 	size_t rx_size = 0;
-	rmt_item32_t* item = (rmt_item32_t*) xRingbufferReceive(rb, &rx_size, 10 / portTICK_RATE_MS);
+	rmt_item32_t* item = (rmt_item32_t*) xRingbufferReceive(rb, &rx_size, 10 / portTICK_PERIOD_MS);
     bool decoded = false;
     
 	if (item) {

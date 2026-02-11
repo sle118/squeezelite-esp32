@@ -3,7 +3,6 @@
 #include "esp_attr.h"
 #include "esp_log.h"
 #include "esp_ota_ops.h"
-#include "esp_spi_flash.h"
 #include "messaging.h"
 #include "tools.h"
 static const char* TAG = "bootstate";

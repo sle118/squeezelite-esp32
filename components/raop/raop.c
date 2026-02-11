@@ -22,6 +22,7 @@
 #include "mdnssd-itf.h"
 #else
 #include "esp_pthread.h"
+#include "esp_random.h"
 #include "mdns.h"
 #include "mbedtls/version.h"
 #include <mbedtls/x509.h>
@@ -109,6 +110,14 @@ extern char private_key[];
 enum { RSA_MODE_KEY, RSA_MODE_AUTH };
 
 static void on_dmap_string(void *ctx, const char *code, const char *name, const char *buf, size_t len);
+
+#ifndef WIN32
+static int raop_mbedtls_rng(void *ctx, unsigned char *output, size_t output_len) {
+	(void) ctx;
+	esp_fill_random(output, output_len);
+	return 0;
+}
+#endif
 
 /*----------------------------------------------------------------------------*/
 struct raop_ctx_s *raop_create(uint32_t host, char *name,
@@ -626,8 +635,8 @@ static bool handle_rtsp(raop_ctx_t *ctx, int sock)
 			settings.ctx = &metadata;
 			memset(&metadata, 0, sizeof(struct metadata_s));
 			if (!dmap_parse(&settings, body, len)) {
-                uint32_t timestamp = 0;
-                if ((p = kd_lookup(headers, "RTP-Info")) != NULL) sscanf(p, "%*[^=]=%d", &timestamp);
+                unsigned timestamp = 0;
+                if ((p = kd_lookup(headers, "RTP-Info")) != NULL) sscanf(p, "%*[^=]=%u", &timestamp);
 				LOG_INFO("[%p]: received metadata (ts: %d)\n\tartist: %s\n\talbum:  %s\n\ttitle:  %s",
 						 ctx, timestamp, metadata.artist ? metadata.artist : "", metadata.album ? metadata.album : "", 
                          metadata.title ? metadata.title : "");
@@ -635,8 +644,8 @@ static bool handle_rtsp(raop_ctx_t *ctx, int sock)
 				free_metadata(&metadata);
 			}
 		} else if (body && ((p = kd_lookup(headers, "Content-Type")) != NULL) && strcasestr(p, "image/jpeg")) {			
-            uint32_t timestamp = 0;
-            if ((p = kd_lookup(headers, "RTP-Info")) != NULL) sscanf(p, "%*[^=]=%d", &timestamp);
+            unsigned timestamp = 0;
+            if ((p = kd_lookup(headers, "RTP-Info")) != NULL) sscanf(p, "%*[^=]=%u", &timestamp);
             LOG_INFO("[%p]: received JPEG image of %d bytes (ts:%d)", ctx, len, timestamp);            
 			ctx->cmd_cb(RAOP_ARTWORK, body, len, timestamp);
 		} else {
@@ -823,6 +832,8 @@ static char *rsa_apply(unsigned char *input, int inlen, int *outlen, int mode)
 #else
 	mbedtls_pk_context pkctx;
 	mbedtls_rsa_context *trsa;
+	int ret;
+	size_t rsa_len;
 	size_t olen;
 	
 	/*
@@ -832,24 +843,45 @@ static char *rsa_apply(unsigned char *input, int inlen, int *outlen, int mode)
 	*/
 
 	mbedtls_pk_init(&pkctx);
-	mbedtls_pk_parse_key(&pkctx, (unsigned char *)super_secret_key,
-		sizeof(super_secret_key), NULL, 0);
+	ret = mbedtls_pk_parse_key(&pkctx, (unsigned char *)super_secret_key,
+		sizeof(super_secret_key), NULL, 0, raop_mbedtls_rng, NULL);
+	if (ret != 0 || !mbedtls_pk_can_do(&pkctx, MBEDTLS_PK_RSA)) {
+		LOG_ERROR("unable to parse RAOP private RSA key (%d)", ret);
+		mbedtls_pk_free(&pkctx);
+		return NULL;
+	}
 
 	uint8_t *outbuf = NULL;
 	trsa = mbedtls_pk_rsa(pkctx);
+	rsa_len = mbedtls_rsa_get_len(trsa);
 
 	switch (mode) {
 	case RSA_MODE_AUTH:
 		mbedtls_rsa_set_padding(trsa, MBEDTLS_RSA_PKCS_V15, MBEDTLS_MD_NONE);
-		outbuf = malloc(trsa->len);
-		mbedtls_rsa_pkcs1_encrypt(trsa, NULL, NULL, MBEDTLS_RSA_PRIVATE, inlen, input, outbuf);
-		*outlen = trsa->len;
+		outbuf = malloc(rsa_len);
+		if (!outbuf) break;
+		ret = mbedtls_rsa_pkcs1_sign(trsa, raop_mbedtls_rng, NULL, MBEDTLS_MD_NONE,
+			(unsigned int) inlen, input, outbuf);
+		if (ret != 0) {
+			LOG_ERROR("RSA auth sign failed (%d)", ret);
+			free(outbuf);
+			outbuf = NULL;
+			break;
+		}
+		*outlen = (int) rsa_len;
 		break;
 	case RSA_MODE_KEY:
 		mbedtls_rsa_set_padding(trsa, MBEDTLS_RSA_PKCS_V21, MBEDTLS_MD_SHA1);
-		outbuf = malloc(trsa->len);
-		mbedtls_rsa_pkcs1_decrypt(trsa, NULL, NULL, MBEDTLS_RSA_PRIVATE, &olen, input, outbuf, trsa->len);
-		*outlen = olen;
+		outbuf = malloc(rsa_len);
+		if (!outbuf) break;
+		ret = mbedtls_rsa_pkcs1_decrypt(trsa, raop_mbedtls_rng, NULL, &olen, input, outbuf, rsa_len);
+		if (ret != 0) {
+			LOG_ERROR("RSA key decrypt failed (%d)", ret);
+			free(outbuf);
+			outbuf = NULL;
+			break;
+		}
+		*outlen = (int) olen;
 		break;
 	}
 
@@ -972,4 +1004,3 @@ static void on_dmap_string(void *ctx, const char *code, const char *name, const 
 	else if (!strcasecmp(code, "asal")) metadata->album = strndup(buf, len);
 	else if (!strcasecmp(code, "minm")) metadata->title = strndup(buf, len);
 }
-

@@ -2,6 +2,7 @@
 #include "esp_system.h"
 #include <string.h>
 #include <stdbool.h>
+#include <sys/queue.h>
 #include "esp_log.h"
 #include "freertos/xtensa_api.h"
 #include "freertos/FreeRTOSConfig.h"
@@ -40,4 +41,3 @@ mem_usage_trace_for_thread_t* memtrace_get_thread_entry(TaskHandle_t task)  {
     }
     return NULL;
 }
-

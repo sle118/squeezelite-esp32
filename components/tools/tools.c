@@ -10,6 +10,7 @@
 #include "tools.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
+#include "esp_mac.h"
 #include "esp_task.h"
 
 #include <ctype.h>
@@ -365,11 +366,11 @@ char* alloc_get_fallback_unique_name() {
 #endif
 }
 
-#define LOCAL_MAC_SIZE 20
+#define FORMATTED_MAC_SIZE 20
 char* alloc_get_formatted_mac_string(uint8_t mac[6]) {
-    char* macStr = malloc_init_external(LOCAL_MAC_SIZE);
+    char* macStr = malloc_init_external(FORMATTED_MAC_SIZE);
     if (macStr) {
-        snprintf(macStr, LOCAL_MAC_SIZE, MACSTR, MAC2STR(mac));
+        snprintf(macStr, FORMATTED_MAC_SIZE, MACSTR, MAC2STR(mac));
     }
     return macStr;
 }

@@ -24,6 +24,7 @@
 #pragma once
 
 #include "esp_netif.h"
+#include "tcpip_adapter_compat.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -94,5 +95,3 @@ esp_err_t network_get_ip_info(tcpip_adapter_ip_info_t* ipInfo);
 #ifdef __cplusplus
 }
 #endif
-
-

@@ -1,6 +1,9 @@
 # for the forgetful, REQUIRES cannot use CONFIG_XXX due to parsing order
 if(IDF_TARGET STREQUAL "esp32")
 	set(target_requires "driver_bt" "platform_config")
+	if(IDF_VERSION_MAJOR EQUAL 4 AND IDF_VERSION_MINOR LESS 4)
+		list(APPEND target_requires "_override")
+	endif()
 endif()
 
 idf_component_register( SRC_DIRS . external ac101 tas57xx wm8978 cs4265
@@ -16,11 +19,10 @@ idf_component_register( SRC_DIRS . external ac101 tas57xx wm8978 cs4265
 									spotify
 						 			raop   
 						 			display
-						 			audio
-									led_strip
-									_override
-						 			${target_requires}                                    
-						EMBED_FILES vu_s.data arrow.data
+										audio
+										led_strip
+							 			${target_requires}                                    
+							EMBED_FILES vu_s.data arrow.data
 )
 
 set_source_files_properties(mad.c pcm.c flac.c alac.c helix-aac.c vorbis.c opus.c

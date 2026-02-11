@@ -23,7 +23,7 @@
 
 #include "squeezelite.h"
 
-log_level loglevel;
+extern log_level loglevel;
 
 extern struct buffer *streambuf;
 extern struct buffer *outputbuf;
@@ -316,4 +316,3 @@ void codec_open(u8_t format, u8_t sample_size, u8_t sample_rate, u8_t channels, 
 
 	LOG_ERROR("codec not found");
 }
-

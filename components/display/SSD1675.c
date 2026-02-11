@@ -13,6 +13,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
+#include "esp_rom_gpio.h"
 #include <esp_log.h>
 
 #include "gds.h"
@@ -160,7 +161,7 @@ static bool Init( struct GDS_Device* Device ) {
 	NullCheck( Device->Framebuffer, return false );
 	
 	if (Private->ReadyPin >= 0) {
-		gpio_pad_select_gpio( Private->ReadyPin );
+		esp_rom_gpio_pad_select_gpio( Private->ReadyPin );
 		gpio_set_pull_mode( Private->ReadyPin, GPIO_PULLUP_ONLY);
 		gpio_set_direction( Private->ReadyPin, GPIO_MODE_INPUT );
 	}

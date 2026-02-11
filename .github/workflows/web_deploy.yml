@@ -10,17 +10,25 @@ jobs:
     name: Update Web Installer After Release
     runs-on: ubuntu-latest
     container:
-      image: sle118/squeezelite-esp32-idfv43
+      image: espressif/idf:release-v5.5
     env:
       WEB_INSTALLER: ${{ secrets.WEB_INSTALLER }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          submodules: true    
+          submodules: true
+      - name: Install Python build tooling
+        run: |
+          if ! python -m pip --version >/dev/null 2>&1; then
+            apt-get update
+            apt-get install -y --no-install-recommends python3-pip
+            rm -rf /var/lib/apt/lists/*
+          fi
+          python -m pip install --upgrade pip
+          python -m pip install pygit2 requests protobuf grpcio-tools
       - name: Update Web Installer Project
         run: |
-          . /opt/esp/python_env/idf4.3_py3.8_env/bin/activate
-          git config --global --add safe.directory /__w/squeezelite-esp32/squeezelite-esp32   
-          build_tools.py manifest --flash_file "/build/flash_project_args" --outdir "./bin_files" --manif_name "manifest" --max_count 3
-          build_tools.py pushinstaller --source "./bin_files" --manif_name "manifest" --target "web-installer" --url "https://github.com/sle118/squeezelite-esp32-installer.git" --artifacts "docs/artifacts" --web_installer_branch "main" --token "${{env.WEB_INSTALLER}}"
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+          python docker/build_tools.py manifest --flash_file "/build/flash_project_args" --outdir "./bin_files" --manif_name "manifest" --max_count 3
+          python docker/build_tools.py pushinstaller --source "./bin_files" --manif_name "manifest" --target "web-installer" --url "https://github.com/sle118/squeezelite-esp32-installer.git" --artifacts "docs/artifacts" --web_installer_branch "main" --token "${{env.WEB_INSTALLER}}"

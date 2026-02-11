@@ -13,6 +13,7 @@ Copyright (c) 2017-2021 Sebastien L
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/queue.h>
 
 #include "dns_server.h"
 #include "esp_log.h"
@@ -69,7 +70,7 @@ network_t NM;
 
 //! Create and initialize the array of state machines.
 state_machine_t* const SM[] = {(state_machine_t*)&NM};
-static void network_timer_cb(void* timer_id);
+static void network_timer_cb(TimerHandle_t timer_id);
 int get_root_id(const state_t* state);
 const state_t* get_root(const state_t* const state);
 static void network_task(void* pvParameters);
@@ -590,7 +591,7 @@ void network_reboot_ota(char* url) {
 
 network_t* network_get_state_machine() { return &NM; }
 
-static void network_timer_cb(void* timer_id) { network_async_timer(); }
+static void network_timer_cb(TimerHandle_t timer_id) { network_async_timer(); }
 esp_netif_t* network_get_active_interface() {
     if (NM.wifi_ap_netif && (network_wifi_is_ap_mode() || network_wifi_is_ap_sta_mode())) {
         return NM.wifi_ap_netif;

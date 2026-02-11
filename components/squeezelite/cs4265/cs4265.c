@@ -403,7 +403,7 @@ static bool init(sys_dac_config * config, i2s_config_t* i2s_config, bool* mck) {
     }
 	
     i2c_master_stop(i2c_cmd);
-    esp_err_t res = i2c_master_cmd_begin(cs4265.port, i2c_cmd, 500 / portTICK_RATE_MS);
+    esp_err_t res = i2c_master_cmd_begin(cs4265.port, i2c_cmd, 500 / portTICK_PERIOD_MS);
     i2c_cmd_link_delete(i2c_cmd);
     if (res != ESP_OK) {
         ESP_LOGE(TAG, "could not intialize cs4265 %d", res);

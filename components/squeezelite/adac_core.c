@@ -79,7 +79,7 @@ esp_err_t adac_write_byte(int i2c_addr,uint8_t reg, uint8_t val) {
 	i2c_master_write_byte(cmd, val, I2C_MASTER_NACK);
 	
 	i2c_master_stop(cmd);
-    esp_err_t ret = i2c_master_cmd_begin(i2c_port, cmd, 100 / portTICK_RATE_MS);
+    esp_err_t ret = i2c_master_cmd_begin(i2c_port, cmd, 100 / portTICK_PERIOD_MS);
     i2c_cmd_link_delete(cmd);
 	
 	if (ret != ESP_OK) {
@@ -106,7 +106,7 @@ uint8_t adac_read_byte(int i2c_addr, uint8_t reg) {
 	i2c_master_read_byte(cmd, &data, I2C_MASTER_NACK);
 	
     i2c_master_stop(cmd);
-	esp_err_t ret = i2c_master_cmd_begin(i2c_port, cmd, 100 / portTICK_RATE_MS);
+	esp_err_t ret = i2c_master_cmd_begin(i2c_port, cmd, 100 / portTICK_PERIOD_MS);
 	i2c_cmd_link_delete(cmd);
 	
 	if (ret != ESP_OK) {
@@ -133,7 +133,7 @@ uint16_t adac_read_word(int i2c_addr, uint8_t reg) {
     i2c_master_read(cmd, data, 2, I2C_MASTER_NACK);
 	
     i2c_master_stop(cmd);
-    esp_err_t ret = i2c_master_cmd_begin(i2c_port, cmd, 100 / portTICK_RATE_MS);
+    esp_err_t ret = i2c_master_cmd_begin(i2c_port, cmd, 100 / portTICK_PERIOD_MS);
     i2c_cmd_link_delete(cmd);
 	
 	if (ret != ESP_OK) {
@@ -156,7 +156,7 @@ esp_err_t adac_write_word(int i2c_addr, uint8_t reg, uint16_t val) {
     i2c_master_write(cmd, data, 4, I2C_MASTER_NACK);
     
 	i2c_master_stop(cmd);
-	esp_err_t ret = i2c_master_cmd_begin(i2c_port, cmd, 100 / portTICK_RATE_MS);
+	esp_err_t ret = i2c_master_cmd_begin(i2c_port, cmd, 100 / portTICK_PERIOD_MS);
     i2c_cmd_link_delete(cmd);
 	
 	if (ret != ESP_OK) {
@@ -178,7 +178,7 @@ esp_err_t adac_write(int i2c_addr, uint8_t reg, uint8_t *data, size_t count) {
 	i2c_master_write(cmd, data, count, I2C_MASTER_NACK);
 	
 	i2c_master_stop(cmd);
-    esp_err_t ret = i2c_master_cmd_begin(i2c_port, cmd, 200 / portTICK_RATE_MS);
+    esp_err_t ret = i2c_master_cmd_begin(i2c_port, cmd, 200 / portTICK_PERIOD_MS);
     i2c_cmd_link_delete(cmd);
 	
 	if (ret != ESP_OK) {

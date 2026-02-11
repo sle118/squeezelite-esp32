@@ -23,7 +23,6 @@
 #include "accessors.h"
 #include "config.h"
 #include "driver/uart.h"
-#include "esp_app_trace.h"
 #include "esp_attr.h"
 #include "esp_vfs.h"
 #include "esp_vfs_dev.h"

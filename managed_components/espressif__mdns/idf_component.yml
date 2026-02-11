@@ -1,0 +1,13 @@
+dependencies:
+  idf:
+    version: '>=5.0'
+description: Multicast UDP service used to provide local network service and host
+  discovery.
+documentation: https://docs.espressif.com/projects/esp-protocols/mdns/docs/latest/en/index.html
+issues: https://github.com/espressif/esp-protocols/issues
+repository: git://github.com/espressif/esp-protocols.git
+repository_info:
+  commit_sha: 3bfa00389de6f0d6d40efda8bea808380899a43d
+  path: components/mdns
+url: https://github.com/espressif/esp-protocols/tree/master/components/mdns
+version: 1.9.1

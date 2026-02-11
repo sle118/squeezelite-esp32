@@ -2,7 +2,6 @@
  *
  */
 #include "config.h"
-#include "esp_app_trace.h"
 #include "esp_attr.h"
 #include "stdbool.h"
 #include <errno.h>

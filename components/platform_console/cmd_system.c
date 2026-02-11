@@ -14,11 +14,13 @@
 #include "driver/rtc_io.h"
 #include "driver/uart.h"
 #include "esp_console.h"
+#include "esp_chip_info.h"
 #include "esp_log.h"
 #include "esp_ota_ops.h"
 #include "esp_partition.h"
 #include "esp_rom_uart.h"
 #include "esp_sleep.h"
+#include "esp_flash.h"
 #include "esp_spi_flash.h"
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
@@ -121,7 +123,9 @@ FILE* system_open_memstream(const char* cmdname, char** buf, size_t* buf_size) {
 /* 'version' command */
 static int get_version(int argc, char** argv) {
     esp_chip_info_t info;
+    uint32_t flash_size = 0;
     esp_chip_info(&info);
+    esp_flash_get_size(NULL, &flash_size);
     cmd_send_messaging(argv[0], MESSAGING_INFO,
         "IDF Version:%s\r\n"
         "Chip info:\r\n"
@@ -134,7 +138,7 @@ static int get_version(int argc, char** argv) {
         info.features & CHIP_FEATURE_BLE ? "/BLE" : "",
         info.features & CHIP_FEATURE_BT ? "/BT" : "",
         info.features & CHIP_FEATURE_EMB_FLASH ? "/Embedded-Flash:" : "/External-Flash:",
-        spi_flash_get_chip_size() / (1024 * 1024), " MB", info.revision);
+        flash_size / (1024 * 1024), " MB", info.revision);
     return 0;
 }
 

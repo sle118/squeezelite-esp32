@@ -1,4 +1,4 @@
-#!/opt/esp/python_env/idf4.4_py3.8_env/bin/python
+#!/usr/bin/env python3
 import argparse
 import sys
 import os

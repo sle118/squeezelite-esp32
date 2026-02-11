@@ -26,7 +26,6 @@
 #include "sdkconfig.h"
 #include "soc/efuse_periph.h"
 #include "driver/gpio.h"
-#include "driver/spi_common_internal.h"
 #if CONFIG_IDF_TARGET_ESP32   
 #include "esp32/rom/efuse.h"
 #endif
@@ -96,7 +95,7 @@ const sys_i2c_bus* get_i2c_bus(i2c_port_t port){
     if(platform->dev.has_i2c && port == platform->dev.i2c.port-sys_i2c_port_PORT0 && platform->dev.i2c.scl>=0){
         return &platform->dev.i2c;
     }
-    if(platform->dev.has_dac && platform->dev.dac.has_i2c && platform->dev.dac.i2c.port == port && platform->dev.dac.i2c.scl>=0){
+    if(platform->dev.has_dac && platform->dev.dac.has_i2c && (platform->dev.dac.i2c.port - sys_i2c_port_PORT0) == port && platform->dev.dac.i2c.scl>=0){
         return &platform->dev.dac.i2c;
     }
     return NULL;

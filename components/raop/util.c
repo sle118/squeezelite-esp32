@@ -14,6 +14,7 @@
 #include <iphlpapi.h>
 #else
 #include "esp_netif.h"
+#include "tcpip_adapter_compat.h"
 // IDF-V4++ #include "esp_netif.h"
 #include <ctype.h>
 #endif
@@ -595,7 +596,6 @@ int _fprintf(FILE *file, ...)
 	va_end(args);
 	return n;
 }
-
 
 
 

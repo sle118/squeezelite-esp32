@@ -67,6 +67,7 @@ static void displayer_task(void *args);
 static void display_sleep(void);
 
 struct GDS_Device *display;   
+bool (*display_bus)(void *from, enum display_bus_cmd_e cmd) = NULL;
 extern GDS_DetectFunc SSD1306_Detect, SSD132x_Detect, SH1106_Detect, SSD1675_Detect, SSD1322_Detect, SSD1351_Detect, ST77xx_Detect, ILI9341_Detect;
 GDS_DetectFunc *drivers[] = { SH1106_Detect, SSD1306_Detect, SSD132x_Detect, SSD1675_Detect, SSD1322_Detect, SSD1351_Detect, ST77xx_Detect, ILI9341_Detect, NULL };
 
@@ -245,8 +246,9 @@ static void displayer_task(void *args) {
 				// when we have duration but no space, display remaining time
 				if (displayer.duration.value && !displayer.duration.visible) elapsed = displayer.duration.value - elapsed;
 
-				if (elapsed < 3600) sprintf(_line, "%u:%02u", elapsed / 60, elapsed % 60);
-				else sprintf(_line, "%u:%02u:%02u", (elapsed / 3600) % 100, (elapsed % 3600) / 60, elapsed % 60);
+				if (elapsed < 3600) sprintf(_line, "%lu:%02lu", (unsigned long) (elapsed / 60), (unsigned long) (elapsed % 60));
+				else sprintf(_line, "%lu:%02lu:%02lu", (unsigned long) ((elapsed / 3600) % 100),
+					(unsigned long) ((elapsed % 3600) / 60), (unsigned long) (elapsed % 60));
 
 				// concatenate if we have room for elapsed / duration
 				if (displayer.duration.visible) {
@@ -408,9 +410,12 @@ void displayer_timer(enum displayer_time_e mode, int elapsed, int duration) {
 		displayer.duration.visible = true;
 		displayer.duration.value = duration / 1000;
 
-		if (displayer.duration.value > 3600) sprintf(displayer.duration.string, "%u:%02u:%02u", (displayer.duration.value / 3600) % 10,
-													(displayer.duration.value % 3600) / 60, displayer.duration.value % 60);
-		else sprintf(displayer.duration.string, "%u:%02u", displayer.duration.value / 60, displayer.duration.value % 60);
+		if (displayer.duration.value > 3600) sprintf(displayer.duration.string, "%lu:%02lu:%02lu",
+													(unsigned long) ((displayer.duration.value / 3600) % 10),
+													(unsigned long) ((displayer.duration.value % 3600) / 60),
+													(unsigned long) (displayer.duration.value % 60));
+		else sprintf(displayer.duration.string, "%lu:%02lu", (unsigned long) (displayer.duration.value / 60),
+					(unsigned long) (displayer.duration.value % 60));
 
 		char *buf;
 		asprintf(&buf, "%s %s/%s", displayer.header, displayer.duration.string, displayer.duration.string);

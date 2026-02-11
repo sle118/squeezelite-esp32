@@ -1,12 +1,16 @@
 # This is a basic workflow to help you get started with Actions
-name: ESP-IDF v4.3.1
+name: ESP-IDF v5.5 (Legacy Matrix)
 on:
   push:
     branches: 
-      - '**4.3'
+      - 'refactoring'
+      - 'main'
+      - 'master-cmake'
   pull_request:
     branches:
-      - '**4.3'
+      - 'refactoring'
+      - 'main'
+      - 'master-cmake'
 jobs:
   job1:
     name: Build Number
@@ -21,6 +25,8 @@ jobs:
         token: ${{secrets.github_token}}
   build:
     runs-on: ubuntu-latest
+    container:
+      image: espressif/idf:release-v5.5
     needs: job1
     strategy:
       max-parallel: 1
@@ -35,20 +41,20 @@ jobs:
       run: |
         echo "TARGET_BUILD_NAME=${{ matrix.node }}" >> $GITHUB_ENV
         echo "build_version_prefix=2." >> $GITHUB_ENV
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 15
         submodules: true
     - name: Cache build
       id: cache-build
-      uses: actions/cache@v2
+      uses: actions/cache@v4
       with:
         path: |
-          ~/build 
-          ./
-        key: ${{ runner.os }}-${{ matrix.node }}
+          build
+        key: ${{ runner.os }}-${{ matrix.node }}-${{ matrix.depth }}
     - name: Set build parameters
       run: |
+        git config --global --add safe.directory "${GITHUB_WORKSPACE}"
         git update-index --chmod=+x ./server_certs/getcert.sh
         git update-index --chmod=+x ./buildFirmware.sh
         git update-index --chmod=+x ./components/spotify/cspot/bell/external/nanopb/generator/protoc
@@ -64,12 +70,11 @@ jobs:
         branch_name="${branch_name//[^a-zA-Z0-9\-~!@_\.]/}"
         BUILD_NUMBER=${{ needs.job1.outputs.build_number }}
         echo "BUILD_NUMBER=${BUILD_NUMBER}" >> $GITHUB_ENV
-        echo "DOCKER_IMAGE_NAME=sle118/squeezelite-esp32-idfv4-master" >> $GITHUB_ENV
         tag="${TARGET_BUILD_NAME}.${{matrix.depth}}.${build_version_prefix}${BUILD_NUMBER}.${branch_name}"
         echo "tag=${tag}" >> $GITHUB_ENV
         last_commit="$(git log --pretty=format:'%s' --max-count=1)"
         if [[ "$last_commit" =~ .*"Release".* ]]; then echo "release_flag=1" >> $GITHUB_ENV; else echo "release_flag=0" >> $GITHUB_ENV; fi
-        name="${build_version_prefix}${BUILD_NUMBER}-${{matrix.depth}}#v4.0#${TARGET_BUILD_NAME}#${branch_name}"
+        name="${build_version_prefix}${BUILD_NUMBER}-${{matrix.depth}}#v5.5#${TARGET_BUILD_NAME}#${branch_name}"
         artifact_prefix="squeezelite-esp32-${branch_name}-${TARGET_BUILD_NAME}-${{matrix.depth}}-${build_version_prefix}${BUILD_NUMBER}"
         artifact_file_name="${artifact_prefix}.zip"
         artifact_bin_file_name="${artifact_prefix}.bin"
@@ -94,10 +99,8 @@ jobs:
         cat $GITHUB_ENV
     - name: Build the firmware
       run: |
-        env | grep "artifact\|tag\|GITHUB\|version\|NUMBER\|TARGET" >${TARGET_BUILD_NAME}-env.txt
-        echo pulling custom docker image  ${DOCKER_IMAGE_NAME}
-        docker pull ${DOCKER_IMAGE_NAME}
-        docker run --env-file=${TARGET_BUILD_NAME}-env.txt  -v $PWD:/project -w /project ${DOCKER_IMAGE_NAME} /bin/bash -c "./buildFirmware.sh"
+        . /opt/esp/idf/export.sh >/dev/null 2>&1
+        ./buildFirmware.sh
     # - name: Build Mock firmware
     #   run: |
     #     mkdir -p build
@@ -112,7 +115,7 @@ jobs:
     #     echo "mock content"> size_comp1.txt
     #     echo "mock content"> size_comp2.txt
     #     echo "mock content"> ../partitions.csv
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v4
       with:
         name: ${{ env.artifact_file_name }}
         path: |
@@ -126,7 +129,7 @@ jobs:
           sdkconfig
           server_certs/github.pem
           build_output.zip
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v4
       with:
         name: ${{ env.artifact_bin_file_name }}
         path: |

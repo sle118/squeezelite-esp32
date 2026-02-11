@@ -4,12 +4,14 @@ name: Cross-Build
 on:
   push:
     branches: 
+      - 'refactoring'
+      - 'main'
       - 'master-cmake'
-      - '!**4.3'
   pull_request:
     branches:
+      - 'refactoring'
+      - 'main'
       - 'master-cmake'
-      - '!**4.3'
 jobs:
   job1:
     name: Build Number
@@ -24,6 +26,8 @@ jobs:
         token: ${{secrets.github_token}}
   build:
     runs-on: ubuntu-latest
+    container:
+      image: espressif/idf:release-v5.5
     needs: job1
     strategy:
       max-parallel: 1
@@ -38,20 +42,20 @@ jobs:
       run: |
         echo "TARGET_BUILD_NAME=${{ matrix.node }}" >> $GITHUB_ENV
         echo "build_version_prefix=1." >> $GITHUB_ENV
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 15
         submodules: true
     - name: Cache build
       id: cache-build
-      uses: actions/cache@v2
+      uses: actions/cache@v4
       with:
         path: |
           build
-          /var/lib/docker
         key: ${{ runner.os }}-${{ matrix.node }}-${{ matrix.depth }}
     - name: Set build parameters
       run: |
+        git config --global --add safe.directory "${GITHUB_WORKSPACE}"
         git update-index --chmod=+x ./server_certs/getcert.sh
         cd server_certs;./getcert.sh;cat github.pem;cd ..
         shopt -s nocasematch
@@ -63,7 +67,7 @@ jobs:
         echo "tag=${tag}" >> $GITHUB_ENV
         last_commit="$(git log --pretty=format:'%s' --max-count=1)"
         if [[ "$last_commit" =~ .*"Release".* ]]; then echo "release_flag=1" >> $GITHUB_ENV; else echo "release_flag=0" >> $GITHUB_ENV; fi
-        name="1.${BUILD_NUMBER}-${{matrix.depth}}#v4.0#${TARGET_BUILD_NAME}#${branch_name}"
+        name="1.${BUILD_NUMBER}-${{matrix.depth}}#v5.5#${TARGET_BUILD_NAME}#${branch_name}"
         artifact_prefix="squeezelite-esp32-${branch_name}-${TARGET_BUILD_NAME}-${{matrix.depth}}-${build_version_prefix}${BUILD_NUMBER}"
         artifact_file_name="${artifact_prefix}.zip"
         artifact_bin_file_name="${artifact_prefix}.bin"
@@ -88,11 +92,12 @@ jobs:
         cat $GITHUB_ENV
     - name: Build the firmware
       run: |
-        env | grep "artifact\|tag\|GITHUB\|version\|NUMBER\|TARGET" >${TARGET_BUILD_NAME}-env.txt
         echo "${tag}" >version.txt
-        docker pull sle118/idf:release-v4.0 
-        docker info 
-        docker run --env-file=${TARGET_BUILD_NAME}-env.txt  -v $PWD:/project -w /project sle118/idf:release-v4.0 /bin/bash -c "cp build-scripts/${TARGET_BUILD_NAME}-sdkconfig.defaults sdkconfig  && idf.py build -DDEPTH=${{ matrix.depth }} -DBUILD_NUMBER=${BUILD_NUMBER}-${{ matrix.depth }} && zip -r build_output.zip build && zip build/${artifact_file_name} partitions*.csv build/*.bin build/bootloader/bootloader.bin build/partition_table/partition-table.bin build/flash_project_args build/size_*.txt"
+        cp build-scripts/${TARGET_BUILD_NAME}-sdkconfig.defaults sdkconfig
+        . /opt/esp/idf/export.sh >/dev/null 2>&1
+        idf.py build -DDEPTH=${{ matrix.depth }} -DBUILD_NUMBER=${BUILD_NUMBER}-${{ matrix.depth }}
+        zip -r build_output.zip build
+        zip build/${artifact_file_name} partitions*.csv build/*.bin build/bootloader/bootloader.bin build/partition_table/partition-table.bin build/flash_project_args build/size_*.txt
     # - name: Build Mock firmware
     #   run: |
     #     mkdir -p build
@@ -107,7 +112,7 @@ jobs:
     #     echo "mock content"> size_comp1.txt
     #     echo "mock content"> size_comp2.txt
     #     echo "mock content"> ../partitions.csv
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v4
       with:
         name: ${{ env.artifact_file_name }}
         path: |
@@ -121,7 +126,7 @@ jobs:
           sdkconfig
           server_certs/github.pem
           build_output.zip
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v4
       with:
         name: ${{ env.artifact_bin_file_name }}
         path: |

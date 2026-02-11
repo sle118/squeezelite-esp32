@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <inttypes.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/timers.h"
 #include "esp_system.h"
@@ -69,10 +70,10 @@ static void task_stats( cJSON* top ) {
 	for(int i = 0, n = 0; i < current.n; i++ ) {
 		for (int j = 0; j < previous.n; j++) {
 			if (current.tasks[i].xTaskNumber == previous.tasks[j].xTaskNumber) {
-				n += snprintf(scratch + n, SCRATCH_SIZE - n, "%16s (%u) %2u%% s:%5u", current.tasks[i].pcTaskName,
-																		   current.tasks[i].eCurrentState,
-																		   100 * (current.tasks[i].ulRunTimeCounter - previous.tasks[j].ulRunTimeCounter) / elapsed,
-																		   current.tasks[i].usStackHighWaterMark);
+				n += snprintf(scratch + n, SCRATCH_SIZE - n, "%16s (%u) %2" PRIu32 "%% s:%5" PRIu32, current.tasks[i].pcTaskName,
+																		   (unsigned) current.tasks[i].eCurrentState,
+																		   (uint32_t) (100 * (current.tasks[i].ulRunTimeCounter - previous.tasks[j].ulRunTimeCounter) / elapsed),
+																		   (uint32_t) current.tasks[i].usStackHighWaterMark);
 				cJSON * t=cJSON_CreateObject();
 				cJSON_AddNumberToObject(t,"cpu",100 * (current.tasks[i].ulRunTimeCounter - previous.tasks[j].ulRunTimeCounter) / elapsed);
 				cJSON_AddNumberToObject(t,"minstk",current.tasks[i].usStackHighWaterMark);
@@ -94,7 +95,7 @@ static void task_stats( cJSON* top ) {
 #pragma message("Compiled WITHOUT runtime stats")
 
 	for (int i = 0, n = 0; i < current.n; i ++) {
-		n += sprintf(scratch + n, "%16s s:%5u\t", current.tasks[i].pcTaskName, current.tasks[i].usStackHighWaterMark);
+		n += sprintf(scratch + n, "%16s s:%5" PRIu32 "\t", current.tasks[i].pcTaskName, (uint32_t) current.tasks[i].usStackHighWaterMark);
 		cJSON * t=cJSON_CreateObject();
 		cJSON_AddNumberToObject(t,"minstk",current.tasks[i].usStackHighWaterMark);
 		cJSON_AddNumberToObject(t,"bprio",current.tasks[i].uxBasePriority);

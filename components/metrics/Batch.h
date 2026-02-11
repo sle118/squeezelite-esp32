@@ -12,7 +12,7 @@ class Batch {
   private:
     std::list<Event> _events;
     bool _warned = false;
-    std::string _metrics_uid = nullptr;
+    std::string _metrics_uid;
     const char* _api_key = nullptr;
     const char* _url = nullptr;
     void build_guid();

@@ -215,8 +215,8 @@ static decode_state mad_decode(void) {
 
 	while (true) {
 		size_t frames;
-		s32_t *iptrl;
-		s32_t *iptrr;
+		mad_fixed_t *iptrl;
+		mad_fixed_t *iptrr;
 		unsigned max_frames;
 
 		if (MAD(m, frame_decode, &m->frame, &m->stream) == -1) {
@@ -417,4 +417,3 @@ struct codec *register_mad(void) {
 	LOG_INFO("using mad to decode mp3");
 	return &ret;
 }
-

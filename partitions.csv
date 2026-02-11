@@ -4,4 +4,4 @@ phy_init, data, phy, 0xF000, 0x1000,
 recovery, app, factory, 0x10000, 0x130000, 
 ota_0, app, ota_0, , 0x270000, 
 spiffs, data, spiffs, , 0x4B000, 
-nvs,data,nvs,,0x2000
+nvs,data,nvs,,0x2000,readonly

@@ -80,7 +80,7 @@ void battery_svc_init(void) {
 		adc1_config_channel_atten(BATTERY_CHANNEL(battery), ATTENUATION(battery));
 
 		battery.avg = adc1_get_raw(BATTERY_CHANNEL(battery)) * battery.scale / 4095.0;    
-		battery.timer = xTimerCreate("battery", BATTERY_TIMER / portTICK_RATE_MS, pdTRUE, NULL, battery_callback);
+		battery.timer = xTimerCreate("battery", BATTERY_TIMER / portTICK_PERIOD_MS, pdTRUE, NULL, battery_callback);
 		xTimerStart(battery.timer, portMAX_DELAY);
 		
 		ESP_LOGI(TAG, "Battery measure channel: %u, scale %f, atten %d, cells %u, avg %.2fV", BATTERY_CHANNEL(battery), battery.scale, ATTENUATION(battery), battery.battery_config->cells, battery.avg);		

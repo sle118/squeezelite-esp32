@@ -71,7 +71,7 @@ void GDS_FontDrawString( struct GDS_Device* Display, int x, int y, const char* T
 void GDS_FontDrawAnchoredString( struct GDS_Device* Display, TextAnchor Anchor, const char* Text, int Color );
 void GDS_FontGetAnchoredStringCoords( struct GDS_Device* Display, int* OutX, int* OutY, TextAnchor Anchor, const char* Text );
 
-struct GDS_FontDef * Font_droid_sans_fallback_11x13;
+extern struct GDS_FontDef * Font_droid_sans_fallback_11x13;
 // const struct GDS_FontDef * Font_droid_sans_fallback_15x17;
 // const struct GDS_FontDef * Font_droid_sans_fallback_24x28;
 
@@ -86,8 +86,8 @@ struct GDS_FontDef * Font_droid_sans_fallback_11x13;
 // const struct GDS_FontDef * Font_Tarable7Seg_16x32;
 // const struct GDS_FontDef * Font_Tarable7Seg_32x64;
 
-struct GDS_FontDef * Font_line_1;
-struct GDS_FontDef * Font_line_2;
+extern struct GDS_FontDef * Font_line_1;
+extern struct GDS_FontDef * Font_line_2;
 
 #ifdef __cplusplus
 }

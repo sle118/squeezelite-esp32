@@ -23,7 +23,9 @@ static esp_err_t start(spi_device_handle_t spi_handle, sys_dev_eth_config* ether
 #ifdef CONFIG_ETH_SPI_ETHERNET_DM9051
     eth_phy_config_t phy_config = ETH_PHY_DEFAULT_CONFIG();
     eth_mac_config_t mac_config = ETH_MAC_DEFAULT_CONFIG();
-    eth_dm9051_config_t eth_config = ETH_DM9051_DEFAULT_CONFIG(spi_handle);
+    spi_host_device_t spi_host = ethernet_config->ethType.spi.host - sys_dev_common_hosts_Host0;
+    eth_dm9051_config_t eth_config = ETH_DM9051_DEFAULT_CONFIG(spi_host, &devcfg);
+    (void)spi_handle;
     // we assume that isr has been installed already
     eth_config.int_gpio_num = ethernet_config->ethType.spi.intr;
     phy_config.phy_addr = -1;

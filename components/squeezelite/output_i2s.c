@@ -37,6 +37,7 @@ sure that using rate_delay would fix that
 #include "driver/i2c.h"
 #include "driver/i2s.h"
 #include "equalizer.h"
+#include "esp_rom_gpio.h"
 #include "esp_pthread.h"
 #include "globdefs.h"
 #include "gpio_exp.h"
@@ -367,7 +368,7 @@ void output_init_i2s() {
             res |= i2s_set_pin(CONFIG_I2S_NUM, &i2s_dac_pin);
 
             if (res == ESP_OK && mute_control.gpio >= 0) {
-                gpio_pad_select_gpio(mute_control.gpio);
+                esp_rom_gpio_pad_select_gpio(mute_control.gpio);
                 gpio_set_direction(mute_control.gpio, GPIO_MODE_OUTPUT);
                 gpio_set_level(mute_control.gpio, mute_control.active);
             }
@@ -384,7 +385,7 @@ void output_init_i2s() {
 
     // turn off GPIO than is not used (SPDIF of DAC DO when shared)
     if (silent_do >= 0) {
-        gpio_pad_select_gpio(silent_do);
+        esp_rom_gpio_pad_select_gpio(silent_do);
         gpio_set_direction(silent_do, GPIO_MODE_OUTPUT);
         gpio_set_level(silent_do, 0);
     }

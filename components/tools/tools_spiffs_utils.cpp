@@ -257,9 +257,9 @@ void listFiles(const char* path_requested_char) {
         printf("Total : %lu  bytes in %d file(s)\n", (unsigned long)total, nfiles);
     }
 
-    uint32_t tot = 0, used = 0;
+    size_t tot = 0, used = 0;
     esp_spiffs_info(NULL, &tot, &used);
-    printf("SPIFFS: free %d KB of %d KB\n", (tot - used) / 1024, tot / 1024);
+    printf("SPIFFS: free %zu KB of %zu KB\n", (tot - used) / 1024, tot / 1024);
     printf("---------------------------------------------------------------------------------------"
            "---------------\n");
 }

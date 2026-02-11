@@ -217,7 +217,7 @@ rtp_resp_t rtp_init(struct in_addr host, int latency, char *aeskey, char *aesiv,
 {
 	int i = 0;
 	char *arg;
-	int fmtp[12];
+	int fmtp[32];
 	bool rc = true;
 	rtp_t *ctx = calloc(1, sizeof(rtp_t));
 	rtp_resp_t resp = { 0, 0, 0, NULL };
@@ -834,4 +834,3 @@ static bool rtp_request_resend(rtp_t *ctx, seq_t first, seq_t last) {
 
 	return true;
 }
-

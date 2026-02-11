@@ -119,7 +119,7 @@ esp_err_t actrls_init(const char* profile_name) {
             p = strchr(p, '=');
 
             int double_press = dev_config->knobonly.delay_ms > 0 ? dev_config->knobonly.delay_ms : 350;
-            rotary.timer = xTimerCreate("knobTimer", double_press / portTICK_RATE_MS, pdFALSE, NULL, rotary_timer);
+            rotary.timer = xTimerCreate("knobTimer", double_press / portTICK_PERIOD_MS, pdFALSE, NULL, rotary_timer);
             longpress = 500;
             ESP_LOGI(TAG, "single knob navigation %d", double_press);
         } else {
@@ -254,7 +254,7 @@ static void control_rotary_handler(void* client, rotary_event_e event, bool long
                 // need to add a left button the first time
                 if (rotary.left_count == 1) (*current_controls[sys_btns_actions_KNOB_LEFT])(true);
             }
-            xTimerStart(rotary.timer, 20 / portTICK_RATE_MS);
+            xTimerStart(rotary.timer, 20 / portTICK_PERIOD_MS);
             rotary.left_count++;
         } else if (rotary.long_state)
             action = sys_btns_actions_A_PREV;
@@ -286,7 +286,7 @@ static void control_rotary_handler(void* client, rotary_event_e event, bool long
                 action = sys_btns_actions_B_LEFT;
                 xTimerStop(rotary.timer, 0);
             } else
-                xTimerStart(rotary.timer, 20 / portTICK_RATE_MS);
+                xTimerStart(rotary.timer, 20 / portTICK_PERIOD_MS);
             rotary.click_pending = !rotary.click_pending;
         } else if (long_press)
             rotary.long_state = !rotary.long_state;

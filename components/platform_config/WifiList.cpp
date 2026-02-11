@@ -719,7 +719,7 @@ void WifiList::PrintWifiSTAEntry(const sys_net_wifi_entry& entry) {
     printf("%-20s", entry.ssid);
     PrintString(entry.password, sizeof(entry.password), "%-25s");
     PrintString(entry.bssid, sizeof(entry.bssid), "%-20s");
-    printf("%-4ddB", entry.rssi);
+    printf("%-4lddB", static_cast<long>(entry.rssi));
     printf("%3u  ", static_cast<unsigned>(entry.channel));
     printf("%-14s", sys_net_auth_types_name(entry.auth_type));
     printf("%-9s", formatRadioTypes(entry.radio_type, entry.radio_type_count).c_str());
@@ -838,8 +838,20 @@ sys_net_auth_types WifiList::GetAuthType(const wifi_auth_mode_t mode) {
         return sys_net_auth_types_WPA2_WPA3_PSK;
     case WIFI_AUTH_WAPI_PSK:
         return sys_net_auth_types_WAPI_PSK;
-    case WIFI_AUTH_MAX:
+    case WIFI_AUTH_OWE:
         return sys_net_auth_types_OPEN;
+    case WIFI_AUTH_WPA3_ENT_192:
+    case WIFI_AUTH_WPA3_ENTERPRISE:
+    case WIFI_AUTH_WPA2_WPA3_ENTERPRISE:
+    case WIFI_AUTH_WPA_ENTERPRISE:
+        return sys_net_auth_types_WPA2_ENTERPRISE;
+    case WIFI_AUTH_WPA3_EXT_PSK:
+    case WIFI_AUTH_WPA3_EXT_PSK_MIXED_MODE:
+        return sys_net_auth_types_WPA3_PSK;
+    case WIFI_AUTH_DPP:
+        return sys_net_auth_types_AUTH_UNKNOWN;
+    case WIFI_AUTH_MAX:
+        return sys_net_auth_types_AUTH_UNKNOWN;
     }
     return sys_net_auth_types_AUTH_UNKNOWN;
 }
