@@ -1,0 +1,16 @@
+# Third-party/vendor code
+components/codecs/inc/**
+components/esp-dsp/**
+components/esp_http_server/**
+components/spotify/cspot/**
+components/squeezelite/**
+components/telnet/libtelnet/**
+components/tjpgd/**
+managed_components/**
+
+# Generated web artifacts
+components/wifi-manager/webapp/dist/**
+components/wifi-manager/webapp/src/js/proto/**
+
+# Build outputs
+build/**

@@ -1,14 +1,19 @@
-{
-    "BasedOnStyle": "LLVM",
-    "UseTab": "Never",
-    "IndentWidth": 4,
-    "TabWidth": 4,
-    "ColumnLimit": 150,
-    "PointerAlignment": "Left",
-    "AlignAfterOpenBracket": "DontAlign",
-    "BreakBeforeBraces": "Attach",
-    "AllowShortIfStatementsOnASingleLine": true,
-    "AllowShortFunctionsOnASingleLine": "All",
-    "IndentCaseLabels": false,
-    "SpacesBeforeTrailingComments": 1
-}
+---
+BasedOnStyle: LLVM
+UseTab: Never
+IndentWidth: 4
+TabWidth: 4
+ColumnLimit: 150
+PointerAlignment: Right
+ReferenceAlignment: Pointer
+AlignAfterOpenBracket: DontAlign
+BreakBeforeBraces: Attach
+AllowShortIfStatementsOnASingleLine: true
+AllowShortLoopsOnASingleLine: true
+AllowShortFunctionsOnASingleLine: All
+AllowShortBlocksOnASingleLine: Always
+IndentCaseLabels: false
+SortIncludes: false
+SpaceBeforeParens: Never
+ReflowComments: false
+SpacesBeforeTrailingComments: 1

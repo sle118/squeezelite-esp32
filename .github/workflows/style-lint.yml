@@ -1,0 +1,32 @@
+name: Style Lint
+
+on:
+  push:
+    branches:
+      - "refactoring"
+      - "main"
+      - "master-cmake"
+  pull_request:
+    branches:
+      - "refactoring"
+      - "main"
+      - "master-cmake"
+
+jobs:
+  clang-format:
+    name: clang-format
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install clang-format
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang-format
+
+      - name: Check style
+        run: |
+          build-scripts/lint_style.sh check
