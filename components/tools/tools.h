@@ -60,7 +60,7 @@ extern "C" {
  */
 #ifndef STR_OR_ALT
 #ifdef __cplusplus
-#define STR_OR_ALT(str, alt) (str!=nullptr ? str : alt)
+#define STR_OR_ALT(str, alt) (str != nullptr ? str : alt)
 #else
 #define STR_OR_ALT(str, alt) (str ? str : alt)
 #endif
@@ -98,7 +98,7 @@ extern "C" {
  */
 #ifndef FREE_AND_NULL
 #define FREE_AND_NULL(x)                                                                                                                             \
-    if (x) {                                                                                                                                         \
+    if(x) {                                                                                                                                          \
         free(x);                                                                                                                                     \
         x = NULL;                                                                                                                                    \
     }

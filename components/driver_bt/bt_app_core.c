@@ -28,8 +28,7 @@ static void bt_app_work_dispatched(bt_app_msg_t* msg);
 static QueueHandle_t s_bt_app_task_queue;
 static bool running;
 
-bool bt_app_work_dispatch(bt_app_cb_t p_cback, uint16_t event, void* p_params, int param_len,
-    bt_app_copy_cb_t p_copy_cback) {
+bool bt_app_work_dispatch(bt_app_cb_t p_cback, uint16_t event, void* p_params, int param_len, bt_app_copy_cb_t p_copy_cback) {
     ESP_LOGV(TAG, "%s event 0x%x, param len %d", __func__, event, param_len);
 
     bt_app_msg_t msg;
@@ -39,14 +38,12 @@ bool bt_app_work_dispatch(bt_app_cb_t p_cback, uint16_t event, void* p_params, i
     msg.event = event;
     msg.cb = p_cback;
 
-    if (param_len == 0) {
+    if(param_len == 0) {
         return bt_app_send_msg(&msg);
-    } else if (p_params && param_len > 0) {
-        if ((msg.param = clone_obj_psram(p_params, param_len)) != NULL) {
+    } else if(p_params && param_len > 0) {
+        if((msg.param = clone_obj_psram(p_params, param_len)) != NULL) {
             /* check if caller has provided a copy callback to do the deep copy */
-            if (p_copy_cback) {
-                p_copy_cback(&msg, msg.param, p_params);
-            }
+            if(p_copy_cback) { p_copy_cback(&msg, msg.param, p_params); }
             return bt_app_send_msg(&msg);
         }
     }
@@ -55,11 +52,9 @@ bool bt_app_work_dispatch(bt_app_cb_t p_cback, uint16_t event, void* p_params, i
 }
 
 static bool bt_app_send_msg(bt_app_msg_t* msg) {
-    if (msg == NULL) {
-        return false;
-    }
+    if(msg == NULL) { return false; }
 
-    if (xQueueSend(s_bt_app_task_queue, msg, 10 / portTICK_PERIOD_MS) != pdTRUE) {
+    if(xQueueSend(s_bt_app_task_queue, msg, 10 / portTICK_PERIOD_MS) != pdTRUE) {
         ESP_LOGE(TAG, "%s xQueue send failed", __func__);
         return false;
     }
@@ -67,9 +62,7 @@ static bool bt_app_send_msg(bt_app_msg_t* msg) {
 }
 
 static void bt_app_work_dispatched(bt_app_msg_t* msg) {
-    if (msg->cb) {
-        msg->cb(msg->event, msg->param);
-    }
+    if(msg->cb) { msg->cb(msg->event, msg->param); }
 }
 
 static void bt_app_task_handler(void* arg) {
@@ -80,23 +73,23 @@ static void bt_app_task_handler(void* arg) {
 
     esp_bt_controller_mem_release(ESP_BT_MODE_BLE);
     esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
-    if (esp_bt_controller_get_status() == ESP_BT_CONTROLLER_STATUS_IDLE) {
-        if ((err = esp_bt_controller_init(&bt_cfg)) != ESP_OK) {
+    if(esp_bt_controller_get_status() == ESP_BT_CONTROLLER_STATUS_IDLE) {
+        if((err = esp_bt_controller_init(&bt_cfg)) != ESP_OK) {
             ESP_LOGE(TAG, "%s initialize controller failed: %s\n", __func__, esp_err_to_name(err));
             goto exit;
         }
 
-        if ((err = esp_bt_controller_enable(ESP_BT_MODE_CLASSIC_BT)) != ESP_OK) {
+        if((err = esp_bt_controller_enable(ESP_BT_MODE_CLASSIC_BT)) != ESP_OK) {
             ESP_LOGE(TAG, "%s enable controller failed: %s\n", __func__, esp_err_to_name(err));
             goto exit;
         }
 
-        if ((err = esp_bluedroid_init()) != ESP_OK) {
+        if((err = esp_bluedroid_init()) != ESP_OK) {
             ESP_LOGE(TAG, "%s initialize bluedroid failed: %s\n", __func__, esp_err_to_name(err));
             goto exit;
         }
 
-        if ((err = esp_bluedroid_enable()) != ESP_OK) {
+        if((err = esp_bluedroid_enable()) != ESP_OK) {
             ESP_LOGE(TAG, "%s enable bluedroid failed: %s\n", __func__, esp_err_to_name(err));
             goto exit;
         }
@@ -104,7 +97,7 @@ static void bt_app_task_handler(void* arg) {
 
     /* Bluetooth device name, connection mode and profile set up */
     bt_app_work_dispatch((bt_av_hdl_stack_evt_t*)arg, BT_APP_EVT_STACK_UP, NULL, 0, NULL);
-#if (CONFIG_BT_SSP_ENABLED)
+#if(CONFIG_BT_SSP_ENABLED)
     /* Set default parameters for Secure Simple Pairing */
     esp_bt_sp_param_t param_type = ESP_BT_SP_IOCAP_MODE;
     esp_bt_io_cap_t iocap = ESP_BT_IO_CAP_IO;
@@ -121,11 +114,11 @@ static void bt_app_task_handler(void* arg) {
 
     running = true;
 
-    while (running) {
-        if (pdTRUE == xQueueReceive(s_bt_app_task_queue, &msg, portMAX_DELAY)) {
+    while(running) {
+        if(pdTRUE == xQueueReceive(s_bt_app_task_queue, &msg, portMAX_DELAY)) {
             ESP_LOGV(TAG, "%s, sig 0x%x, 0x%x", __func__, msg.sig, msg.event);
 
-            switch (msg.sig) {
+            switch(msg.sig) {
             case BT_APP_SIG_WORK_DISPATCH:
                 bt_app_work_dispatched(&msg);
                 break;
@@ -134,9 +127,7 @@ static void bt_app_task_handler(void* arg) {
                 break;
             }
 
-            if (msg.param) {
-                free(msg.param);
-            }
+            if(msg.param) { free(msg.param); }
         } else {
             ESP_LOGW(TAG, "No messaged received from queue.");
         }
@@ -144,19 +135,19 @@ static void bt_app_task_handler(void* arg) {
 
     ESP_LOGD(TAG, "bt_app_task shutting down");
 
-    if (esp_bluedroid_disable() != ESP_OK) goto exit;
+    if(esp_bluedroid_disable() != ESP_OK) goto exit;
     // this disable has a sleep timer BTA_DISABLE_DELAY in bt_target.h and
     // if we don't wait for it then disable crashes... don't know why
     vTaskDelay(2 * 200 / portTICK_PERIOD_MS);
 
     ESP_LOGD(TAG, "esp_bluedroid_disable called successfully");
-    if (esp_bluedroid_deinit() != ESP_OK) goto exit;
+    if(esp_bluedroid_deinit() != ESP_OK) goto exit;
 
     ESP_LOGD(TAG, "esp_bluedroid_deinit called successfully");
-    if (esp_bt_controller_disable() != ESP_OK) goto exit;
+    if(esp_bt_controller_disable() != ESP_OK) goto exit;
 
     ESP_LOGD(TAG, "esp_bt_controller_disable called successfully");
-    if (esp_bt_controller_deinit() != ESP_OK) goto exit;
+    if(esp_bt_controller_deinit() != ESP_OK) goto exit;
 
     ESP_LOGD(TAG, "bt stopped successfully");
 

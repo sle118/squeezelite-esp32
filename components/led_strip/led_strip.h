@@ -43,22 +43,22 @@ struct led_strip_t {
 
     // RMT peripheral settings
     rmt_channel_t rmt_channel;
-    
+
     gpio_num_t gpio; // Must be less than GPIO_NUM_33
 
-    struct led_color_t *led_strip_working;
-    struct led_color_t *led_strip_showing;
+    struct led_color_t* led_strip_working;
+    struct led_color_t* led_strip_showing;
 
     SemaphoreHandle_t access_semaphore;
 };
 
-bool led_strip_init(struct led_strip_t *led_strip);
+bool led_strip_init(struct led_strip_t* led_strip);
 
 /**
  * Sets the pixel at pixel_num to color.
  */
-bool led_strip_set_pixel_color(struct led_strip_t *led_strip, uint32_t pixel_num, struct led_color_t *color);
-bool led_strip_set_pixel_rgb(struct led_strip_t *led_strip, uint32_t pixel_num, uint8_t red, uint8_t green, uint8_t blue);
+bool led_strip_set_pixel_color(struct led_strip_t* led_strip, uint32_t pixel_num, struct led_color_t* color);
+bool led_strip_set_pixel_rgb(struct led_strip_t* led_strip, uint32_t pixel_num, uint8_t red, uint8_t green, uint8_t blue);
 /**
  * Get the pixel color at pixel_num for the led strip that is currently being shown! 
  * NOTE: If you call set_pixel_color then get_pixel_color for the same pixel_num, you will not 
@@ -67,17 +67,17 @@ bool led_strip_set_pixel_rgb(struct led_strip_t *led_strip, uint32_t pixel_num, 
  *
  * If there is an invalid argument, color will point to NULL and this function will return false.
  */
-bool led_strip_get_pixel_color(struct led_strip_t *led_strip, uint32_t pixel_num, struct led_color_t *color);
+bool led_strip_get_pixel_color(struct led_strip_t* led_strip, uint32_t pixel_num, struct led_color_t* color);
 
 /**
  * Updates the led buffer to be shown using double buffering.
  */
-bool led_strip_show(struct led_strip_t *led_strip);
+bool led_strip_show(struct led_strip_t* led_strip);
 
 /**
  * Clears the LED strip.
  */
-bool led_strip_clear(struct led_strip_t *led_strip);
+bool led_strip_clear(struct led_strip_t* led_strip);
 
 #ifdef __cplusplus
 }

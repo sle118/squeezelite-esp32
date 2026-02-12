@@ -15,7 +15,7 @@ extern "C" {
 // Register system functions
 void register_system();
 
-FILE * system_open_memstream(const char * cmdname,char **buf,size_t *buf_size);
+FILE* system_open_memstream(const char* cmdname, char** buf, size_t* buf_size);
 #ifdef __cplusplus
 }
 #endif

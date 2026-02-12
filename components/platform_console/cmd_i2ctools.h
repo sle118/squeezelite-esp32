@@ -14,7 +14,7 @@ extern "C" {
 #endif
 
 void register_i2ctools(void);
-esp_err_t cmd_i2ctools_scan_bus(FILE *f,int sda, int scl);
+esp_err_t cmd_i2ctools_scan_bus(FILE* f, int sda, int scl);
 #ifdef __cplusplus
 }
 #endif

@@ -6,10 +6,9 @@ static EXT_RAM_ATTR spi_device_interface_config_t devcfg;
 static EXT_RAM_ATTR esp_netif_config_t cfg_spi;
 static EXT_RAM_ATTR esp_netif_inherent_config_t esp_netif_config;
 static EXT_RAM_ATTR gpio_num_t rst = -1;
-static esp_err_t reset_hw(esp_eth_phy_t *phy)
-{
+static esp_err_t reset_hw(esp_eth_phy_t* phy) {
     // set reset_gpio_num to a negative value can skip hardware reset phy chip
-    if (rst >= 0) {
+    if(rst >= 0) {
         esp_rom_gpio_pad_select_gpio_x(rst);
         gpio_set_direction_x(rst, GPIO_MODE_OUTPUT);
         gpio_set_level_x(rst, 0);
@@ -42,32 +41,29 @@ static esp_err_t start(spi_device_handle_t spi_handle, sys_dev_eth_config* ether
 }
 
 static void init_config(sys_dev_eth_config* ethernet_config) {
-	esp_netif_inherent_config_t loc_esp_netif_config = ESP_NETIF_INHERENT_DEFAULT_ETH();
-    devcfg.command_bits = 1;  
-    devcfg.address_bits = 7;  
+    esp_netif_inherent_config_t loc_esp_netif_config = ESP_NETIF_INHERENT_DEFAULT_ETH();
+    devcfg.command_bits = 1;
+    devcfg.address_bits = 7;
     devcfg.mode = 0;
-    devcfg.clock_speed_hz = ethernet_config->ethType.spi.speed > 0 ? ethernet_config->ethType.spi.speed : SPI_MASTER_FREQ_20M;  // default speed
+    devcfg.clock_speed_hz = ethernet_config->ethType.spi.speed > 0 ? ethernet_config->ethType.spi.speed : SPI_MASTER_FREQ_20M; // default speed
     devcfg.queue_size = 20;
     devcfg.spics_io_num = ethernet_config->ethType.spi.cs;
     memcpy(&esp_netif_config, &loc_esp_netif_config, sizeof(loc_esp_netif_config));
-    cfg_spi.base = &esp_netif_config,
-    cfg_spi.stack = ESP_NETIF_NETSTACK_DEFAULT_ETH;
+    cfg_spi.base = &esp_netif_config, cfg_spi.stack = ESP_NETIF_NETSTACK_DEFAULT_ETH;
     DM9051.cfg_netif = &cfg_spi;
     DM9051.devcfg = &devcfg;
     DM9051.start = start;
 }
 
 network_ethernet_driver_t* DM9051_Detect(sys_dev_eth_config* ethernet_config) {
-    if (ethernet_config->common.model != sys_dev_eth_models_DM9051 ||
-        ethernet_config->which_ethType != sys_dev_eth_config_spi_tag )
-        return NULL;
+    if(ethernet_config->common.model != sys_dev_eth_models_DM9051 || ethernet_config->which_ethType != sys_dev_eth_config_spi_tag) return NULL;
     DM9051.rmii = false;
     DM9051.spi = true;
 #ifdef CONFIG_ETH_SPI_ETHERNET_DM9051
     DM9051.valid = true;
 #else
     DM9051.valid = false;
-#endif        
+#endif
     DM9051.init_config = init_config;
     DM9051.model = ethernet_config->common.model;
     return &DM9051;

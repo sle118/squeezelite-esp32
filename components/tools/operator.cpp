@@ -1,12 +1,10 @@
 #include <memory>
 #include <esp_heap_caps.h>
 
-void* operator new(std::size_t count) { 
-	return heap_caps_malloc(count, MALLOC_CAP_SPIRAM); 
-}
+void* operator new(std::size_t count) { return heap_caps_malloc(count, MALLOC_CAP_SPIRAM); }
 
-void operator delete(void* ptr) noexcept { 
-	if (ptr) free(ptr); 
+void operator delete(void* ptr) noexcept {
+    if(ptr) free(ptr);
 }
 
 /*

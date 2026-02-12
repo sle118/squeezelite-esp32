@@ -27,7 +27,7 @@ static const char TAG[] = "network_status";
 
 sys_status_data* sys_status = nullptr;
 
-__attribute__((section(".ext_ram.bss"))) System::PB<sys_status_data> sys_status_obj("status", &sys_status_data_msg,sizeof(sys_status_data_msg));
+__attribute__((section(".ext_ram.bss"))) System::PB<sys_status_data> sys_status_obj("status", &sys_status_data_msg, sizeof(sys_status_data_msg));
 
 static void (*chained_notify)(in_addr_t, u16_t, u16_t);
 static void connect_notify(in_addr_t ip, u16_t hport, u16_t cport);
@@ -36,16 +36,13 @@ static void connect_notify(in_addr_t ip, u16_t hport, u16_t cport);
 void network_status_set_static_info() {
     ESP_LOGD(TAG, "network_status_set_static_info starting");
 
-    if (sys_status_obj.Lock()) {
+    if(sys_status_obj.Lock()) {
         const esp_app_desc_t* desc = esp_ota_get_app_description();
         auto status_obj = sys_status_obj.get();
         status_obj->has_platform = true;
-        strncpy(
-            status_obj->platform.project, desc->project_name, sizeof(status_obj->platform.project));
-        if (platform->target && strlen(platform->target) > 0) {
-            if (status_obj->platform.target) {
-                free(status_obj->platform.target);
-            }
+        strncpy(status_obj->platform.project, desc->project_name, sizeof(status_obj->platform.project));
+        if(platform->target && strlen(platform->target) > 0) {
+            if(status_obj->platform.target) { free(status_obj->platform.target); }
             status_obj->platform.target = strdup_psram(platform->target);
         }
         strncpy(status_obj->platform.version, desc->version, sizeof(status_obj->platform.version));
@@ -55,16 +52,13 @@ void network_status_set_static_info() {
         status_obj->platform.depth = DEPTH;
 #endif
         status_obj->has_hw = true;
-        status_obj->hw.supports_jack_inserted = platform->gpios.has_jack &&platform->gpios.jack.pin>=0;
-        status_obj->hw.supports_spk_fault = platform->gpios.has_spkfault && platform->gpios.spkfault.pin>=0;
+        status_obj->hw.supports_jack_inserted = platform->gpios.has_jack && platform->gpios.jack.pin >= 0;
+        status_obj->hw.supports_spk_fault = platform->gpios.has_spkfault && platform->gpios.spkfault.pin >= 0;
         status_obj->has_net = true;
         status_obj->net.has_wifi = true;
 
 #ifdef CONFIG_BT_ENABLED
-        if (platform->has_services && platform->services.has_bt_sink &&
-            platform->services.bt_sink.enabled) {
-            status_obj->has_bt = true;
-        }
+        if(platform->has_services && platform->services.has_bt_sink && platform->services.bt_sink.enabled) { status_obj->has_bt = true; }
 #endif
         ESP_LOGD(TAG, "network_status_set_static_info done");
         sys_status_obj.Unlock();
@@ -83,7 +77,7 @@ void init_network_status() {
 
 void set_lms_server_details(in_addr_t ip, u16_t hport, u16_t cport) {
     sys_net_server* LMS = &sys_status->LMS;
-    if (sys_status_obj.Lock()) {
+    if(sys_status_obj.Lock()) {
         sys_status->has_LMS = true;
         strncpy(LMS->ip, inet_ntoa(ip), sizeof(LMS->ip));
         LMS->port = hport;
@@ -95,32 +89,28 @@ void set_lms_server_details(in_addr_t ip, u16_t hport, u16_t cport) {
 
 static void connect_notify(in_addr_t ip, u16_t hport, u16_t cport) {
     set_lms_server_details(ip, hport, cport);
-    if (chained_notify) (*chained_notify)(ip, hport, cport);
+    if(chained_notify) (*chained_notify)(ip, hport, cport);
     network_async_update_status();
 }
 
 void network_status_set_basic_info() {
-    if (sys_status_obj.Lock()) {
+    if(sys_status_obj.Lock()) {
         network_t* nm = network_get_state_machine();
         sys_status->hw.jack_inserted = jack_inserted_svc();
         sys_status->hw.spk_fault = spkfault_svc();
         sys_status->hw.batt_voltage = battery_value_svc();
         sys_status->net.wifi.disconnect_count = nm->num_disconnect;
-        sys_status->net.wifi.avg_conn_time =
-            nm->num_disconnect > 0 ? (nm->total_connected_time / nm->num_disconnect) : 0;
+        sys_status->net.wifi.avg_conn_time = nm->num_disconnect > 0 ? (nm->total_connected_time / nm->num_disconnect) : 0;
 
 #ifdef CONFIG_BT_ENABLED
-        if (platform->has_services && platform->services.has_bt_sink &&
-            platform->services.bt_sink.enabled) {
+        if(platform->has_services && platform->services.has_bt_sink && platform->services.bt_sink.enabled) {
             sys_status->has_bt = true;
             sys_status->bt.bt_status = bt_app_source_get_a2d_state();
             sys_status->bt.bt_media_state = bt_app_source_get_media_state();
         }
 #endif
 
-        if (network_ethernet_enabled()) {
-            sys_status->net.eth_up = network_ethernet_is_up();
-        }
+        if(network_ethernet_enabled()) { sys_status->net.eth_up = network_ethernet_is_up(); }
         ESP_LOGV(TAG, "network_status_get_basic_info done");
         sys_status_obj.Unlock();
     } else {
@@ -128,38 +118,32 @@ void network_status_set_basic_info() {
     }
 }
 void network_status_update_address(esp_netif_ip_info_t* ip_info) {
-    if (sys_status_obj.Lock()) {
+    if(sys_status_obj.Lock()) {
         sys_status->has_net = true;
         sys_status->net.has_ip = true;
-        strncpy(sys_status->net.ip.ip, ip4addr_ntoa((ip4_addr_t*)&ip_info->ip),
-            sizeof(sys_status->net.ip.ip));
-        strncpy(sys_status->net.ip.netmask, ip4addr_ntoa((ip4_addr_t*)&ip_info->netmask),
-            sizeof(sys_status->net.ip.netmask));
-        strncpy(sys_status->net.ip.gw, ip4addr_ntoa((ip4_addr_t*)&ip_info->gw),
-            sizeof(sys_status->net.ip.gw));
+        strncpy(sys_status->net.ip.ip, ip4addr_ntoa((ip4_addr_t*)&ip_info->ip), sizeof(sys_status->net.ip.ip));
+        strncpy(sys_status->net.ip.netmask, ip4addr_ntoa((ip4_addr_t*)&ip_info->netmask), sizeof(sys_status->net.ip.netmask));
+        strncpy(sys_status->net.ip.gw, ip4addr_ntoa((ip4_addr_t*)&ip_info->gw), sizeof(sys_status->net.ip.gw));
         sys_status_obj.Unlock();
     }
 }
 void network_status_update_ip_info(sys_status_reasons update_reason_code) {
     ESP_LOGV(TAG, "network_status_update_ip_info called");
     esp_netif_ip_info_t ip_info;
-    if (sys_status_obj.Lock()) {
+    if(sys_status_obj.Lock()) {
         /* generate the connection info with success */
         network_status_set_basic_info();
         sys_status->net.updt_reason = update_reason_code;
         sys_status->net.wifi.has_connected_sta = false;
         sys_status->net.wifi.connected_sta.connected = false;
 
-        ESP_LOGD(TAG,
-            "Updating ip info with reason code %s. Checking if Wifi interface is connected",
-            sys_status_reasons_name(update_reason_code));
-        if (network_is_interface_connected(network_wifi_get_interface()) ||
-            update_reason_code == sys_status_reasons_R_FAILED_ATTEMPT) {
+        ESP_LOGD(TAG, "Updating ip info with reason code %s. Checking if Wifi interface is connected", sys_status_reasons_name(update_reason_code));
+        if(network_is_interface_connected(network_wifi_get_interface()) || update_reason_code == sys_status_reasons_R_FAILED_ATTEMPT) {
             sys_status->net.interface = sys_status_interfaces_IF_WIFI;
 
             esp_netif_get_ip_info(network_wifi_get_interface(), &ip_info);
             network_status_update_address(&ip_info);
-            if (!network_wifi_is_ap_mode()) {
+            if(!network_wifi_is_ap_mode()) {
                 /* wifi is active, and associated to an AP */
                 wifi_ap_record_t ap;
                 esp_wifi_sta_get_ap_info(&ap);
@@ -170,7 +154,7 @@ void network_status_update_ip_info(sys_status_reasons update_reason_code) {
             }
         }
         ESP_LOGD(TAG, "Checking if ethernet interface is connected");
-        if (network_is_interface_connected(network_ethernet_get_interface())) {
+        if(network_is_interface_connected(network_ethernet_get_interface())) {
             sys_status->net.interface = sys_status_interfaces_IF_ETHERNET;
             esp_netif_get_ip_info(network_ethernet_get_interface(), &ip_info);
             network_status_update_address(&ip_info);
@@ -186,7 +170,7 @@ bool network_status_send_object(httpd_req_t* req) {
         auto data = sys_status_obj.Encode();
         httpd_resp_send(req, (const char*)data.data(), data.size());
         return true;
-    } catch (const std::runtime_error& e) {
+    } catch(const std::runtime_error& e) {
         std::string errdesc = (std::string("Unable to get status: ") + e.what());
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, errdesc.c_str());
     }

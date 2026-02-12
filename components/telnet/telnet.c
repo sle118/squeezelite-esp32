@@ -74,14 +74,14 @@ static size_t process_logs(UBaseType_t bytes, bool make_room);
 static sys_telnet_config* telnet_svc = NULL;
 
 void init_telnet() {
-    if (!sys_services_config_TELNET(telnet_svc) || telnet_svc->enable == sys_telnet_output_SERIAL_ONLY) {
+    if(!sys_services_config_TELNET(telnet_svc) || telnet_svc->enable == sys_telnet_output_SERIAL_ONLY) {
         ESP_LOGI(TAG, "Telnet support disabled");
         return;
     }
     ESP_LOGI(TAG, "Starting Telnet service");
     ESP_LOGD(TAG, "Getting values from configuration");
-    if (telnet_svc->block > 0) send_chunk = telnet_svc->block;
-    if (telnet_svc->block > 0) log_buf_size = telnet_svc->buffer;
+    if(telnet_svc->block > 0) send_chunk = telnet_svc->block;
+    if(telnet_svc->block > 0) log_buf_size = telnet_svc->buffer;
     ESP_LOGD(TAG, "Allocating memory for the ring buffer and storage. send_chunk: %d, log_buf_size: %d", send_chunk, log_buf_size);
 
     // Redirect the output to our telnet handler as soon as possible
@@ -89,13 +89,13 @@ void init_telnet() {
     // All non-split ring buffer must have their memory alignment set to 32 bits.
     uint8_t* buffer_storage = (uint8_t*)heap_caps_malloc(sizeof(uint8_t) * log_buf_size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     buf_handle = xRingbufferCreateStatic(log_buf_size, RINGBUF_TYPE_BYTEBUF, buffer_storage, buffer_struct);
-    if (buf_handle == NULL || buffer_struct == NULL) {
+    if(buf_handle == NULL || buffer_struct == NULL) {
         ESP_LOGE(TAG, "Failed to create ring buffer for telnet!");
         messaging_post_message(MESSAGING_ERROR, MESSAGING_CLASS_SYSTEM, "Failed to allocate memory for telnet buffer");
         return;
     }
 
-    if (telnet_svc->enable == sys_telnet_output_TELNET) {
+    if(telnet_svc->enable == sys_telnet_output_TELNET) {
         ESP_LOGI(TAG, "***Redirecting log output to telnet");
     } else {
         ESP_LOGI(TAG, "Instantiating telnet service");
@@ -107,7 +107,7 @@ void init_telnet() {
     vfs.open = &stdout_open;
     vfs.fstat = &stdout_fstat;
 
-    if (telnet_svc->enable == sys_telnet_output_TELNET_SERIAL) uart_fd = open("/dev/uart/0", O_RDWR);
+    if(telnet_svc->enable == sys_telnet_output_TELNET_SERIAL) uart_fd = open("/dev/uart/0", O_RDWR);
 
     ESP_ERROR_CHECK(esp_vfs_register("/dev/pkspstdout", &vfs, NULL));
     freopen("/dev/pkspstdout", "w", stdout);
@@ -119,7 +119,7 @@ void init_telnet() {
 void start_telnet(void* pvParameter) {
     static bool isStarted = false;
 
-    if (isStarted || !bIsEnabled) return;
+    if(isStarted || !bIsEnabled) return;
 
     isStarted = true;
 
@@ -136,19 +136,19 @@ static void telnet_task(void* data) {
     serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
     serverAddr.sin_port = htons(23);
 
-    while (1) {
+    while(1) {
         serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-        if (bind(serverSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) >= 0 && listen(serverSocket, 1) >= 0) break;
+        if(bind(serverSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) >= 0 && listen(serverSocket, 1) >= 0) break;
         close(serverSocket);
         ESP_LOGI(TAG, "can't bind Telnet socket");
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 
-    while (1) {
+    while(1) {
         socklen_t len = sizeof(serverAddr);
         int sock = accept(serverSocket, (struct sockaddr*)&serverAddr, &len);
 
-        if (sock >= 0) {
+        if(sock >= 0) {
             partnerSocket = sock;
             ESP_LOGI(TAG, "We have a new client connection %d", sock);
             handle_telnet_conn();
@@ -169,7 +169,7 @@ static void telnet_task(void* data) {
 static void handle_telnet_events(telnet_t* thisTelnet, telnet_event_t* event, void* userData) {
     struct telnetUserData* telnetUserData = (struct telnetUserData*)userData;
 
-    switch (event->type) {
+    switch(event->type) {
     case TELNET_EV_SEND:
         send(telnetUserData->sockfd, event->data.buffer, event->data.size, 0);
         break;
@@ -190,16 +190,16 @@ static size_t process_logs(UBaseType_t bytes, bool make_room) {
     vRingbufferGetInfo(buf_handle, NULL, NULL, NULL, NULL, &pending);
 
     // nothing to do or we can do
-    if (!partnerSocket || (make_room && log_buf_size - pending > bytes)) return pending;
+    if(!partnerSocket || (make_room && log_buf_size - pending > bytes)) return pending;
 
     // can't send more than what we have
-    if (bytes > pending) bytes = pending;
+    if(bytes > pending) bytes = pending;
 
-    while (bytes > 0) {
+    while(bytes > 0) {
         size_t size;
         char* item = (char*)xRingbufferReceiveUpTo(buf_handle, &size, pdMS_TO_TICKS(50), bytes);
 
-        if (!item || !partnerSocket) break;
+        if(!item || !partnerSocket) break;
 
         bytes -= size;
         telnet_send_text(tnHandle, item, size);
@@ -225,7 +225,7 @@ static void handle_telnet_conn() {
 
     bool pending = true;
 
-    while (1) {
+    while(1) {
         fd_set rfds, wfds;
         struct timeval timeout = {0, 200 * 1000};
 
@@ -233,18 +233,18 @@ static void handle_telnet_conn() {
         FD_SET(partnerSocket, &rfds);
 
         FD_ZERO(&wfds);
-        if (pending) FD_SET(partnerSocket, &wfds);
+        if(pending) FD_SET(partnerSocket, &wfds);
 
         int res = select(partnerSocket + 1, &rfds, &wfds, NULL, &timeout);
-        if (res < 0) break;
+        if(res < 0) break;
 
-        if (FD_ISSET(partnerSocket, &rfds)) {
+        if(FD_ISSET(partnerSocket, &rfds)) {
             int len = recv(partnerSocket, pTelnetUserData->rxbuf, TELNET_RX_BUF, 0);
-            if (!len) break;
+            if(!len) break;
             telnet_recv(tnHandle, pTelnetUserData->rxbuf, len);
         }
 
-        if (FD_ISSET(partnerSocket, &wfds)) {
+        if(FD_ISSET(partnerSocket, &wfds)) {
             pending = process_logs(send_chunk, false) > 0;
         } else {
             pending = true;
@@ -264,7 +264,7 @@ static void handle_telnet_conn() {
 // ******************* stdout/stderr Redirection to ringbuffer
 static ssize_t stdout_write(int fd, const void* data, size_t size) {
     // flush the buffer and send item
-    if (buf_handle) {
+    if(buf_handle) {
         process_logs(size, true);
         xRingbufferSend(buf_handle, data, size, 0);
     }

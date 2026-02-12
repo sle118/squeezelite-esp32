@@ -91,8 +91,8 @@ TEST_CASE("Test Folder Wildcard Erase File ", "[tools]") {
     TEST_ASSERT_FALSE(get_file_info(&fileInfo, fullnamewc.str().c_str()));
 }
 
-const std::vector<std::string> testRestrictedFiles = {"defaults/config.bin",
-    "fonts/droid_sans_fb_11x13.bin", "targets/bureau-oled/config.bin", "www/favicon-32x32.png"};
+const std::vector<std::string> testRestrictedFiles = {
+    "defaults/config.bin", "fonts/droid_sans_fb_11x13.bin", "targets/bureau-oled/config.bin", "www/favicon-32x32.png"};
 
 TEST_CASE("Test _write_file Function", "[tools]") {
     init_spiffs();
@@ -187,8 +187,7 @@ TEST_CASE("Test _load_file and _get_file_info Functions", "[tools]") {
     TEST_ASSERT_TRUE(erase_path(testFileName, false));
 
     // Test loading a non-existent file
-    uint8_t* nonExistentData =
-        (uint8_t*)load_file_psram(&loadedSize, "/spiffs/non_existent_file.bin");
+    uint8_t* nonExistentData = (uint8_t*)load_file_psram(&loadedSize, "/spiffs/non_existent_file.bin");
     TEST_ASSERT_NULL(nonExistentData);
 
     // Test getting information for a non-existent file
@@ -247,7 +246,7 @@ static const std::vector<std::string> testRestrictedPaths = {
     "/spiffs/www/index.html"        // A restricted path
 };
 TEST_CASE("Test is_restricted_path with restricted paths", "[tools]") {
-    for (const std::string& path : testRestrictedPaths) {
+    for(const std::string& path : testRestrictedPaths) {
         bool result = is_restricted_path(path.c_str());
         TEST_ASSERT_TRUE(result);
     }
@@ -260,7 +259,7 @@ TEST_CASE("Test is_restricted_path with non-restricted paths", "[tools]") {
         "/spiffs/allowed/otherfile.txt" // Not a restricted path
     };
 
-    for (const std::string& path : nonRestrictedPaths) {
+    for(const std::string& path : nonRestrictedPaths) {
         bool result = is_restricted_path(path.c_str());
         TEST_ASSERT_FALSE(result);
     }
@@ -274,18 +273,16 @@ static const std::vector<std::string> testWildcardPaths = {
     "/spiffs/fonts/*"               // A path with wildcard
 };
 TEST_CASE("Test is_restricted_path with wildcards (positive)", "[tools]") {
-    for (const std::string& path : testWildcardPaths) {
+    for(const std::string& path : testWildcardPaths) {
         bool result = is_restricted_path(path.c_str());
-        if (!result) {
-            ESP_LOGE(TAG, "Unexpected result. File should be restricted: %s", path.c_str());
-        }
+        if(!result) { ESP_LOGE(TAG, "Unexpected result. File should be restricted: %s", path.c_str()); }
         TEST_ASSERT_TRUE(result);
     }
 }
 
 TEST_CASE("Test Erase Restricted Path", "[erase_path]") {
 
-    for (const std::string& path : testRestrictedFiles) {
+    for(const std::string& path : testRestrictedFiles) {
         std::ostringstream fullfilename;
         fullfilename << "/spiffs/" << path;
 
@@ -308,7 +305,7 @@ TEST_CASE("Test Erase Restricted Files with Wildcards", "[erase_path]") {
     // Get a list of restricted files based on restrictedPaths
     std::list<tools_file_entry_t> restrictedFiles = get_files_list(std::string("/"));
 
-    for (const tools_file_entry_t& restrictedFile : restrictedFiles) {
+    for(const tools_file_entry_t& restrictedFile : restrictedFiles) {
         std::string fullfilename = "/" + restrictedFile.name;
 
         // Check if the file exists before erasing
@@ -360,8 +357,8 @@ TEST_CASE("Create, Check, and Delete File in SPIFFS", "[spiffs]") {
     // Check if the new file is in the list and is unrestricted
     bool fileFound = false;
     bool fileUnrestricted = false;
-    for (const auto& fileEntry : fileList) {
-        if (fileEntry.name == testFileName) {
+    for(const auto& fileEntry : fileList) {
+        if(fileEntry.name == testFileName) {
             fileFound = true;
             fileUnrestricted = !fileEntry.restricted;
             break;
@@ -376,8 +373,8 @@ TEST_CASE("Create, Check, and Delete File in SPIFFS", "[spiffs]") {
     fileFound = false;
     // Verify that the file no longer exists
     fileList = get_files_list("/spiffs");
-    for (const auto& fileEntry : fileList) {
-        if (std::string(testFileName) == fileEntry.name) {
+    for(const auto& fileEntry : fileList) {
+        if(std::string(testFileName) == fileEntry.name) {
             fileFound = true;
             break;
         }

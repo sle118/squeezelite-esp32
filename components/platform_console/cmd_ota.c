@@ -27,27 +27,24 @@
 #include "platform_console.h"
 #include "messaging.h"
 
-static const char * TAG = "ota";
-extern esp_err_t start_ota(const char * bin_url);
+static const char* TAG = "ota";
+extern esp_err_t start_ota(const char* bin_url);
 static struct {
-    struct arg_str *url;
-    struct arg_end *end;
+    struct arg_str* url;
+    struct arg_end* end;
 } ota_args;
 /* 'heap' command prints minumum heap size */
-static int perform_ota_update(int argc, char **argv)
-{
-	int nerrors = arg_parse_msg(argc, argv,(struct arg_hdr **)&ota_args);
-    if (nerrors != 0) {
-        return 1;
-    }
+static int perform_ota_update(int argc, char** argv) {
+    int nerrors = arg_parse_msg(argc, argv, (struct arg_hdr**)&ota_args);
+    if(nerrors != 0) { return 1; }
 
-    const char *url = ota_args.url->sval[0];
+    const char* url = ota_args.url->sval[0];
 
-    esp_err_t err=ESP_OK;
+    esp_err_t err = ESP_OK;
     ESP_LOGI(TAG, "Starting ota: %s", url);
     start_ota(url);
 
-    if (err != ESP_OK) {
+    if(err != ESP_OK) {
         ESP_LOGE(TAG, "%s", esp_err_to_name(err));
         return 1;
     }
@@ -55,20 +52,10 @@ static int perform_ota_update(int argc, char **argv)
     return 0;
 }
 
- void register_ota_cmd()
-{
-	 ota_args.url= arg_str1(NULL, NULL, "<url>", "url of the binary app file");
-	 ota_args.end = arg_end(2);
+void register_ota_cmd() {
+    ota_args.url = arg_str1(NULL, NULL, "<url>", "url of the binary app file");
+    ota_args.end = arg_end(2);
 
-    const esp_console_cmd_t cmd = {
-        .command = "update",
-        .help = "Update from URL",
-        .hint = NULL,
-        .func = &perform_ota_update,
-        .argtable = &ota_args
-    };
-    ESP_ERROR_CHECK( esp_console_cmd_register(&cmd) );
+    const esp_console_cmd_t cmd = {.command = "update", .help = "Update from URL", .hint = NULL, .func = &perform_ota_update, .argtable = &ota_args};
+    ESP_ERROR_CHECK(esp_console_cmd_register(&cmd));
 }
-
-
-

@@ -5,8 +5,7 @@
 #define _ESP_EQUALIZER_H
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /**
@@ -19,14 +18,14 @@ extern "C"
 *
 * @return     The equalizer handle.
 */
-void *esp_equalizer_init(int nch, int g_rate, int n_band, int use_xmms_original_freqs);
+void* esp_equalizer_init(int nch, int g_rate, int n_band, int use_xmms_original_freqs);
 
 /**
 * @brief     Uninitialize the equalizer handle.
 *
 * @param      handle   The the equalizer handle
 */
-void esp_equalizer_uninit(void *handle);
+void esp_equalizer_uninit(void* handle);
 
 /**
 * @brief      Process the data through the equalizer
@@ -39,7 +38,7 @@ void esp_equalizer_uninit(void *handle);
 *
 * @return     Length of pcm_buf after processing
 */
-int esp_equalizer_process(void *handle, unsigned char *pcm_buf, int length, int g_rate, int nch);
+int esp_equalizer_process(void* handle, unsigned char* pcm_buf, int length, int g_rate, int nch);
 
 /**
 * @brief      Set the number of sub-bands for the equalizer
@@ -49,7 +48,7 @@ int esp_equalizer_process(void *handle, unsigned char *pcm_buf, int length, int 
 * @param      index   The index of audio sub-bands. e.g. 0, 1, 2, 3, 4, 5, 6, 7, 8, 9.
 * @param      nch     The audio channel number
 */
-void esp_equalizer_set_band_value(void *handle, float value, int index, int nch);
+void esp_equalizer_set_band_value(void* handle, float value, int index, int nch);
 
 /**
 * @brief      Get the number of the equalizer sub-bands
@@ -58,7 +57,7 @@ void esp_equalizer_set_band_value(void *handle, float value, int index, int nch)
 *
 * @return     The number of the equalizer sub-bands
 */
-int esp_equalizer_get_band_count(void *handle);
+int esp_equalizer_get_band_count(void* handle);
 
 /**
 * @brief      Get the value of the equalizer sub-bands
@@ -69,7 +68,7 @@ int esp_equalizer_get_band_count(void *handle);
 *
 * @return     The number of the equalizer sub-bands
 */
-float esp_equalizer_get_band_value(void *handle, int index, int nch);
+float esp_equalizer_get_band_value(void* handle, int index, int nch);
 
 #ifdef __cplusplus
 }

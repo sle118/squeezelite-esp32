@@ -4,7 +4,7 @@
 
 std::string trim(const std::string& str) {
     const size_t first = str.find_first_not_of(' ');
-    if (first == std::string::npos) {
+    if(first == std::string::npos) {
         // String contains only spaces or is empty
         return "";
     }
@@ -13,10 +13,8 @@ std::string trim(const std::string& str) {
 }
 
 std::string& toLowerStr(std::string& str) {
-    for (auto& c : str) {
-        if (c >= 'A' && c <= 'Z') {
-            c = c - 'A' + 'a';
-        }
+    for(auto& c : str) {
+        if(c >= 'A' && c <= 'Z') { c = c - 'A' + 'a'; }
     }
     return str;
 }

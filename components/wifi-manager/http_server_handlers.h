@@ -119,12 +119,12 @@ bool http_server_lock_json_object(TickType_t xTicksToWait);
 /* @brief unlock the json config object */
 void http_server_unlock_json_object();
 httpd_handle_t http_get_server(int* port);
-#define PROTECTED_JSON_CALL(a)                                                                     \
-    if (http_server_lock_json_object(portMAX_DELAY)) {                                             \
-        \ a;                                                                                       \
-        http_server_unlocklock_json_object();                                                      \
-    } else {                                                                                       \
-        ESP_LOGE(TAG, "could not get access to json mutex in wifi_scan");                          \
+#define PROTECTED_JSON_CALL(a)                                                                                                                       \
+    if(http_server_lock_json_object(portMAX_DELAY)) {                                                                                                \
+        \ a;                                                                                                                                         \
+        http_server_unlocklock_json_object();                                                                                                        \
+    } else {                                                                                                                                         \
+        ESP_LOGE(TAG, "could not get access to json mutex in wifi_scan");                                                                            \
     }
 
 #ifdef __cplusplus

@@ -14,15 +14,11 @@ Locking* Locking::Create(std::string name) { return new Locking(name); }
 
 void Locking::Destroy(Locking* lock) { delete lock; }
 
-LockingHandle* Locking_Create(const char* name) {
-    return reinterpret_cast<LockingHandle*>(Locking::Create(std::string(name)));
-}
+LockingHandle* Locking_Create(const char* name) { return reinterpret_cast<LockingHandle*>(Locking::Create(std::string(name))); }
 
 void Locking_Destroy(LockingHandle* lock) { Locking::Destroy(reinterpret_cast<Locking*>(lock)); }
 
-bool Locking_Lock(LockingHandle* lock, TickType_t maxWait_ms) {
-    return reinterpret_cast<Locking*>(lock)->Lock(maxWait_ms);
-}
+bool Locking_Lock(LockingHandle* lock, TickType_t maxWait_ms) { return reinterpret_cast<Locking*>(lock)->Lock(maxWait_ms); }
 
 void Locking_Unlock(LockingHandle* lock) { reinterpret_cast<Locking*>(lock)->Unlock(); }
 
@@ -31,7 +27,7 @@ bool Locking_IsLocked(LockingHandle* lock) { return reinterpret_cast<Locking*>(l
 bool Locking::Lock(TickType_t maxWait_ms) {
     assert(_mutex != nullptr);
     ESP_LOGV(TAG, "Locking %s", _name.c_str());
-    if (xSemaphoreTakeRecursive(_mutex, pdMS_TO_TICKS(maxWait_ms)) == pdTRUE) {
+    if(xSemaphoreTakeRecursive(_mutex, pdMS_TO_TICKS(maxWait_ms)) == pdTRUE) {
         ESP_LOGV(TAG, "locked %s", _name.c_str());
         return true;
     } else {

@@ -12,9 +12,7 @@ extern "C" {
 #define DMAP_VERSION_MINOR 2
 #define DMAP_VERSION_PATCH 1
 
-#define DMAP_VERSION (DMAP_VERSION_MAJOR * 1000000 + \
-                      DMAP_VERSION_MINOR * 1000 + \
-                      DMAP_VERSION_PATCH)
+#define DMAP_VERSION (DMAP_VERSION_MAJOR * 1000000 + DMAP_VERSION_MINOR * 1000 + DMAP_VERSION_PATCH)
 
 /*
  * Callbacks invoked during parsing.
@@ -25,29 +23,29 @@ extern "C" {
  *             no known name this parameter contains the same value as the code
  *             parameter.
  */
-typedef void (*dmap_dict_cb)   (void *ctx, const char *code, const char *name);
-typedef void (*dmap_int32_cb)  (void *ctx, const char *code, const char *name, int32_t value);
-typedef void (*dmap_int64_cb)  (void *ctx, const char *code, const char *name, int64_t value);
-typedef void (*dmap_uint32_cb) (void *ctx, const char *code, const char *name, uint32_t value);
-typedef void (*dmap_uint64_cb) (void *ctx, const char *code, const char *name, uint64_t value);
-typedef void (*dmap_data_cb)   (void *ctx, const char *code, const char *name, const char *buf, size_t len);
+typedef void (*dmap_dict_cb)(void* ctx, const char* code, const char* name);
+typedef void (*dmap_int32_cb)(void* ctx, const char* code, const char* name, int32_t value);
+typedef void (*dmap_int64_cb)(void* ctx, const char* code, const char* name, int64_t value);
+typedef void (*dmap_uint32_cb)(void* ctx, const char* code, const char* name, uint32_t value);
+typedef void (*dmap_uint64_cb)(void* ctx, const char* code, const char* name, uint64_t value);
+typedef void (*dmap_data_cb)(void* ctx, const char* code, const char* name, const char* buf, size_t len);
 
 typedef struct {
-	/* Callbacks to indicate the start and end of dictionary fields. */
-	dmap_dict_cb   on_dict_start;
-	dmap_dict_cb   on_dict_end;
+    /* Callbacks to indicate the start and end of dictionary fields. */
+    dmap_dict_cb on_dict_start;
+    dmap_dict_cb on_dict_end;
 
-	/* Callbacks for field data. */
-	dmap_int32_cb  on_int32;
-	dmap_int64_cb  on_int64;
-	dmap_uint32_cb on_uint32;
-	dmap_uint64_cb on_uint64;
-	dmap_uint32_cb on_date;
-	dmap_data_cb   on_string;
-	dmap_data_cb   on_data;
+    /* Callbacks for field data. */
+    dmap_int32_cb on_int32;
+    dmap_int64_cb on_int64;
+    dmap_uint32_cb on_uint32;
+    dmap_uint64_cb on_uint64;
+    dmap_uint32_cb on_date;
+    dmap_data_cb on_string;
+    dmap_data_cb on_data;
 
-	/** A context pointer passed to each callback function. */
-	void *ctx;
+    /** A context pointer passed to each callback function. */
+    void* ctx;
 } dmap_settings;
 
 /**
@@ -61,7 +59,7 @@ int dmap_version(void);
 /**
  * Returns the library version as a string.
  */
-const char *dmap_version_string(void);
+const char* dmap_version_string(void);
 
 /**
  * Returns the name associated with the provided content code, or NULL if there
@@ -69,7 +67,7 @@ const char *dmap_version_string(void);
  *
  * For example, if given the code "minm" this function returns "dmap.itemname".
  */
-const char *dmap_name_from_code(const char *code);
+const char* dmap_name_from_code(const char* code);
 
 /**
  * Parses a DMAP message buffer using the provided settings.
@@ -82,7 +80,7 @@ const char *dmap_name_from_code(const char *code);
  *
  * @return 0 if parsing was successful, or -1 if an error occurred.
  */
-int dmap_parse(const dmap_settings *settings, const char *buf, size_t len);
+int dmap_parse(const dmap_settings* settings, const char* buf, size_t len);
 
 #ifdef __cplusplus
 }

@@ -38,9 +38,7 @@
 class WifiList : public System::Locking {
   public:
     WifiList(std::string name) : System::Locking(name), name_(name) {}
-    ~WifiList(){
-        Clear();
-    }
+    ~WifiList() { Clear(); }
     static std::string toString(const uint8_t* data, size_t max_length) {
         // Find the actual length of the string up to max_length
         size_t length = strnlen(reinterpret_cast<const char*>(data), max_length);
@@ -48,25 +46,17 @@ class WifiList : public System::Locking {
         auto p = std::string(reinterpret_cast<const char*>(data), length);
         return p;
     }
-    static void Release(sys_net_wifi_entry& entry){
-        Release(&entry);
-    }
-    static void Release(sys_net_wifi_entry* entry){
-        pb_release(&sys_net_wifi_entry_msg,entry);
-    }
+    static void Release(sys_net_wifi_entry& entry) { Release(&entry); }
+    static void Release(sys_net_wifi_entry* entry) { pb_release(&sys_net_wifi_entry_msg, entry); }
     static std::list<sys_net_radio_types> GetRadioTypes(const wifi_ap_record_t* sta);
     static wifi_auth_mode_t GetESPAuthMode(sys_net_auth_types auth_type);
     static sys_net_auth_types GetAuthType(const wifi_ap_record_t* ap);
     static sys_net_auth_types GetAuthType(const wifi_auth_mode_t mode);
     static bool areRadioTypesDifferent(const sys_net_radio_types* types1, pb_size_t count1, const sys_net_radio_types* types2, pb_size_t count2) {
-        if (count1 != count2) {
-            return true;
-        }
+        if(count1 != count2) { return true; }
 
-        for (pb_size_t i = 0; i < count1; ++i) {
-            if (types1[i] != types2[i]) {
-                return true;
-            }
+        for(pb_size_t i = 0; i < count1; ++i) {
+            if(types1[i] != types2[i]) { return true; }
         }
 
         return false;
@@ -80,12 +70,12 @@ class WifiList : public System::Locking {
     static std::string GetSSID(const wifi_sta_config_t* config) { return toString(config->ssid, sizeof(config->ssid)); }
     static std::string GetSSID(const wifi_ap_record_t* ap) { return toString(ap->ssid, sizeof(ap->ssid)); }
     static void FormatBSSID(char* buffer, size_t len, const uint8_t* bssid) {
-        memset(buffer,0x00,len);
+        memset(buffer, 0x00, len);
         snprintf(buffer, len, "%02X:%02X:%02X:%02X:%02X:%02X", bssid[0], bssid[1], bssid[2], bssid[3], bssid[4], bssid[5]);
     }
     static void FormatBSSID(const wifi_ap_record_t* ap, sys_net_wifi_entry& entry) {
-        memset(entry.bssid,0x00,sizeof(entry.bssid));
-        if (!ap) return;
+        memset(entry.bssid, 0x00, sizeof(entry.bssid));
+        if(!ap) return;
         FormatBSSID(entry.bssid, sizeof(entry.bssid), ap->bssid);
     }
     static std::string GetBSSID(const wifi_event_sta_connected_t* evt);
@@ -111,7 +101,7 @@ class WifiList : public System::Locking {
     static void PrintWifiSTAEntry(const sys_net_wifi_entry& entry);
     static std::string formatRadioTypes(const sys_net_radio_types* radioTypes, pb_size_t count);
 
-    static bool OffsetTimeStamp(google_protobuf_Timestamp * ts);
+    static bool OffsetTimeStamp(google_protobuf_Timestamp* ts);
     static bool UpdateTimeStamp(google_protobuf_Timestamp* ts, bool& has_flag_val);
 
     bool ResetRSSI();
@@ -153,9 +143,7 @@ class WifiList : public System::Locking {
     sys_net_wifi_entry& AddUpdate(const sys_net_wifi_entry* existing, const char* password = "");
     // this one below is used by pb_decode
     void AddUpdate(const sys_net_wifi_entry& entry) {
-        if (!Lock()) {
-            throw std::runtime_error("Lock failed");
-        }
+        if(!Lock()) { throw std::runtime_error("Lock failed"); }
         credentials_[entry.ssid] = entry;
         Unlock();
     }

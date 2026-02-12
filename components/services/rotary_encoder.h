@@ -55,9 +55,8 @@ typedef int32_t rotary_encoder_position_t;
 /**
  * @brief Enum representing the direction of rotation.
  */
-typedef enum
-{
-    ROTARY_ENCODER_DIRECTION_NOT_SET = 0,        ///< Direction not yet known (stationary since reset)
+typedef enum {
+    ROTARY_ENCODER_DIRECTION_NOT_SET = 0, ///< Direction not yet known (stationary since reset)
     ROTARY_ENCODER_DIRECTION_CLOCKWISE,
     ROTARY_ENCODER_DIRECTION_COUNTER_CLOCKWISE,
 } rotary_encoder_direction_t;
@@ -71,32 +70,30 @@ typedef uint8_t table_row_t[TABLE_COLS];
 /**
  * @brief Struct represents the current state of the device in terms of incremental position and direction of last movement
  */
-typedef struct
-{
-    rotary_encoder_position_t position;    ///< Numerical position since reset. This value increments on clockwise rotation, and decrements on counter-clockewise rotation. Counts full or half steps depending on mode. Set to zero on reset.
-    rotary_encoder_direction_t direction;  ///< Direction of last movement. Set to NOT_SET on reset.
+typedef struct {
+    rotary_encoder_position_t
+        position; ///< Numerical position since reset. This value increments on clockwise rotation, and decrements on counter-clockewise rotation. Counts full or half steps depending on mode. Set to zero on reset.
+    rotary_encoder_direction_t direction; ///< Direction of last movement. Set to NOT_SET on reset.
 } rotary_encoder_state_t;
 
 /**
  * @brief Struct carries all the information needed by this driver to manage the rotary encoder device.
  *        The fields of this structure should not be accessed directly.
  */
-typedef struct
-{
-    gpio_num_t pin_a;                       ///< GPIO for Signal A from the rotary encoder device
-    gpio_num_t pin_b;                       ///< GPIO for Signal B from the rotary encoder device
-    QueueHandle_t queue;                    ///< Handle for event queue, created by ::rotary_encoder_create_queue
-    const table_row_t * table;              ///< Pointer to active state transition table
-    uint8_t table_state;                    ///< Internal state
-    volatile rotary_encoder_state_t state;  ///< Device state
+typedef struct {
+    gpio_num_t pin_a;                      ///< GPIO for Signal A from the rotary encoder device
+    gpio_num_t pin_b;                      ///< GPIO for Signal B from the rotary encoder device
+    QueueHandle_t queue;                   ///< Handle for event queue, created by ::rotary_encoder_create_queue
+    const table_row_t* table;              ///< Pointer to active state transition table
+    uint8_t table_state;                   ///< Internal state
+    volatile rotary_encoder_state_t state; ///< Device state
 } rotary_encoder_info_t;
 
 /**
  * @brief Struct represents a queued event, used to communicate current position to a waiting task
  */
-typedef struct
-{
-    rotary_encoder_state_t state;  ///< The device state corresponding to this event
+typedef struct {
+    rotary_encoder_state_t state; ///< The device state corresponding to this event
 } rotary_encoder_event_t;
 
 /**
@@ -108,7 +105,7 @@ typedef struct
  * @param[in] pin_b GPIO number for rotary encoder output B.
  * @return ESP_OK if successful, ESP_FAIL or ESP_ERR_* if an error occurred.
  */
-esp_err_t rotary_encoder_init(rotary_encoder_info_t * info, gpio_num_t pin_a, gpio_num_t pin_b);
+esp_err_t rotary_encoder_init(rotary_encoder_info_t* info, gpio_num_t pin_a, gpio_num_t pin_b);
 
 /**
  * @brief Enable half-stepping mode. This generates twice as many counted steps per rotation.
@@ -116,7 +113,7 @@ esp_err_t rotary_encoder_init(rotary_encoder_info_t * info, gpio_num_t pin_a, gp
  * @param[in] enable If true, count half steps. If false, only count full steps.
  * @return ESP_OK if successful, ESP_FAIL or ESP_ERR_* if an error occurred.
  */
-esp_err_t rotary_encoder_enable_half_steps(rotary_encoder_info_t * info, bool enable);
+esp_err_t rotary_encoder_enable_half_steps(rotary_encoder_info_t* info, bool enable);
 
 /**
  * @brief Reverse (flip) the sense of the direction.
@@ -124,7 +121,7 @@ esp_err_t rotary_encoder_enable_half_steps(rotary_encoder_info_t * info, bool en
  * @param[in] info Pointer to initialised rotary encoder info structure.
  * @return ESP_OK if successful, ESP_FAIL or ESP_ERR_* if an error occurred.
  */
-esp_err_t rotary_encoder_flip_direction(rotary_encoder_info_t * info);
+esp_err_t rotary_encoder_flip_direction(rotary_encoder_info_t* info);
 
 /**
  * @brief Remove the interrupt handlers installed by ::rotary_encoder_init.
@@ -132,7 +129,7 @@ esp_err_t rotary_encoder_flip_direction(rotary_encoder_info_t * info);
  * @param[in] info Pointer to initialised rotary encoder info structure.
  * @return ESP_OK if successful, ESP_FAIL or ESP_ERR_* if an error occurred.
  */
-esp_err_t rotary_encoder_uninit(rotary_encoder_info_t * info);
+esp_err_t rotary_encoder_uninit(rotary_encoder_info_t* info);
 
 /**
  * @brief Create a queue handle suitable for use as an event queue.
@@ -147,7 +144,7 @@ QueueHandle_t rotary_encoder_create_queue(void);
  * @param[in] queue Handle to queue suitable for use as an event queue. See ::rotary_encoder_create_queue.
  * @return ESP_OK if successful, ESP_FAIL or ESP_ERR_* if an error occurred.
  */
-esp_err_t rotary_encoder_set_queue(rotary_encoder_info_t * info, QueueHandle_t queue);
+esp_err_t rotary_encoder_set_queue(rotary_encoder_info_t* info, QueueHandle_t queue);
 
 /**
  * @brief Get the current position of the rotary encoder.
@@ -155,18 +152,17 @@ esp_err_t rotary_encoder_set_queue(rotary_encoder_info_t * info, QueueHandle_t q
  * @param[in, out] state Pointer to an allocated rotary_encoder_state_t struct that will
  * @return ESP_OK if successful, ESP_FAIL or ESP_ERR_* if an error occurred.
  */
-esp_err_t rotary_encoder_get_state(const rotary_encoder_info_t * info, rotary_encoder_state_t * state);
+esp_err_t rotary_encoder_get_state(const rotary_encoder_info_t* info, rotary_encoder_state_t* state);
 
 /**
  * @brief Reset the current position of the rotary encoder to zero.
  * @param[in] info Pointer to initialised rotary encoder info structure.
  * @return ESP_OK if successful, ESP_FAIL or ESP_ERR_* if an error occurred.
  */
-esp_err_t rotary_encoder_reset(rotary_encoder_info_t * info);
-
+esp_err_t rotary_encoder_reset(rotary_encoder_info_t* info);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif  // ROTARY_ENCODER_H
+#endif // ROTARY_ENCODER_H

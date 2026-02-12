@@ -28,14 +28,10 @@ extern "C" {
 #endif
 #ifdef CONFIG_HEAP_TRACING
 #define TRACE_INIT                                                                                                                                   \
-    if (!is_recovery_running) {                                                                                                                      \
-        ESP_ERROR_CHECK(heap_trace_init_tohost());                                                                                                   \
-    }
+    if(!is_recovery_running) { ESP_ERROR_CHECK(heap_trace_init_tohost()); }
 #define TRACE_START                                                                                                                                  \
-    if (!is_recovery_running) {                                                                                                                      \
-        ESP_ERROR_CHECK(heap_trace_start(HEAP_TRACE_ALL));                                                                                           \
-    }                                                                                                                                                \
-    #define TRACE_STOP if (!is_recovery_running) { ESP_ERROR_CHECK(heap_trace_stop()); }
+    if(!is_recovery_running) { ESP_ERROR_CHECK(heap_trace_start(HEAP_TRACE_ALL)); }                                                                  \
+    #define TRACE_STOP if(!is_recovery_running) { ESP_ERROR_CHECK(heap_trace_stop()); }
 #else
 #define TRACE_START
 #define TRACE_STOP

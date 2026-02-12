@@ -11,21 +11,34 @@
 #include <stdint.h>
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 // STOP means remove playlist, FLUSH means flush audio buffer, DISC means bye-bye
-typedef enum { 	CSPOT_START, CSPOT_DISC, CSPOT_FLUSH, CSPOT_STOP, CSPOT_PLAY, CSPOT_PAUSE, CSPOT_SEEK, 
-                CSPOT_NEXT, CSPOT_PREV, CSPOT_TOGGLE, 
-                CSPOT_TRACK_INFO, CSPOT_TRACK_MARK,
-				CSPOT_VOLUME, CSPOT_VOLUME_UP, CSPOT_VOLUME_DOWN, 
-                CSPOT_BUSY, CSPOT_QUERY_STARTED, CSPOT_QUERY_REMAINING, 
+typedef enum {
+    CSPOT_START,
+    CSPOT_DISC,
+    CSPOT_FLUSH,
+    CSPOT_STOP,
+    CSPOT_PLAY,
+    CSPOT_PAUSE,
+    CSPOT_SEEK,
+    CSPOT_NEXT,
+    CSPOT_PREV,
+    CSPOT_TOGGLE,
+    CSPOT_TRACK_INFO,
+    CSPOT_TRACK_MARK,
+    CSPOT_VOLUME,
+    CSPOT_VOLUME_UP,
+    CSPOT_VOLUME_DOWN,
+    CSPOT_BUSY,
+    CSPOT_QUERY_STARTED,
+    CSPOT_QUERY_REMAINING,
 } cspot_event_t;
-				
-typedef bool (*cspot_cmd_cb_t)(cspot_event_t event, ...);				
+
+typedef bool (*cspot_cmd_cb_t)(cspot_event_t event, ...);
 typedef bool (*cspot_cmd_vcb_t)(cspot_event_t event, va_list args);
-typedef uint32_t (*cspot_data_cb_t)(const uint8_t *data, size_t len);
+typedef uint32_t (*cspot_data_cb_t)(const uint8_t* data, size_t len);
 
 /**
  * @brief     init sink mode (need to be provided)

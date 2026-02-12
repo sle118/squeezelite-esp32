@@ -8,15 +8,15 @@
  *  https://opensource.org/licenses/MIT
  *
  */
- 
-#pragma once 
- 
-#include "stddef.h" 
-#include "stdbool.h" 
+
+#pragma once
+
+#include "stddef.h"
+#include "stdbool.h"
 
 struct target_s {
-	char *model;
-	bool (*init)(void);
+    char* model;
+    bool (*init)(void);
 };
 
 extern const struct target_s target_muse;

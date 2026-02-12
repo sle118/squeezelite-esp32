@@ -91,11 +91,11 @@ static uint32_t decode(uint32_t* state, uint32_t* codep, uint32_t byte) {
  * @return The corresponding CP1252 character or 0x00 if there is no direct mapping.
  */
 static uint8_t UNICODEtoCP1252(uint16_t chr) {
-    if (chr <= 0xff)
+    if(chr <= 0xff)
         return (chr & 0xff);
     else {
         ESP_LOGI(TAG, "some multi-byte %hx", chr);
-        switch (chr) {
+        switch(chr) {
         case 0x20ac:
             return 0x80;
             break;
@@ -188,8 +188,8 @@ void utf8_decode(char* src) {
     uint32_t codep = 0, state = UTF8_ACCEPT;
     char* dst = src;
 
-    while (src && *src) {
-        if (!decode(&state, &codep, *src++)) *dst++ = UNICODEtoCP1252(codep);
+    while(src && *src) {
+        if(!decode(&state, &codep, *src++)) *dst++ = UNICODEtoCP1252(codep);
     }
 
     *dst = '\0';
@@ -202,7 +202,7 @@ void utf8_decode(char* src) {
 void* malloc_init_external(size_t sz) {
     void* ptr = NULL;
     ptr = heap_caps_malloc(sz, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    if (ptr == NULL) {
+    if(ptr == NULL) {
         ESP_LOGE(TAG, "malloc_init_external:  unable to allocate %d bytes of PSRAM!", sz);
     } else {
         memset(ptr, 0x00, sz);
@@ -213,7 +213,7 @@ void* malloc_init_external(size_t sz) {
 void* clone_obj_psram(void* source, size_t source_sz) {
     void* ptr = NULL;
     ptr = heap_caps_malloc(source_sz, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    if (ptr == NULL) {
+    if(ptr == NULL) {
         ESP_LOGE(TAG, "clone_obj_psram:  unable to allocate %d bytes of PSRAM!", source_sz);
     } else {
         memcpy(ptr, source, source_sz);
@@ -225,7 +225,7 @@ char* strdup_psram(const char* source) {
     void* ptr = NULL;
     size_t source_sz = strlen(source) + 1;
     ptr = heap_caps_malloc(source_sz, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    if (ptr == NULL) {
+    if(ptr == NULL) {
         ESP_LOGE(TAG, "strdup_psram:  unable to allocate %d bytes of PSRAM! Cannot clone string %s", source_sz, source);
     } else {
         memset(ptr, 0x00, source_sz);
@@ -277,7 +277,7 @@ BaseType_t xTaskCreateEXTRAM(TaskFunction_t pvTaskCode, const char* const pcName
     TaskHandle_t handle = xTaskCreateStatic(pvTaskCode, pcName, usStackDepth, pvParameters, uxPriority, context->xStack, context->xTaskBuffer);
 
     // store context in TCB or free everything in case of failure
-    if (!handle) {
+    if(!handle) {
         free(context->xTaskBuffer);
         free(context->xStack);
         free(context);
@@ -285,7 +285,7 @@ BaseType_t xTaskCreateEXTRAM(TaskFunction_t pvTaskCode, const char* const pcName
         vTaskSetThreadLocalStoragePointerAndDelCallback(handle, TASK_TLS_INDEX, context, (TlsDeleteCallbackFunction_t)task_cleanup);
     }
 
-    if (pxCreatedTask) *pxCreatedTask = handle;
+    if(pxCreatedTask) *pxCreatedTask = handle;
     return handle != NULL ? pdPASS : pdFAIL;
 }
 
@@ -298,35 +298,33 @@ void vTaskDeleteEXTRAM(TaskHandle_t xTask) {
 }
 
 void dump_json_content(const char* prefix, cJSON* json, int level) {
-    if (!json) {
+    if(!json) {
         ESP_LOG_LEVEL(level, TAG, "%s: empty!", prefix);
         return;
     }
     char* output = cJSON_Print(json);
-    if (output) {
-        ESP_LOG_LEVEL(level, TAG, "%s: \n%s", prefix, output);
-    }
+    if(output) { ESP_LOG_LEVEL(level, TAG, "%s: \n%s", prefix, output); }
     FREE_AND_NULL(output);
 }
 
 const char* get_mem_flag_desc(int flags) {
     static char flagString[101];
     memset(flagString, 0x00, sizeof(flagString));
-    if (flags & MALLOC_CAP_EXEC) strcat(flagString, "EXEC ");
-    if (flags & MALLOC_CAP_32BIT) strcat(flagString, "32BIT ");
-    if (flags & MALLOC_CAP_8BIT) strcat(flagString, "8BIT ");
-    if (flags & MALLOC_CAP_DMA) strcat(flagString, "DMA ");
-    if (flags & MALLOC_CAP_PID2) strcat(flagString, "PID2 ");
-    if (flags & MALLOC_CAP_PID3) strcat(flagString, "PID3 ");
-    if (flags & MALLOC_CAP_PID4) strcat(flagString, "PID4 ");
-    if (flags & MALLOC_CAP_PID5) strcat(flagString, "PID5 ");
-    if (flags & MALLOC_CAP_PID6) strcat(flagString, "PID6 ");
-    if (flags & MALLOC_CAP_PID7) strcat(flagString, "PID7 ");
-    if (flags & MALLOC_CAP_SPIRAM) strcat(flagString, "SPIRAM ");
-    if (flags & MALLOC_CAP_INTERNAL) strcat(flagString, "INTERNAL ");
-    if (flags & MALLOC_CAP_DEFAULT) strcat(flagString, "DEFAULT ");
-    if (flags & MALLOC_CAP_IRAM_8BIT) strcat(flagString, "IRAM_8BIT ");
-    if (flags & MALLOC_CAP_RETENTION) strcat(flagString, "RETENTION ");
+    if(flags & MALLOC_CAP_EXEC) strcat(flagString, "EXEC ");
+    if(flags & MALLOC_CAP_32BIT) strcat(flagString, "32BIT ");
+    if(flags & MALLOC_CAP_8BIT) strcat(flagString, "8BIT ");
+    if(flags & MALLOC_CAP_DMA) strcat(flagString, "DMA ");
+    if(flags & MALLOC_CAP_PID2) strcat(flagString, "PID2 ");
+    if(flags & MALLOC_CAP_PID3) strcat(flagString, "PID3 ");
+    if(flags & MALLOC_CAP_PID4) strcat(flagString, "PID4 ");
+    if(flags & MALLOC_CAP_PID5) strcat(flagString, "PID5 ");
+    if(flags & MALLOC_CAP_PID6) strcat(flagString, "PID6 ");
+    if(flags & MALLOC_CAP_PID7) strcat(flagString, "PID7 ");
+    if(flags & MALLOC_CAP_SPIRAM) strcat(flagString, "SPIRAM ");
+    if(flags & MALLOC_CAP_INTERNAL) strcat(flagString, "INTERNAL ");
+    if(flags & MALLOC_CAP_DEFAULT) strcat(flagString, "DEFAULT ");
+    if(flags & MALLOC_CAP_IRAM_8BIT) strcat(flagString, "IRAM_8BIT ");
+    if(flags & MALLOC_CAP_RETENTION) strcat(flagString, "RETENTION ");
 
     return flagString;
 }
@@ -335,7 +333,7 @@ const char* get_mem_flag_desc(int flags) {
 const char* get_mac_str() {
     uint8_t mac[6];
     static char macStr[LOCAL_MAC_SIZE + 1] = {0};
-    if (macStr[0] == 0) {
+    if(macStr[0] == 0) {
         ESP_LOGD(TAG, "calling esp_read_mac");
         esp_read_mac((uint8_t*)&mac, ESP_MAC_WIFI_STA);
         ESP_LOGD(TAG, "Writing mac to string");
@@ -347,7 +345,7 @@ const char* get_mac_str() {
 char* alloc_get_string_with_mac(const char* val) {
     const char* macstr = get_mac_str();
     char* fullvalue = (char*)malloc_init_external(strlen(val) + sizeof(macstr) + 1);
-    if (fullvalue) {
+    if(fullvalue) {
         strcpy(fullvalue, val);
         strcat(fullvalue, macstr);
     } else {
@@ -369,9 +367,7 @@ char* alloc_get_fallback_unique_name() {
 #define FORMATTED_MAC_SIZE 20
 char* alloc_get_formatted_mac_string(uint8_t mac[6]) {
     char* macStr = malloc_init_external(FORMATTED_MAC_SIZE);
-    if (macStr) {
-        snprintf(macStr, FORMATTED_MAC_SIZE, MACSTR, MAC2STR(mac));
-    }
+    if(macStr) { snprintf(macStr, FORMATTED_MAC_SIZE, MACSTR, MAC2STR(mac)); }
     return macStr;
 }
 
@@ -379,28 +375,16 @@ const char* str_or_unknown(const char* str) { return (str ? str : unknown_string
 const char* str_or_null(const char* str) { return (str ? str : null_string_placeholder); }
 
 esp_log_level_t get_log_level_from_char(char* level) {
-    if (!strcasecmp(level, "NONE")) {
-        return ESP_LOG_NONE;
-    }
-    if (!strcasecmp(level, "ERROR")) {
-        return ESP_LOG_ERROR;
-    }
-    if (!strcasecmp(level, "WARN")) {
-        return ESP_LOG_WARN;
-    }
-    if (!strcasecmp(level, "INFO")) {
-        return ESP_LOG_INFO;
-    }
-    if (!strcasecmp(level, "DEBUG")) {
-        return ESP_LOG_DEBUG;
-    }
-    if (!strcasecmp(level, "VERBOSE")) {
-        return ESP_LOG_VERBOSE;
-    }
+    if(!strcasecmp(level, "NONE")) { return ESP_LOG_NONE; }
+    if(!strcasecmp(level, "ERROR")) { return ESP_LOG_ERROR; }
+    if(!strcasecmp(level, "WARN")) { return ESP_LOG_WARN; }
+    if(!strcasecmp(level, "INFO")) { return ESP_LOG_INFO; }
+    if(!strcasecmp(level, "DEBUG")) { return ESP_LOG_DEBUG; }
+    if(!strcasecmp(level, "VERBOSE")) { return ESP_LOG_VERBOSE; }
     return ESP_LOG_WARN;
 }
 const char* get_log_level_desc(esp_log_level_t level) {
-    switch (level) {
+    switch(level) {
     case ESP_LOG_NONE:
         return "NONE";
         break;

@@ -7,7 +7,7 @@
  *  https://opensource.org/licenses/MIT
  *
  */
-#include "Config.h" 
+#include "Config.h"
 #include "driver/gpio.h"
 
 #pragma once
@@ -17,4 +17,4 @@ void services_sleep_activate(sleep_cause_e cause);
 void services_sleep_setsuspend(void (*hook)(void));
 void services_sleep_setsleeper(uint32_t (*sleeper)(void));
 void services_sleep_init(void);
-void set_gpio_level(sys_gpio_config*gpio,const char * name, gpio_mode_t mode);
+void set_gpio_level(sys_gpio_config* gpio, const char* name, gpio_mode_t mode);

@@ -6,10 +6,9 @@ static EXT_RAM_ATTR network_ethernet_driver_t LAN8720;
 static EXT_RAM_ATTR esp_netif_config_t cfg_rmii;
 static EXT_RAM_ATTR esp_netif_inherent_config_t esp_netif_config;
 static EXT_RAM_ATTR gpio_num_t rst = -1;
-static esp_err_t reset_hw(esp_eth_phy_t *phy)
-{
+static esp_err_t reset_hw(esp_eth_phy_t* phy) {
     // set reset_gpio_num to a negative value can skip hardware reset phy chip
-    if (rst >= 0) {
+    if(rst >= 0) {
         esp_rom_gpio_pad_select_gpio_x(rst);
         gpio_set_direction_x(rst, GPIO_MODE_OUTPUT);
         gpio_set_level_x(rst, 0);
@@ -19,7 +18,7 @@ static esp_err_t reset_hw(esp_eth_phy_t *phy)
     }
     return ESP_OK;
 }
-static esp_err_t start(spi_device_handle_t spi_handle, sys_dev_eth_config * ethernet_config) {
+static esp_err_t start(spi_device_handle_t spi_handle, sys_dev_eth_config* ethernet_config) {
 #ifdef CONFIG_ETH_PHY_INTERFACE_RMII
     eth_phy_config_t phy_config = ETH_PHY_DEFAULT_CONFIG();
     eth_mac_config_t mac_config = ETH_MAC_DEFAULT_CONFIG();
@@ -42,26 +41,23 @@ static esp_err_t start(spi_device_handle_t spi_handle, sys_dev_eth_config * ethe
 #endif
 }
 
-static void init_config(sys_dev_eth_config * ethernet_config) {
-	esp_netif_inherent_config_t loc_esp_netif_config = ESP_NETIF_INHERENT_DEFAULT_ETH();
+static void init_config(sys_dev_eth_config* ethernet_config) {
+    esp_netif_inherent_config_t loc_esp_netif_config = ESP_NETIF_INHERENT_DEFAULT_ETH();
     memcpy(&esp_netif_config, &loc_esp_netif_config, sizeof(loc_esp_netif_config));
-	
-	cfg_rmii.base = &esp_netif_config,
-    cfg_rmii.stack = ESP_NETIF_NETSTACK_DEFAULT_ETH;
-	
+
+    cfg_rmii.base = &esp_netif_config, cfg_rmii.stack = ESP_NETIF_NETSTACK_DEFAULT_ETH;
+
     LAN8720.cfg_netif = &cfg_rmii;
     LAN8720.start = start;
 }
 
-network_ethernet_driver_t* LAN8720_Detect(sys_dev_eth_config * ethernet_config) {
-    if (ethernet_config->common.model != sys_dev_eth_models_LAN8720 ||
-        ethernet_config->which_ethType != sys_dev_eth_config_rmii_tag)
-        return NULL;
+network_ethernet_driver_t* LAN8720_Detect(sys_dev_eth_config* ethernet_config) {
+    if(ethernet_config->common.model != sys_dev_eth_models_LAN8720 || ethernet_config->which_ethType != sys_dev_eth_config_rmii_tag) return NULL;
 #ifdef CONFIG_ETH_PHY_INTERFACE_RMII
     LAN8720.valid = true;
 #else
     LAN8720.valid = false;
-#endif        
+#endif
     LAN8720.rmii = true;
     LAN8720.spi = false;
     LAN8720.model = ethernet_config->common.model;

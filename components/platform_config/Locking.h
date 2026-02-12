@@ -55,7 +55,7 @@ class Locking {
     static void Destroy(Locking* lock);
 };
 
-} // namespace PlatformConfig
+} // namespace System
 
 extern "C" {
 #endif

@@ -37,7 +37,6 @@
 #include <string.h>
 #include "tools_spiffs_utils.h"
 
-
 #if defined(CONFIG_WITH_METRICS)
 #include "Metrics.h"
 #endif
@@ -66,7 +65,7 @@ EXT_RAM_ATTR static struct {
 } names_args;
 EXT_RAM_ATTR static struct {
     struct arg_str* name;
-    struct arg_lit*reset;
+    struct arg_lit* reset;
     struct arg_end* end;
 } target_args;
 
@@ -114,9 +113,7 @@ static void register_tasks();
 extern BaseType_t network_manager_task;
 FILE* system_open_memstream(const char* cmdname, char** buf, size_t* buf_size) {
     FILE* f = open_memstream(buf, buf_size);
-    if (f == NULL) {
-        cmd_send_messaging(cmdname, MESSAGING_ERROR, "Unable to open memory stream.");
-    }
+    if(f == NULL) { cmd_send_messaging(cmdname, MESSAGING_ERROR, "Unable to open memory stream."); }
     return f;
 }
 
@@ -133,12 +130,9 @@ static int get_version(int argc, char** argv) {
         "\tcores:%d\r\n"
         "\tfeature:%s%s%s%s%d%s\r\n"
         "\trevision number:%d\r\n",
-        esp_get_idf_version(), info.model == CHIP_ESP32 ? "ESP32" : "Unknow", info.cores,
-        info.features & CHIP_FEATURE_WIFI_BGN ? "/802.11bgn" : "",
-        info.features & CHIP_FEATURE_BLE ? "/BLE" : "",
-        info.features & CHIP_FEATURE_BT ? "/BT" : "",
-        info.features & CHIP_FEATURE_EMB_FLASH ? "/Embedded-Flash:" : "/External-Flash:",
-        flash_size / (1024 * 1024), " MB", info.revision);
+        esp_get_idf_version(), info.model == CHIP_ESP32 ? "ESP32" : "Unknow", info.cores, info.features & CHIP_FEATURE_WIFI_BGN ? "/802.11bgn" : "",
+        info.features & CHIP_FEATURE_BLE ? "/BLE" : "", info.features & CHIP_FEATURE_BT ? "/BT" : "",
+        info.features & CHIP_FEATURE_EMB_FLASH ? "/Embedded-Flash:" : "/External-Flash:", flash_size / (1024 * 1024), " MB", info.revision);
     return 0;
 }
 
@@ -255,14 +249,11 @@ static int heap_size(int argc, char** argv) {
         "External  | %7zu | %7zu | %7zu | %7zu | %7zu | %4.1f%% | %4.1f%%\n"
         "DMA       | %7zu | %7zu | %7zu | %7zu | %7zu | %4.1f%% | %4.1f%%",
         total_internal, allocated_internal, heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL),
-        heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL), free_internal,
-        (allocated_internal * 100.0) / total_internal, (free_internal * 100.0) / total_internal,
-        total_external, allocated_external, heap_caps_get_minimum_free_size(MALLOC_CAP_SPIRAM),
-        heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM), free_external,
-        (allocated_external * 100.0) / total_external, (free_external * 100.0) / total_external,
-        total_dma, allocated_dma, heap_caps_get_minimum_free_size(MALLOC_CAP_DMA),
-        heap_caps_get_largest_free_block(MALLOC_CAP_DMA), free_dma,
-        (allocated_dma * 100.0) / total_dma, (free_dma * 100.0) / total_dma);
+        heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL), free_internal, (allocated_internal * 100.0) / total_internal,
+        (free_internal * 100.0) / total_internal, total_external, allocated_external, heap_caps_get_minimum_free_size(MALLOC_CAP_SPIRAM),
+        heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM), free_external, (allocated_external * 100.0) / total_external,
+        (free_external * 100.0) / total_external, total_dma, allocated_dma, heap_caps_get_minimum_free_size(MALLOC_CAP_DMA),
+        heap_caps_get_largest_free_block(MALLOC_CAP_DMA), free_dma, (allocated_dma * 100.0) / total_dma, (free_dma * 100.0) / total_dma);
 
     return 0;
 }
@@ -382,7 +373,7 @@ int set_squeezelite_player_name(FILE* f, const char* name) {
 
 static int do_cat(int argc, char** argv) {
     int nerrors = arg_parse_msg(argc, argv, (struct arg_hdr**)&ls_args);
-    if (nerrors != 0) {
+    if(nerrors != 0) {
         arg_print_errors(stderr, ls_args.end, argv[0]);
         return 1;
     }
@@ -394,7 +385,7 @@ static int do_cat(int argc, char** argv) {
 }
 static int do_ls(int argc, char** argv) {
     int nerrors = arg_parse_msg(argc, argv, (struct arg_hdr**)&ls_args);
-    if (nerrors != 0) {
+    if(nerrors != 0) {
         arg_print_errors(stderr, ls_args.end, argv[0]);
         return 1;
     }
@@ -419,14 +410,14 @@ static int do_ls(int argc, char** argv) {
 // }
 static int do_erase(int argc, char** argv) {
     int nerrors = arg_parse_msg(argc, argv, (struct arg_hdr**)&erase_args);
-    if (nerrors != 0) {
+    if(nerrors != 0) {
         arg_print_errors(stderr, erase_args.end, argv[0]);
         return 1;
     }
 
     // Erase file at the provided path
     const char* path = erase_args.path->sval[0];
-    if (!erase_path(path, true)) {
+    if(!erase_path(path, true)) {
         // Handle error if erase_path returns false
         // For example, log an error message
         fprintf(stderr, "Failed to erase file at path: %s\n", path);
@@ -441,15 +432,13 @@ static int do_erase(int argc, char** argv) {
 
 static int do_set_target(int argc, char** argv) {
     int nerrors = arg_parse_msg(argc, argv, (struct arg_hdr**)&target_args);
-    if (nerrors != 0) {
+    if(nerrors != 0) { return 1; }
+    if(target_args.name->count <= 0) {
+        ESP_LOGW(TAG, "Target name must be specified. Current target: %s", STR_OR_ALT(platform->target, "N/A"));
         return 1;
     }
-    if (target_args.name->count <= 0) {
-        ESP_LOGW(TAG, "Target name must be specified. Current target: %s",
-            STR_OR_ALT(platform->target, "N/A"));
-        return 1;
-    }
-    network_async_callback((void*)target_args.name->sval[0], (network_manager_cb_t)(target_args.reset->count>0?config_set_target_reset:config_set_target_no_reset));
+    network_async_callback((void*)target_args.name->sval[0],
+        (network_manager_cb_t)(target_args.reset->count > 0 ? config_set_target_reset : config_set_target_no_reset));
 
     return nerrors;
 }
@@ -457,11 +446,8 @@ static int do_set_target(int argc, char** argv) {
 static int do_reset_config(int argc, char** argv) {
 
     int nerrors = arg_parse_msg(argc, argv, (struct arg_hdr**)&reset_config_args);
-    if (nerrors != 0) {
-        return 1;
-    }
-    if (reset_config_args.confirm->count <= 0 ||
-        strcmp(reset_config_args.confirm->sval[0], "YES") != 0) {
+    if(nerrors != 0) { return 1; }
+    if(reset_config_args.confirm->count <= 0 || strcmp(reset_config_args.confirm->sval[0], "YES") != 0) {
         ESP_LOGW(TAG, "Confirmation needed. Call reset_config YES to confirm");
         return 1;
     }
@@ -472,8 +458,7 @@ static int do_reset_config(int argc, char** argv) {
 }
 
 static void register_reset_config() {
-    reset_config_args.confirm =
-        arg_str0(NULL, NULL, "YES", "To execute the reset, confirm with YES");
+    reset_config_args.confirm = arg_str0(NULL, NULL, "YES", "To execute the reset, confirm with YES");
     reset_config_args.end = arg_end(1);
 
     const esp_console_cmd_t reset_config = {.command = "reset_config",
@@ -488,51 +473,40 @@ static void register_reset_config() {
 static int setdevicename(int argc, char** argv) {
     bool changed = false;
     int nerrors = arg_parse_msg(argc, argv, (struct arg_hdr**)&names_args);
-    if (nerrors != 0) {
-        return 1;
-    }
-    if (names_args.device->count > 0) {
-        changed = changed | system_set_string(&sys_names_config_msg, sys_names_config_device_tag,
-                                &platform->names, names_args.device->sval[0]);
+    if(nerrors != 0) { return 1; }
+    if(names_args.device->count > 0) {
+        changed = changed | system_set_string(&sys_names_config_msg, sys_names_config_device_tag, &platform->names, names_args.device->sval[0]);
     } else {
         ESP_LOGE(TAG, "Device name must be specified");
         return 1;
     }
-    if (names_args.airplay->count > 0) {
-        changed = changed | system_set_string(&sys_names_config_msg, sys_names_config_airplay_tag,
-                                &platform->names, names_args.airplay->sval[0]);
+    if(names_args.airplay->count > 0) {
+        changed = changed | system_set_string(&sys_names_config_msg, sys_names_config_airplay_tag, &platform->names, names_args.airplay->sval[0]);
     }
 
-    if (names_args.bluetooth->count > 0) {
-        changed = changed | system_set_string(&sys_names_config_msg, sys_names_config_bluetooth_tag,
-                                &platform->names, names_args.bluetooth->sval[0]);
+    if(names_args.bluetooth->count > 0) {
+        changed = changed | system_set_string(&sys_names_config_msg, sys_names_config_bluetooth_tag, &platform->names, names_args.bluetooth->sval[0]);
     }
-    if (names_args.spotify->count > 0) {
-        changed = changed | system_set_string(&sys_names_config_msg, sys_names_config_spotify_tag,
-                                &platform->names, names_args.spotify->sval[0]);
+    if(names_args.spotify->count > 0) {
+        changed = changed | system_set_string(&sys_names_config_msg, sys_names_config_spotify_tag, &platform->names, names_args.spotify->sval[0]);
     }
-    if (names_args.squeezelite->count > 0) {
-        changed = changed | system_set_string(&sys_names_config_msg, sys_names_config_squeezelite_tag,
-                                &platform->names, names_args.squeezelite->sval[0]);
+    if(names_args.squeezelite->count > 0) {
+        changed =
+            changed | system_set_string(&sys_names_config_msg, sys_names_config_squeezelite_tag, &platform->names, names_args.squeezelite->sval[0]);
     }
-    if (names_args.wifi_ap_name->count > 0) {
-        changed = changed | system_set_string(&sys_names_config_msg, sys_names_config_wifi_ap_name_tag,
-                                &platform->names, names_args.wifi_ap_name->sval[0]);
+    if(names_args.wifi_ap_name->count > 0) {
+        changed =
+            changed | system_set_string(&sys_names_config_msg, sys_names_config_wifi_ap_name_tag, &platform->names, names_args.wifi_ap_name->sval[0]);
     }
-    if (names_args.all->count > 0) {
+    if(names_args.all->count > 0) {
         ESP_LOGI(TAG, "Setting all names to %s", platform->names.device);
-        changed = changed | system_set_string(&sys_names_config_msg, sys_names_config_airplay_tag,
-                                &platform->names, platform->names.device);
-        changed = changed | system_set_string(&sys_names_config_msg, sys_names_config_bluetooth_tag,
-                                &platform->names, platform->names.device);
-        changed = changed | system_set_string(&sys_names_config_msg, sys_names_config_spotify_tag,
-                                &platform->names, platform->names.device);
-        changed = changed | system_set_string(&sys_names_config_msg, sys_names_config_squeezelite_tag,
-                                &platform->names, platform->names.device);
-        changed = changed | system_set_string(&sys_names_config_msg, sys_names_config_wifi_ap_name_tag,
-                                &platform->names, platform->names.device);
+        changed = changed | system_set_string(&sys_names_config_msg, sys_names_config_airplay_tag, &platform->names, platform->names.device);
+        changed = changed | system_set_string(&sys_names_config_msg, sys_names_config_bluetooth_tag, &platform->names, platform->names.device);
+        changed = changed | system_set_string(&sys_names_config_msg, sys_names_config_spotify_tag, &platform->names, platform->names.device);
+        changed = changed | system_set_string(&sys_names_config_msg, sys_names_config_squeezelite_tag, &platform->names, platform->names.device);
+        changed = changed | system_set_string(&sys_names_config_msg, sys_names_config_wifi_ap_name_tag, &platform->names, platform->names.device);
     }
-    if (changed) {
+    if(changed) {
         ESP_LOGI(TAG, "Found change(s). Saving");
         config_raise_changed(false);
     } else {
@@ -575,7 +549,7 @@ static void register_dump_config() {
 }
 static void register_settarget() {
     target_args.name = arg_str0(NULL, NULL, STR_OR_BLANK(platform->target), "New Target Name");
-    target_args.reset = arg_lit0("r","reset","Full reset before setting target (recommended)");
+    target_args.reset = arg_lit0("r", "reset", "Full reset before setting target (recommended)");
     target_args.end = arg_end(1);
     const esp_console_cmd_t set_target = {.command = "target",
         .help = "Set the device target Name (SqueezeAMP, SqueezeIO, Muse, etc. )",
@@ -605,22 +579,15 @@ static void register_settarget() {
 static void register_ls() {
     ls_args.path = arg_str1(NULL, NULL, "<path>", "Path to list files");
     ls_args.end = arg_end(1);
-    const esp_console_cmd_t ls_cmd = {.command = "ls",
-        .help = "List files in a path",
-        .hint = NULL,
-        .func = &do_ls,
-        .argtable = &ls_args};
+    const esp_console_cmd_t ls_cmd = {.command = "ls", .help = "List files in a path", .hint = NULL, .func = &do_ls, .argtable = &ls_args};
 
     ESP_ERROR_CHECK(esp_console_cmd_register(&ls_cmd));
 }
 static void register_cat() {
     ls_args.path = arg_str1(NULL, NULL, "<path>", "File name to cat");
     ls_args.end = arg_end(1);
-    const esp_console_cmd_t cat_cmd = {.command = "cat",
-        .help = "Dumps the content of a file to the console",
-        .hint = NULL,
-        .func = &do_cat,
-        .argtable = &ls_args};
+    const esp_console_cmd_t cat_cmd = {
+        .command = "cat", .help = "Dumps the content of a file to the console", .hint = NULL, .func = &do_cat, .argtable = &ls_args};
 
     ESP_ERROR_CHECK(esp_console_cmd_register(&cat_cmd));
 }
@@ -628,11 +595,8 @@ static void register_cat() {
 static void register_erase() {
     erase_args.path = arg_str1(NULL, NULL, "<path>", "Path of the file(s) to erase");
     erase_args.end = arg_end(1);
-    const esp_console_cmd_t erase_cmd = {.command = "erase",
-        .help = "Erase file(s) at a given path",
-        .hint = NULL,
-        .func = &do_erase,
-        .argtable = &erase_args};
+    const esp_console_cmd_t erase_cmd = {
+        .command = "erase", .help = "Erase file(s) at a given path", .hint = NULL, .func = &do_erase, .argtable = &erase_args};
 
     ESP_ERROR_CHECK(esp_console_cmd_register(&erase_cmd));
 }
@@ -643,16 +607,12 @@ static void register_setdevicename() {
     names_args.airplay = arg_str0("a", "airplay", default_host_name, "New Airplay Device Name");
     names_args.bluetooth = arg_str0("b", "bt", default_host_name, "New Bluetooth Device Name");
     names_args.spotify = arg_str0("s", "spotify", default_host_name, "New Spotify Device Name");
-    names_args.squeezelite =
-        arg_str0("l", "squeezelite", default_host_name, "New Squeezelite Player Name");
+    names_args.squeezelite = arg_str0("l", "squeezelite", default_host_name, "New Squeezelite Player Name");
     names_args.wifi_ap_name = arg_str0("w", "wifiap", default_host_name, "New Wifi AP Name");
     names_args.all = arg_lit0(NULL, "all", "Set all names to device name");
     names_args.end = arg_end(2);
-    const esp_console_cmd_t set_name = {.command = CFG_TYPE_SYST("name"),
-        .help = "Device Name",
-        .hint = NULL,
-        .func = &setdevicename,
-        .argtable = &names_args};
+    const esp_console_cmd_t set_name = {
+        .command = CFG_TYPE_SYST("name"), .help = "Device Name", .hint = NULL, .func = &setdevicename, .argtable = &names_args};
 
     ESP_ERROR_CHECK(esp_console_cmd_register(&set_name));
 }
@@ -662,9 +622,8 @@ static void register_setdevicename() {
 static int tasks_info(int argc, char** argv) {
     const size_t bytes_per_task = 40; /* see vTaskList description */
     char* task_list_buffer = malloc_init_external(uxTaskGetNumberOfTasks() * bytes_per_task);
-    if (task_list_buffer == NULL) {
-        cmd_send_messaging(
-            argv[0], MESSAGING_ERROR, "failed to allocate buffer for vTaskList output");
+    if(task_list_buffer == NULL) {
+        cmd_send_messaging(argv[0], MESSAGING_ERROR, "failed to allocate buffer for vTaskList output");
         return 1;
     }
     cmd_send_messaging(argv[0], MESSAGING_INFO,
@@ -703,31 +662,27 @@ static struct {
 
 static int deep_sleep(int argc, char** argv) {
     int nerrors = arg_parse_msg(argc, argv, (struct arg_hdr**)&deep_sleep_args);
-    if (nerrors != 0) {
-        return 1;
-    }
-    if (deep_sleep_args.wakeup_time->count) {
+    if(nerrors != 0) { return 1; }
+    if(deep_sleep_args.wakeup_time->count) {
         uint64_t timeout = 1000ULL * deep_sleep_args.wakeup_time->ival[0];
-        cmd_send_messaging(
-            argv[0], MESSAGING_INFO, "Enabling timer wakeup, timeout=%lluus", timeout);
+        cmd_send_messaging(argv[0], MESSAGING_INFO, "Enabling timer wakeup, timeout=%lluus", timeout);
         ESP_ERROR_CHECK(esp_sleep_enable_timer_wakeup(timeout));
     }
-    if (deep_sleep_args.wakeup_gpio_num->count) {
+    if(deep_sleep_args.wakeup_gpio_num->count) {
         int io_num = deep_sleep_args.wakeup_gpio_num->ival[0];
-        if (!rtc_gpio_is_valid_gpio(io_num)) {
+        if(!rtc_gpio_is_valid_gpio(io_num)) {
             cmd_send_messaging(argv[0], MESSAGING_ERROR, "GPIO %d is not an RTC IO", io_num);
             return 1;
         }
         int level = 0;
-        if (deep_sleep_args.wakeup_gpio_level->count) {
+        if(deep_sleep_args.wakeup_gpio_level->count) {
             level = deep_sleep_args.wakeup_gpio_level->ival[0];
-            if (level != 0 && level != 1) {
+            if(level != 0 && level != 1) {
                 cmd_send_messaging(argv[0], MESSAGING_ERROR, "Invalid wakeup level: %d", level);
                 return 1;
             }
         }
-        cmd_send_messaging(argv[0], MESSAGING_INFO, "Enabling wakeup on GPIO%d, wakeup on %s level",
-            io_num, level ? "HIGH" : "LOW");
+        cmd_send_messaging(argv[0], MESSAGING_INFO, "Enabling wakeup on GPIO%d, wakeup on %s level", io_num, level ? "HIGH" : "LOW");
 
         ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup(1ULL << io_num, level));
     }
@@ -738,17 +693,12 @@ static int deep_sleep(int argc, char** argv) {
 
 static void register_deep_sleep() {
     deep_sleep_args.wakeup_time = arg_int0("t", "time", "<t>", "Wake up time, ms");
-    deep_sleep_args.wakeup_gpio_num =
-        arg_int0(NULL, "io", "<n>", "If specified, wakeup using GPIO with given number");
-    deep_sleep_args.wakeup_gpio_level =
-        arg_int0(NULL, "io_level", "<0|1>", "GPIO level to trigger wakeup");
+    deep_sleep_args.wakeup_gpio_num = arg_int0(NULL, "io", "<n>", "If specified, wakeup using GPIO with given number");
+    deep_sleep_args.wakeup_gpio_level = arg_int0(NULL, "io_level", "<0|1>", "GPIO level to trigger wakeup");
     deep_sleep_args.end = arg_end(3);
 
-    const esp_console_cmd_t cmd = {.command = "deep_sleep",
-        .help = "Enter deep sleep mode. ",
-        .hint = NULL,
-        .func = &deep_sleep,
-        .argtable = &deep_sleep_args};
+    const esp_console_cmd_t cmd = {
+        .command = "deep_sleep", .help = "Enter deep sleep mode. ", .hint = NULL, .func = &deep_sleep, .argtable = &deep_sleep_args};
     ESP_ERROR_CHECK(esp_console_cmd_register(&cmd));
 }
 #endif
@@ -886,41 +836,32 @@ static struct {
 
 static int light_sleep(int argc, char** argv) {
     int nerrors = arg_parse_msg(argc, argv, (struct arg_hdr**)&light_sleep_args);
-    if (nerrors != 0) {
-        return 1;
-    }
+    if(nerrors != 0) { return 1; }
     esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);
-    if (light_sleep_args.wakeup_time->count) {
+    if(light_sleep_args.wakeup_time->count) {
         uint64_t timeout = 1000ULL * light_sleep_args.wakeup_time->ival[0];
-        cmd_send_messaging(
-            argv[0], MESSAGING_INFO, "Enabling timer wakeup, timeout=%lluus", timeout);
+        cmd_send_messaging(argv[0], MESSAGING_INFO, "Enabling timer wakeup, timeout=%lluus", timeout);
         ESP_ERROR_CHECK(esp_sleep_enable_timer_wakeup(timeout));
     }
     int io_count = light_sleep_args.wakeup_gpio_num->count;
-    if (io_count != light_sleep_args.wakeup_gpio_level->count) {
-        cmd_send_messaging(
-            argv[0], MESSAGING_INFO, "Should have same number of 'io' and 'io_level' arguments");
+    if(io_count != light_sleep_args.wakeup_gpio_level->count) {
+        cmd_send_messaging(argv[0], MESSAGING_INFO, "Should have same number of 'io' and 'io_level' arguments");
         return 1;
     }
-    for (int i = 0; i < io_count; ++i) {
+    for(int i = 0; i < io_count; ++i) {
         int io_num = light_sleep_args.wakeup_gpio_num->ival[i];
         int level = light_sleep_args.wakeup_gpio_level->ival[i];
-        if (level != 0 && level != 1) {
+        if(level != 0 && level != 1) {
             cmd_send_messaging(argv[0], MESSAGING_ERROR, "Invalid wakeup level: %d", level);
             return 1;
         }
-        cmd_send_messaging(argv[0], MESSAGING_INFO, "Enabling wakeup on GPIO%d, wakeup on %s level",
-            io_num, level ? "HIGH" : "LOW");
+        cmd_send_messaging(argv[0], MESSAGING_INFO, "Enabling wakeup on GPIO%d, wakeup on %s level", io_num, level ? "HIGH" : "LOW");
 
-        ESP_ERROR_CHECK(
-            gpio_wakeup_enable(io_num, level ? GPIO_INTR_HIGH_LEVEL : GPIO_INTR_LOW_LEVEL));
+        ESP_ERROR_CHECK(gpio_wakeup_enable(io_num, level ? GPIO_INTR_HIGH_LEVEL : GPIO_INTR_LOW_LEVEL));
     }
-    if (io_count > 0) {
-        ESP_ERROR_CHECK(esp_sleep_enable_gpio_wakeup());
-    }
-    if (CONFIG_ESP_CONSOLE_UART_NUM <= UART_NUM_1) {
-        cmd_send_messaging(
-            argv[0], MESSAGING_INFO, "Enabling UART wakeup (press ENTER to exit light sleep)");
+    if(io_count > 0) { ESP_ERROR_CHECK(esp_sleep_enable_gpio_wakeup()); }
+    if(CONFIG_ESP_CONSOLE_UART_NUM <= UART_NUM_1) {
+        cmd_send_messaging(argv[0], MESSAGING_INFO, "Enabling UART wakeup (press ENTER to exit light sleep)");
         ESP_ERROR_CHECK(uart_set_wakeup_threshold(CONFIG_ESP_CONSOLE_UART_NUM, 3));
         ESP_ERROR_CHECK(esp_sleep_enable_uart_wakeup(CONFIG_ESP_CONSOLE_UART_NUM));
     }
@@ -929,7 +870,7 @@ static int light_sleep(int argc, char** argv) {
     esp_light_sleep_start();
     esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
     const char* cause_str;
-    switch (cause) {
+    switch(cause) {
     case ESP_SLEEP_WAKEUP_GPIO:
         cause_str = "GPIO";
         break;
@@ -949,10 +890,8 @@ static int light_sleep(int argc, char** argv) {
 
 static void register_light_sleep() {
     light_sleep_args.wakeup_time = arg_int0("t", "time", "<t>", "Wake up time, ms");
-    light_sleep_args.wakeup_gpio_num =
-        arg_intn(NULL, "io", "<n>", 0, 8, "If specified, wakeup using GPIO with given number");
-    light_sleep_args.wakeup_gpio_level =
-        arg_intn(NULL, "io_level", "<0|1>", 0, 8, "GPIO level to trigger wakeup");
+    light_sleep_args.wakeup_gpio_num = arg_intn(NULL, "io", "<n>", 0, 8, "If specified, wakeup using GPIO with given number");
+    light_sleep_args.wakeup_gpio_level = arg_intn(NULL, "io_level", "<0|1>", 0, 8, "GPIO level to trigger wakeup");
     light_sleep_args.end = arg_end(3);
 
     const esp_console_cmd_t cmd = {.command = "light_sleep",

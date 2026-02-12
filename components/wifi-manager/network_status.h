@@ -30,14 +30,11 @@
 
 #ifdef __cplusplus
 
-
 extern System::PB<sys_status_data> sys_status_obj;
 
 extern "C" {
 
 #endif
-
-
 
 /**
  * @brief Generates the connection status json: ssid and IP addresses.

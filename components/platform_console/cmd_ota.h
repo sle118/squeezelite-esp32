@@ -13,7 +13,7 @@ extern "C" {
 #endif
 
 // Register system functions
- void register_ota_cmd();
+void register_ota_cmd();
 #ifdef __cplusplus
 }
 #endif

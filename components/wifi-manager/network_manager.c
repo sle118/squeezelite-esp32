@@ -79,50 +79,42 @@ void network_start_stop_dhcp_client(esp_netif_t* netif, bool start) {
     tcpip_adapter_dhcp_status_t status;
     esp_err_t err = ESP_OK;
     ESP_LOGD(TAG, "Checking if DHCP client for STA interface is running");
-    if (!netif) {
+    if(!netif) {
         ESP_LOGE(TAG, "Invalid adapter. Cannot start/stop dhcp. ");
         return;
     }
-    if ((err = esp_netif_dhcpc_get_status(netif, &status)) != ESP_OK) {
+    if((err = esp_netif_dhcpc_get_status(netif, &status)) != ESP_OK) {
         ESP_LOGE(TAG, "Error retrieving dhcp status : %s", esp_err_to_name(err));
         return;
     }
-    switch (status) {
+    switch(status) {
     case ESP_NETIF_DHCP_STARTED:
-        if (start) {
+        if(start) {
             ESP_LOGD(TAG, "DHCP client already started");
         } else {
             ESP_LOGI(TAG, "Stopping DHCP client");
             err = esp_netif_dhcpc_stop(netif);
-            if (err != ESP_OK) {
-                ESP_LOGE(TAG, "Error stopping DHCP Client : %s", esp_err_to_name(err));
-            }
+            if(err != ESP_OK) { ESP_LOGE(TAG, "Error stopping DHCP Client : %s", esp_err_to_name(err)); }
         }
         break;
     case ESP_NETIF_DHCP_STOPPED:
-        if (start) {
+        if(start) {
             ESP_LOGI(TAG, "ESP_NETIF_DHCP_STOPPED Starting DHCP client");
             err = esp_netif_dhcpc_start(netif);
-            if (err != ESP_OK) {
-                ESP_LOGE(TAG, "Error stopping DHCP Client : %s", esp_err_to_name(err));
-            }
+            if(err != ESP_OK) { ESP_LOGE(TAG, "Error stopping DHCP Client : %s", esp_err_to_name(err)); }
         } else {
             ESP_LOGI(TAG, "DHCP client already started");
         }
         break;
     case ESP_NETIF_DHCP_INIT:
-        if (start) {
+        if(start) {
             ESP_LOGI(TAG, "ESP_NETIF_DHCP_INIT: Starting DHCP client");
             err = esp_netif_dhcpc_start(netif);
-            if (err != ESP_OK) {
-                ESP_LOGE(TAG, "Error stopping DHCP Client : %s", esp_err_to_name(err));
-            }
+            if(err != ESP_OK) { ESP_LOGE(TAG, "Error stopping DHCP Client : %s", esp_err_to_name(err)); }
         } else {
             ESP_LOGI(TAG, "Stopping DHCP client");
             err = esp_netif_dhcpc_stop(netif);
-            if (err != ESP_OK) {
-                ESP_LOGE(TAG, "Error stopping DHCP Client : %s", esp_err_to_name(err));
-            }
+            if(err != ESP_OK) { ESP_LOGE(TAG, "Error stopping DHCP Client : %s", esp_err_to_name(err)); }
         }
         break;
 
@@ -135,17 +127,17 @@ void network_start_stop_dhcps(esp_netif_t* netif, bool start) {
     tcpip_adapter_dhcp_status_t status;
     esp_err_t err = ESP_OK;
     ESP_LOGD(TAG, "Checking if DHCP server is running");
-    if (!netif) {
+    if(!netif) {
         ESP_LOGE(TAG, "Invalid adapter. Cannot start/stop dhcp server. ");
         return;
     }
-    if ((err = esp_netif_dhcps_get_status(netif, &status)) != ESP_OK) {
+    if((err = esp_netif_dhcps_get_status(netif, &status)) != ESP_OK) {
         ESP_LOGE(TAG, "Error retrieving dhcp server status : %s", esp_err_to_name(err));
         return;
     }
-    switch (status) {
+    switch(status) {
     case ESP_NETIF_DHCP_STARTED:
-        if (start) {
+        if(start) {
             ESP_LOGD(TAG, "DHCP server already started");
         } else {
             ESP_LOGI(TAG, "Stopping DHCP server");
@@ -153,7 +145,7 @@ void network_start_stop_dhcps(esp_netif_t* netif, bool start) {
         }
         break;
     case ESP_NETIF_DHCP_STOPPED:
-        if (start) {
+        if(start) {
             ESP_LOGI(TAG, "Starting DHCP server");
             ESP_ERROR_CHECK_WITHOUT_ABORT(esp_netif_dhcps_start(netif));
         } else {
@@ -161,7 +153,7 @@ void network_start_stop_dhcps(esp_netif_t* netif, bool start) {
         }
         break;
     case ESP_NETIF_DHCP_INIT:
-        if (start) {
+        if(start) {
             ESP_LOGI(TAG, "Starting DHCP server");
             ESP_ERROR_CHECK_WITHOUT_ABORT(esp_netif_dhcps_start(netif));
         } else {
@@ -185,10 +177,8 @@ void network_start_stop_dhcps(esp_netif_t* netif, bool start) {
 #define ADD_EVENT(name) CASE_TO_STR(name);
 #define ADD_FIRST_EVENT(name) CASE_TO_STR(name);
 static const char* state_to_string(const state_t* state) {
-    if (!state) {
-        return "";
-    }
-    switch (state->Parent ? state->Parent->Id : state->Id) {
+    if(!state) { return ""; }
+    switch(state->Parent ? state->Parent->Id : state->Id) {
         ALL_NM_STATE
     default:
         break;
@@ -196,7 +186,7 @@ static const char* state_to_string(const state_t* state) {
     return "Unknown";
 }
 static const char* wifi_state_to_string(mn_wifi_active_state_t state) {
-    switch (state) {
+    switch(state) {
         ALL_WIFI_STATE(, )
     default:
         break;
@@ -204,7 +194,7 @@ static const char* wifi_state_to_string(mn_wifi_active_state_t state) {
     return "Unknown";
 }
 static const char* eth_state_to_string(mn_eth_active_state_t state) {
-    switch (state) {
+    switch(state) {
         ALL_ETH_STATE(, )
     default:
         break;
@@ -212,7 +202,7 @@ static const char* eth_state_to_string(mn_eth_active_state_t state) {
     return "Unknown";
 }
 static const char* wifi_configuring_state_to_string(mn_wifi_configuring_state_t state) {
-    switch (state) {
+    switch(state) {
         ALL_WIFI_CONFIGURING_STATE(, )
     default:
         break;
@@ -220,11 +210,9 @@ static const char* wifi_configuring_state_to_string(mn_wifi_configuring_state_t 
     return "Unknown";
 }
 static const char* sub_state_to_string(const state_t* state) {
-    if (!state) {
-        return "N/A";
-    }
+    if(!state) { return "N/A"; }
     int root_id = get_root_id(state);
-    switch (root_id) {
+    switch(root_id) {
     case NETWORK_ETH_ACTIVE_STATE:
         return eth_state_to_string(state->Id);
         break;
@@ -239,7 +227,7 @@ static const char* sub_state_to_string(const state_t* state) {
 }
 
 const char* network_event_to_string(network_event_t state) {
-    switch (state) {
+    switch(state) {
         ALL_NM_EVENTS
 
     default:
@@ -265,27 +253,26 @@ static const max_sub_states_t state_max[] = {{.parent_state = NETWORK_INSTANTIAT
     {.parent_state = WIFI_CONFIGURING_STATE, .sub_state_last = TOTAL_WIFI_CONFIGURING_STATE - 1}, {.parent_state = -1}};
 
 void check_queue() {
-    if (!network_queue) {
+    if(!network_queue) {
         ESP_LOGD(TAG, " Creating message queue");
         network_queue = xQueueCreate(6, sizeof(queue_message));
     }
 }
 void network_initialize_task() {
-    if (cold_boot) {
+    if(cold_boot) {
         ESP_LOGI(TAG, "Setting wifi priotitized flag to false");
         s_wifi_prioritized = false;
     }
     check_queue();
     ESP_LOGD(TAG, "Creating network manager task");
     network_task_handle = xTaskCreate(&network_task, "network", 4096 * 2, NULL, ESP_TASK_TIMER_PRIO, &task_network_manager);
-    
 }
 
 static void event_logger(uint32_t state_machine, uint32_t state, uint32_t event) {
     ESP_LOGD(TAG, "Handling network manager event state Id %d->[%s]", state, network_event_to_string(event));
 }
 static const char* get_state_machine_result_string(state_machine_result_t result) {
-    switch (result) {
+    switch(result) {
     case EVENT_HANDLED:
         return "EVENT_HANDLED";
     case EVENT_UN_HANDLED:
@@ -309,41 +296,35 @@ static void network_task(void* pvParameters) {
     // else, as some critical initialization happen there.
     network_async_front(EN_START);
     /* main processing loop */
-    for (;;) {
+    for(;;) {
         xStatus = xQueueReceive(network_queue, &msg, portMAX_DELAY);
 
-        if (xStatus == pdPASS) {
+        if(xStatus == pdPASS) {
             // pass the event to the sync processor
             NM.event_parameters = &msg;
             NM.Machine.Event = msg.trigger;
-            if (dispatch_event(SM, 1, event_logger, result_logger) == EVENT_UN_HANDLED) {
+            if(dispatch_event(SM, 1, event_logger, result_logger) == EVENT_UN_HANDLED) {
                 network_manager_format_from_to_states(
                     ESP_LOG_ERROR, "Unhandled Event", NULL, NM.Machine.State, msg.trigger, false, "network manager");
             }
         } /* end of if status=pdPASS */
-    }     /* end of for loop */
+    } /* end of for loop */
 
     vTaskDelete(NULL);
 }
 
 int get_max_substate(nm_state_t state) {
-    for (int i = 0; state_max[i].parent_state != -1; i++) {
-        if (state_max[i].parent_state == state) {
-            return state_max[i].sub_state_last;
-        }
+    for(int i = 0; state_max[i].parent_state != -1; i++) {
+        if(state_max[i].parent_state == state) { return state_max[i].sub_state_last; }
     }
     return -1;
 }
 esp_err_t network_register_state_callback(nm_state_t state, int sub_state, const char* from, network_status_reached_cb cb) {
     network_callback_t* item = NULL;
-    if (!cb) {
-        return ESP_ERR_INVALID_ARG;
-    }
+    if(!cb) { return ESP_ERR_INVALID_ARG; }
     item = calloc(1, sizeof(*item));
-    if (item == NULL) {
-        return ESP_ERR_NO_MEM;
-    }
-    if (sub_state != -1 && sub_state > get_max_substate(state)) {
+    if(item == NULL) { return ESP_ERR_NO_MEM; }
+    if(sub_state != -1 && sub_state > get_max_substate(state)) {
         // sub state has to be valid
         return ESP_ERR_INVALID_ARG;
     }
@@ -353,23 +334,21 @@ esp_err_t network_register_state_callback(nm_state_t state, int sub_state, const
     item->from = from;
     item->sub_state = sub_state;
     network_callback_t* last = SLIST_FIRST(&s_cb_list);
-    if (last == NULL) {
+    if(last == NULL) {
         SLIST_INSERT_HEAD(&s_cb_list, item, next);
     } else {
         network_callback_t* it;
-        while ((it = SLIST_NEXT(last, next)) != NULL) {
-            last = it;
-        }
+        while((it = SLIST_NEXT(last, next)) != NULL) { last = it; }
         SLIST_INSERT_AFTER(last, item, next);
     }
     return ESP_OK;
 }
 const state_t* get_root(const state_t* const state) {
-    if (!state) return NULL;
+    if(!state) return NULL;
     return state->Parent == NULL ? state : get_root(state->Parent);
 }
 int get_root_id(const state_t* state) {
-    if (!state) return -1;
+    if(!state) return -1;
     return state->Parent == NULL ? state->Id : get_root_id(state->Parent);
 }
 
@@ -381,7 +360,7 @@ static bool is_current_state(const state_t* state, nm_state_t state_id, int sub_
 void network_execute_cb(state_machine_t* const state_machine, const char* caller) {
     network_callback_t* it;
     SLIST_FOREACH(it, &s_cb_list, next) {
-        if (is_current_state(state_machine->State, it->state, it->sub_state)) {
+        if(is_current_state(state_machine->State, it->state, it->sub_state)) {
             char* cb_prefix = messaging_alloc_format_string("BEGIN Executing Callback %s", it->from);
             NETWORK_DEBUG_STATE_MACHINE(true, STR_OR_BLANK(cb_prefix), state_machine, false, STR_OR_BLANK(caller));
             FREE_AND_NULL(cb_prefix);
@@ -397,7 +376,7 @@ bool network_is_wifi_prioritized() {
     sys_dev_eth_common* common = NULL;
     bool result = s_wifi_prioritized;
     bool valid_model = SYS_ETH_COMMON(common) && common->model != sys_dev_eth_models_NONE;
-    if (result) {
+    if(result) {
         result = network_wifi_get_known_count() > 0 || !valid_model;
         ESP_LOGD(TAG, "Wifi is prioritized with %d known access points.%s %s", network_wifi_get_known_count(),
             valid_model ? " And a valid ethernet adapter" : "", result ? "Wifi prioritized" : "Ethernet prioritized");
@@ -406,7 +385,7 @@ bool network_is_wifi_prioritized() {
 }
 
 void network_prioritize_wifi(bool activate) {
-    if (s_wifi_prioritized == activate) return;
+    if(s_wifi_prioritized == activate) return;
     s_wifi_prioritized = activate;
     ESP_LOGI(TAG, "Wifi is %sprioritized", activate ? "" : "not ");
 }
@@ -417,7 +396,7 @@ void network_manager_format_state_machine(
     state_t const* current_state = NULL;
     network_event_t event = -1;
 
-    if (state_machine) {
+    if(state_machine) {
         source_state = ((network_t*)state_machine)->source_state;
         current_state = state_machine->State;
         event = state_machine->Event;
@@ -433,17 +412,17 @@ void network_manager_format_from_to_states(esp_log_level_t level, const char* pr
     const char* state = "N/A";
     const char* sub_state = "N/A";
 
-    if (current_state) {
+    if(current_state) {
         state = state_to_string(current_state);
         sub_state = sub_state_to_string(current_state);
     }
-    if (!from_state) {
+    if(!from_state) {
         source_state = "N/A";
     } else {
         source_state = state_to_string(from_state);
         source_sub_state = sub_state_to_string(from_state);
     }
-    if (show_source) {
+    if(show_source) {
         ESP_LOG_LEVEL(level, TAG, "%s %s %s(%s)->%s(%s) [%s]", STR_OR_BLANK(caller), prefix, source_state, source_sub_state, state, sub_state,
             network_event_to_string(event));
     } else {
@@ -453,9 +432,9 @@ void network_manager_format_from_to_states(esp_log_level_t level, const char* pr
 #define xSafeQueueSendToBack(xQueue, pvItemToQueue, xTicksToWait)                                                                                    \
     check_queue();                                                                                                                                   \
     xQueueSendToBack(xQueue, pvItemToQueue, xTicksToWait);
-#define xSafeQueueSendToFront(xQueue, pvItemToQueue, xTicksToWait)                                                                                    \
+#define xSafeQueueSendToFront(xQueue, pvItemToQueue, xTicksToWait)                                                                                   \
     check_queue();                                                                                                                                   \
-    xQueueSendToFront(xQueue, pvItemToQueue, xTicksToWait);    
+    xQueueSendToFront(xQueue, pvItemToQueue, xTicksToWait);
 void network_async(network_event_t trigger) {
     queue_message msg;
     memset(&msg, 0x00, sizeof(msg));
@@ -463,11 +442,11 @@ void network_async(network_event_t trigger) {
     ESP_LOGD(TAG, "Posting event %s directly", network_event_to_string(trigger));
     xSafeQueueSendToBack(network_queue, &msg, portMAX_DELAY);
 }
-void network_async_got_ip(network_event_t trigger,ip_event_got_ip_t*event_data) {
+void network_async_got_ip(network_event_t trigger, ip_event_got_ip_t* event_data) {
     queue_message msg;
     memset(&msg, 0x00, sizeof(msg));
     msg.trigger = trigger;
-    msg.ctx.got_ip_event_data = (ip_event_got_ip_t*)clone_obj_psram(event_data,sizeof(ip_event_got_ip_t));
+    msg.ctx.got_ip_event_data = (ip_event_got_ip_t*)clone_obj_psram(event_data, sizeof(ip_event_got_ip_t));
     ESP_LOGD(TAG, "Posting event %s", network_event_to_string(trigger));
     xSafeQueueSendToBack(network_queue, &msg, portMAX_DELAY);
 }
@@ -503,12 +482,12 @@ void network_async_update_status() { network_async(EN_UPDATE_STATUS); }
 void network_async_delete() { network_async(EN_DELETE); }
 
 void network_async_scan_done() { network_async(EN_SCAN_DONE); }
-void network_async_delete_connection(const char * ssid){
+void network_async_delete_connection(const char* ssid) {
     queue_message msg;
     memset(&msg, 0x00, sizeof(msg));
     msg.trigger = EN_REMOVE;
     msg.ctx.credentials.ssid = strdup_psram(ssid);
-    ESP_LOGD(TAG, "Posting event %s for ssid %s", network_event_to_string(msg.trigger),ssid);
+    ESP_LOGD(TAG, "Posting event %s for ssid %s", network_event_to_string(msg.trigger), ssid);
     xSafeQueueSendToBack(network_queue, &msg, portMAX_DELAY);
 }
 void network_async_connect(const char* ssid, const char* password) {
@@ -516,9 +495,7 @@ void network_async_connect(const char* ssid, const char* password) {
     memset(&msg, 0x00, sizeof(msg));
     msg.trigger = EN_CONNECT_NEW;
     msg.ctx.credentials.ssid = strdup_psram(ssid);
-    if (password && strlen(password) > 0) {
-        msg.ctx.credentials.password = strdup_psram(password);
-    }
+    if(password && strlen(password) > 0) { msg.ctx.credentials.password = strdup_psram(password); }
     ESP_LOGD(TAG, "Posting event %s", network_event_to_string(msg.trigger));
     xSafeQueueSendToBack(network_queue, &msg, portMAX_DELAY);
 }
@@ -537,7 +514,7 @@ void network_async_lost_connection(wifi_event_sta_disconnected_t* disconnected_e
     msg.trigger = EN_LOST_CONNECTION;
     ESP_LOGD(TAG, "Posting event %s", network_event_to_string(msg.trigger));
     msg.ctx.disconnected_event = clone_obj_psram(disconnected_event, sizeof(wifi_event_sta_disconnected_t));
-    if (msg.ctx.disconnected_event) {
+    if(msg.ctx.disconnected_event) {
         xSafeQueueSendToBack(network_queue, &msg, portMAX_DELAY);
     } else {
         ESP_LOGE(TAG, "Unable to post lost connection event.");
@@ -576,7 +553,7 @@ void network_reboot_ota(char* url) {
     queue_message msg;
     memset(&msg, 0x00, sizeof(msg));
 
-    if (url == NULL) {
+    if(url == NULL) {
         msg.trigger = EN_REBOOT;
         msg.ctx.rtype = OTA;
         ESP_LOGD(TAG, "Posting event %s - type %d", network_event_to_string(msg.trigger), msg.ctx.rtype);
@@ -593,9 +570,9 @@ network_t* network_get_state_machine() { return &NM; }
 
 static void network_timer_cb(TimerHandle_t timer_id) { network_async_timer(); }
 esp_netif_t* network_get_active_interface() {
-    if (NM.wifi_ap_netif && (network_wifi_is_ap_mode() || network_wifi_is_ap_sta_mode())) {
+    if(NM.wifi_ap_netif && (network_wifi_is_ap_mode() || network_wifi_is_ap_sta_mode())) {
         return NM.wifi_ap_netif;
-    } else if (NM.wifi_netif && network_wifi_is_sta_mode()) {
+    } else if(NM.wifi_netif && network_wifi_is_sta_mode()) {
         return NM.wifi_netif;
     }
     return NM.eth_netif;
@@ -603,19 +580,15 @@ esp_netif_t* network_get_active_interface() {
 bool network_is_interface_connected(esp_netif_t* interface) {
     esp_err_t err = ESP_OK;
     tcpip_adapter_ip_info_t ipInfo;
-    if (!interface) {
-        return false;
-    }
+    if(!interface) { return false; }
     err = network_get_ip_info_for_netif(interface, &ipInfo);
-    if (err != ESP_OK) {
-        ESP_LOGD(TAG, "network_get_ip_info_for_netif returned %s", esp_err_to_name(err));
-    }
+    if(err != ESP_OK) { ESP_LOGD(TAG, "network_get_ip_info_for_netif returned %s", esp_err_to_name(err)); }
     return ((err == ESP_OK) && (ipInfo.ip.addr != IPADDR_ANY));
 }
 static esp_netif_t* get_connected_interface() {
     esp_netif_t* interface = NULL;
-    for (int i = 0; i < 4; i++) {
-        switch (i) {
+    for(int i = 0; i < 4; i++) {
+        switch(i) {
         case 0:
             // try the active interface
             interface = network_get_active_interface();
@@ -632,7 +605,7 @@ static esp_netif_t* get_connected_interface() {
         default:
             break;
         }
-        if (interface && network_is_interface_connected(interface)) {
+        if(interface && network_is_interface_connected(interface)) {
             ESP_LOGD(TAG, "Found connected interface in iteration #%d", i);
             return interface;
         }
@@ -642,20 +615,20 @@ static esp_netif_t* get_connected_interface() {
 }
 esp_err_t network_get_ip_info_for_netif(esp_netif_t* netif, tcpip_adapter_ip_info_t* ipInfo) {
     esp_netif_ip_info_t loc_ip_info;
-    ESP_LOGD(TAG,"%s Getting IP info","network_get_ip_info_for_netif");
-    if (!ipInfo) {
+    ESP_LOGD(TAG, "%s Getting IP info", "network_get_ip_info_for_netif");
+    if(!ipInfo) {
         ESP_LOGE(TAG, "Invalid pointer for ipInfo");
         return ESP_ERR_INVALID_ARG;
     }
-    if (!netif) {
+    if(!netif) {
         ESP_LOGE(TAG, "Invalid pointer for netif");
         return ESP_ERR_INVALID_ARG;
     }
-    ESP_LOGD(TAG,"%s Pointers were valid","network_get_ip_info_for_netif");
+    ESP_LOGD(TAG, "%s Pointers were valid", "network_get_ip_info_for_netif");
     memset(ipInfo, 0x00, sizeof(tcpip_adapter_ip_info_t));
     esp_err_t err = esp_netif_get_ip_info(netif, &loc_ip_info);
-    if (err == ESP_OK) {
-        ESP_LOGD(TAG,"%s Setting ip4 address","network_get_ip_info_for_netif");
+    if(err == ESP_OK) {
+        ESP_LOGD(TAG, "%s Setting ip4 address", "network_get_ip_info_for_netif");
         ip4_addr_set(&(ipInfo->ip), &loc_ip_info.ip);
         ip4_addr_set(&(ipInfo->gw), &loc_ip_info.gw);
         ip4_addr_set(&(ipInfo->netmask), &loc_ip_info.netmask);
@@ -664,21 +637,19 @@ esp_err_t network_get_ip_info_for_netif(esp_netif_t* netif, tcpip_adapter_ip_inf
 }
 esp_err_t network_get_ip_info(tcpip_adapter_ip_info_t* ipInfo) {
     esp_netif_t* netif = get_connected_interface();
-    if (netif) {
-        return network_get_ip_info_for_netif(netif, ipInfo);
-    }
+    if(netif) { return network_get_ip_info_for_netif(netif, ipInfo); }
     return ESP_FAIL;
 }
 
 esp_err_t network_get_hostname(const char** hostname) { return esp_netif_get_hostname(get_connected_interface(), hostname); }
 
 void network_set_timer(uint16_t duration, const char* tag) {
-    if (duration > 0) {
-        if (tag) {
+    if(duration > 0) {
+        if(tag) {
             ESP_LOGD(TAG, "Setting timer tag to %s", tag);
             NM.timer_tag = strdup_psram(tag);
         }
-        if (!NM.state_timer) {
+        if(!NM.state_timer) {
             ESP_LOGD(TAG, "Starting %s timer with period of %u ms.", STR_OR_ALT(NM.timer_tag, "anonymous"), duration);
             NM.state_timer = xTimerCreate("background STA", pdMS_TO_TICKS(duration), pdFALSE, NULL, network_timer_cb);
         } else {
@@ -686,7 +657,7 @@ void network_set_timer(uint16_t duration, const char* tag) {
             xTimerChangePeriod(NM.state_timer, pdMS_TO_TICKS(duration), portMAX_DELAY);
         }
         xTimerStart(NM.state_timer, portMAX_DELAY);
-    } else if (NM.state_timer) {
+    } else if(NM.state_timer) {
         ESP_LOGD(TAG, "Stopping timer %s", STR_OR_ALT(NM.timer_tag, "anonymous"));
         xTimerStop(NM.state_timer, portMAX_DELAY);
         FREE_AND_NULL(NM.timer_tag);
@@ -694,12 +665,12 @@ void network_set_timer(uint16_t duration, const char* tag) {
 }
 void network_ip_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data) {
     ip_event_got_ip_t* s = NULL;
-    if (event_base != IP_EVENT) return;
-    switch (event_id) {
+    if(event_base != IP_EVENT) return;
+    switch(event_id) {
     case IP_EVENT_ETH_GOT_IP:
     case IP_EVENT_STA_GOT_IP:
         s = (ip_event_got_ip_t*)event_data;
-        network_async_got_ip(event_id== IP_EVENT_ETH_GOT_IP ? EN_ETH_GOT_IP : EN_GOT_IP,s);
+        network_async_got_ip(event_id == IP_EVENT_ETH_GOT_IP ? EN_ETH_GOT_IP : EN_GOT_IP, s);
         break;
     case IP_EVENT_STA_LOST_IP:
         ESP_LOGD(TAG, "IP_EVENT_STA_LOST_IP");
@@ -719,14 +690,14 @@ void network_set_hostname(esp_netif_t* interface) {
     ESP_LOGD(TAG, "network_set_hostname. Retrieving host name from config structure");
     char* temp = NULL;
 
-    if (!platform || !platform->has_names || strlen(platform->names.device) == 0) {
+    if(!platform || !platform->has_names || strlen(platform->names.device) == 0) {
         temp = alloc_get_fallback_unique_name();
         ESP_LOGE(TAG, "Device name not set. Falling back to %s", temp);
     }
 
     ESP_LOGD(TAG, "Setting host name to : %s", temp ? temp : platform->names.device);
-    if ((err = esp_netif_set_hostname(interface, temp ? temp : platform->names.device)) != ESP_OK) {
+    if((err = esp_netif_set_hostname(interface, temp ? temp : platform->names.device)) != ESP_OK) {
         ESP_LOGE(TAG, "Unable to set host name. Error: %s", esp_err_to_name(err));
     }
-    if (temp) free(temp);
+    if(temp) free(temp);
 }

@@ -4,7 +4,7 @@ UseTab: Never
 IndentWidth: 4
 TabWidth: 4
 ColumnLimit: 150
-PointerAlignment: Right
+PointerAlignment: Left
 ReferenceAlignment: Pointer
 AlignAfterOpenBracket: DontAlign
 BreakBeforeBraces: Attach

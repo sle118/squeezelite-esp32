@@ -130,20 +130,20 @@ static void network_handle_got_ip(network_event_t trigger, ip_event_got_ip_t* ev
         event_data->ip_changed ? "Address was changed" : "Address unchanged");
 }
 #define HANDLE_GLOBAL_EVENT(m)                                                                                                                       \
-    if (handle_global_event(m) == EVENT_HANDLED) return EVENT_HANDLED;
+    if(handle_global_event(m) == EVENT_HANDLED) return EVENT_HANDLED;
 
 static void network_connect_active_ssid(state_machine_t* const State_Machine) {
     network_t* const nm = (network_t*)State_Machine;
     esp_err_t err = network_wifi_connect_active_ssid();
-    if (err != ESP_OK) {
+    if(err != ESP_OK) {
         nm->wifi_connected = false;
 
-        if (err == ESP_ERR_NOT_FOUND) {
+        if(err == ESP_ERR_NOT_FOUND) {
             network_async_fail();
         } else {
             ESP_LOGE(TAG, "Oups.  Something went wrong while trying to connect to the active ssid!");
             ESP_LOGD(TAG, "Checking if ethernet interface is connected");
-            if (network_is_interface_connected(nm->eth_netif)) {
+            if(network_is_interface_connected(nm->eth_netif)) {
                 ESP_LOGD(TAG, "Ethernet connection is found.  Try to fallback there");
                 network_async(EN_ETHERNET_FALLBACK);
             } else {
@@ -166,7 +166,7 @@ static state_machine_result_t handle_global_event(state_machine_t* state_machine
     esp_err_t err = ESP_OK;
     state_machine_result_t result = EVENT_UN_HANDLED;
     ESP_LOGD(TAG, "Processing event %s", network_event_to_string(net_sm->Machine.Event));
-    switch (net_sm->Machine.Event) {
+    switch(net_sm->Machine.Event) {
     case EN_UPDATE_STATUS:
         // handle the event, but don't swicth
         // todo: fix this
@@ -175,7 +175,7 @@ static state_machine_result_t handle_global_event(state_machine_t* state_machine
         /* code */
         break;
     case EN_REMOVE:
-        if (net_sm->event_parameters->ctx.credentials.ssid && strlen(net_sm->event_parameters->ctx.credentials.ssid) > 0) {
+        if(net_sm->event_parameters->ctx.credentials.ssid && strlen(net_sm->event_parameters->ctx.credentials.ssid) > 0) {
             ESP_LOGD(TAG, "Deleting ssid credentials for %s", net_sm->event_parameters->ctx.credentials.ssid);
             result = network_wifi_remove_ssid(net_sm->event_parameters->ctx.credentials.ssid) == ESP_OK ? EVENT_HANDLED : EVENT_UN_HANDLED;
             FREE_AND_NULL(net_sm->event_parameters->ctx.credentials.ssid);
@@ -183,7 +183,7 @@ static state_machine_result_t handle_global_event(state_machine_t* state_machine
         return result;
         break;
     case EN_ADD:
-        if (net_sm->event_parameters->ctx.credentials.ssid && strlen(net_sm->event_parameters->ctx.credentials.ssid) > 0) {
+        if(net_sm->event_parameters->ctx.credentials.ssid && strlen(net_sm->event_parameters->ctx.credentials.ssid) > 0) {
             ESP_LOGD(TAG, "Adding ssid credentials for %s, password %s", net_sm->event_parameters->ctx.credentials.ssid,
                 STR_OR_BLANK(net_sm->event_parameters->ctx.credentials.password));
             result =
@@ -199,7 +199,7 @@ static state_machine_result_t handle_global_event(state_machine_t* state_machine
         break;
     case EN_REBOOT:
         ESP_LOGD(TAG, "Called for reboot type %d", net_sm->event_parameters->ctx.rtype);
-        switch (net_sm->event_parameters->ctx.rtype) {
+        switch(net_sm->event_parameters->ctx.rtype) {
         case OTA:
             ESP_LOGD(TAG, " Calling guided_restart_ota.");
             guided_restart_ota();
@@ -222,7 +222,7 @@ static state_machine_result_t handle_global_event(state_machine_t* state_machine
         return EVENT_HANDLED;
         break;
     case EN_REBOOT_URL:
-        if (net_sm->event_parameters->ctx.strval) {
+        if(net_sm->event_parameters->ctx.strval) {
             start_ota(net_sm->event_parameters->ctx.strval, NULL, 0);
             FREE_AND_NULL(net_sm->event_parameters->ctx.strval);
         }
@@ -234,18 +234,18 @@ static state_machine_result_t handle_global_event(state_machine_t* state_machine
         break;
     case EN_EXECUTE_CALLBACK:
         ESP_LOGD(TAG, "Executing Callback");
-        if (!net_sm->event_parameters->ctx.cb_ctx.cb && !net_sm->event_parameters->ctx.cb_ctx.ret_cb) {
+        if(!net_sm->event_parameters->ctx.cb_ctx.cb && !net_sm->event_parameters->ctx.cb_ctx.ret_cb) {
             ESP_LOGE(TAG, "Invalid callback");
             return EVENT_UN_HANDLED;
-        } else if (net_sm->event_parameters->ctx.cb_ctx.cb) {
+        } else if(net_sm->event_parameters->ctx.cb_ctx.cb) {
             ESP_LOGD(TAG, "Executing Callback with no return value");
             net_sm->event_parameters->ctx.cb_ctx.cb(net_sm->event_parameters->ctx.cb_ctx.ctx);
             ESP_LOGD(TAG, "Done executing callback");
             return EVENT_HANDLED;
-        } else if (net_sm->event_parameters->ctx.cb_ctx.ret_cb) {
+        } else if(net_sm->event_parameters->ctx.cb_ctx.ret_cb) {
             ESP_LOGD(TAG, "Executing Callback with return value");
             err = net_sm->event_parameters->ctx.cb_ctx.ret_cb(net_sm->event_parameters->ctx.cb_ctx.ctx);
-            if (err != ESP_OK) {
+            if(err != ESP_OK) {
                 ESP_LOGE(TAG, "Error processing event");
                 return EVENT_UN_HANDLED;
             }
@@ -286,20 +286,18 @@ static state_machine_result_t NETWORK_INSTANTIATED_STATE_handler(state_machine_t
         "%d, eth timeout %d",
         nm->sta_polling_max_ms, nm->sta_polling_min_ms, nm->ap_duration_ms, nm->dhcp_timeout, nm->eth_link_down_reboot_ms);
     HANDLE_GLOBAL_EVENT(State_Machine);
-    #ifndef TESTPROJECT
-    if(!platform){
-        ESP_LOGE(TAG,"Configuration not initialized.");
-    }
-    else
-    {
-        if (platform && State_Machine->Event == EN_START) {
+#ifndef TESTPROJECT
+    if(!platform) {
+        ESP_LOGE(TAG, "Configuration not initialized.");
+    } else {
+        if(platform && State_Machine->Event == EN_START) {
             result = local_traverse_state(State_Machine, &network_states[NETWORK_INITIALIZING_STATE], __FUNCTION__);
         }
-    }    
-    #else 
-    ESP_LOGI(TAG,"network message ignored in test mode");
-    result= EVENT_HANDLED;
-    #endif
+    }
+#else
+    ESP_LOGI(TAG, "network message ignored in test mode");
+    result = EVENT_HANDLED;
+#endif
 
     network_handler_print(State_Machine, false);
     return result;
@@ -318,7 +316,7 @@ static state_machine_result_t NETWORK_INITIALIZING_STATE_entry_handler(state_mac
     // Initialize nvs; this is needed by the wifi driver
     ESP_LOGI(TAG, "Initializing flash nvs ");
     esp_err_t err = nvs_flash_init();
-    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+    if(err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         ESP_LOGW(TAG, "%s. Erasing nvs flash", esp_err_to_name(err));
         ESP_ERROR_CHECK(nvs_flash_erase());
         err = nvs_flash_init();
@@ -340,12 +338,12 @@ static state_machine_result_t NETWORK_INITIALIZING_STATE_handler(state_machine_t
     network_handler_print(State_Machine, true);
     state_machine_result_t result = EVENT_UN_HANDLED;
     HANDLE_GLOBAL_EVENT(State_Machine);
-    switch (State_Machine->Event) {
+    switch(State_Machine->Event) {
     case EN_START:
-        if (network_is_wifi_prioritized()) {
+        if(network_is_wifi_prioritized()) {
             ESP_LOGI(TAG, "WiFi connection is prioritized. Starting WiFi");
             result = local_traverse_state(State_Machine, &Wifi_Active_State[WIFI_INITIALIZING_STATE], __FUNCTION__);
-        } else if (is_recovery_running) {
+        } else if(is_recovery_running) {
             ESP_LOGI(TAG, "Running recovery. Skipping ethernet, starting WiFi");
             result = local_traverse_state(State_Machine, &Wifi_Active_State[WIFI_INITIALIZING_STATE], __FUNCTION__);
         } else {
@@ -372,7 +370,7 @@ static state_machine_result_t ETH_STARTING_STATE_entry_handler(state_machine_t* 
     ESP_LOGD(TAG, "Looking for ethernet Interface");
     network_t* const nm = (network_t*)State_Machine;
     init_network_ethernet();
-    if (!network_ethernet_enabled()) {
+    if(!network_ethernet_enabled()) {
         network_async_fail();
     } else {
         nm->eth_netif = network_ethernet_get_interface();
@@ -386,7 +384,7 @@ static state_machine_result_t ETH_STARTING_STATE_handler(state_machine_t* const 
     state_machine_result_t result = EVENT_HANDLED;
     network_handler_print(State_Machine, true);
     HANDLE_GLOBAL_EVENT(State_Machine);
-    switch (State_Machine->Event) {
+    switch(State_Machine->Event) {
     case EN_FAIL:
         result = local_traverse_state(State_Machine, &Wifi_Active_State[WIFI_INITIALIZING_STATE], __FUNCTION__);
         break;
@@ -412,9 +410,9 @@ static state_machine_result_t ETH_STARTING_STATE_exit_handler(state_machine_t* c
 static state_machine_result_t NETWORK_ETH_ACTIVE_STATE_entry_handler(state_machine_t* const State_Machine) {
     network_handler_entry_print(State_Machine, true);
     network_t* const nm = (network_t*)State_Machine;
-    ESP_LOGD(TAG,"Entering ETH Active state. Setting timer");
+    ESP_LOGD(TAG, "Entering ETH Active state. Setting timer");
     network_set_timer(nm->eth_link_down_reboot_ms, "Ethernet link not detected");
-    ESP_LOGD(TAG,"Entering ETH Active state. Executing callback(s)");
+    ESP_LOGD(TAG, "Entering ETH Active state. Executing callback(s)");
     NETWORK_EXECUTE_CB(State_Machine);
     network_handler_entry_print(State_Machine, false);
     return EVENT_HANDLED;
@@ -424,7 +422,7 @@ static state_machine_result_t NETWORK_ETH_ACTIVE_STATE_handler(state_machine_t* 
     state_machine_result_t result = EVENT_UN_HANDLED;
     network_t* const nm = (network_t*)State_Machine;
 
-    switch (State_Machine->Event) {
+    switch(State_Machine->Event) {
     case EN_CONNECT_NEW:
         result = local_traverse_state(State_Machine, &Eth_Active_State[ETH_CONNECTING_NEW_STATE], __FUNCTION__);
         break;
@@ -496,7 +494,7 @@ static state_machine_result_t ETH_CONNECTING_NEW_STATE_handler(state_machine_t* 
     state_machine_result_t result = EVENT_HANDLED;
     network_t* const nm = (network_t*)State_Machine;
 
-    switch (State_Machine->Event) {
+    switch(State_Machine->Event) {
     case EN_GOT_IP:
         network_handle_got_ip(State_Machine->Event, nm->event_parameters->ctx.got_ip_event_data);
         FREE_AND_NULL(nm->event_parameters->ctx.got_ip_event_data);
@@ -589,7 +587,7 @@ static state_machine_result_t NETWORK_WIFI_ACTIVE_STATE_handler(state_machine_t*
     network_handler_print(State_Machine, true);
     state_machine_result_t result = EVENT_UN_HANDLED;
     network_t* const nm = (network_t*)State_Machine;
-    switch (State_Machine->Event) {
+    switch(State_Machine->Event) {
     case EN_LINK_UP:
         ESP_LOGW(TAG, "Ethernet link up in wifi mode");
         break;
@@ -606,14 +604,10 @@ static state_machine_result_t NETWORK_WIFI_ACTIVE_STATE_handler(state_machine_t*
         result = local_traverse_state(State_Machine, &Wifi_Active_State[WIFI_CONNECTED_STATE], __FUNCTION__);
         break;
     case EN_SCAN:
-        if (network_wifi_start_scan() == ESP_OK) {
-            result = EVENT_HANDLED;
-        }
+        if(network_wifi_start_scan() == ESP_OK) { result = EVENT_HANDLED; }
         break;
     case EN_SCAN_DONE:
-        if (wifi_scan_done() == ESP_OK) {
-            result = EVENT_HANDLED;
-        }
+        if(wifi_scan_done() == ESP_OK) { result = EVENT_HANDLED; }
         network_async_success();
         break;
     case EN_CONNECT_NEW:
@@ -644,14 +638,12 @@ static state_machine_result_t NETWORK_WIFI_ACTIVE_STATE_exit_handler(state_machi
 static state_machine_result_t WIFI_INITIALIZING_STATE_entry_handler(state_machine_t* const State_Machine) {
     network_t* const nm = (network_t*)State_Machine;
     network_handler_entry_print(State_Machine, true);
-    if (!nm->wifi_netif) {
-        nm->wifi_netif = network_wifi_start();
-    }
-    if (!is_wifi_up()) {
+    if(!nm->wifi_netif) { nm->wifi_netif = network_wifi_start(); }
+    if(!is_wifi_up()) {
         messaging_post_message(MESSAGING_WARNING, MESSAGING_CLASS_SYSTEM, "Wifi not started. Load Configuration");
         return EVENT_UN_HANDLED;
     }
-    if (network_wifi_get_known_count() > 0) {
+    if(network_wifi_get_known_count() > 0) {
         ESP_LOGI(TAG, "Existing wifi config found. Attempting to connect.");
         network_async_success();
     } else {
@@ -668,7 +660,7 @@ static state_machine_result_t WIFI_INITIALIZING_STATE_handler(state_machine_t* c
     HANDLE_GLOBAL_EVENT(State_Machine);
     network_handler_print(State_Machine, true);
     state_machine_result_t result = EVENT_HANDLED;
-    switch (State_Machine->Event) {
+    switch(State_Machine->Event) {
     case EN_CONFIGURE:
         result = local_traverse_state(State_Machine, &Wifi_Configuring_State[WIFI_CONFIGURING_STATE], __FUNCTION__);
         break;
@@ -706,17 +698,13 @@ static state_machine_result_t NETWORK_WIFI_CONFIGURING_ACTIVE_STATE_handler(stat
     network_t* const nm = (network_t*)State_Machine;
 
     state_machine_result_t result = EVENT_HANDLED;
-    switch (State_Machine->Event) {
+    switch(State_Machine->Event) {
     case EN_SCAN:
-        if (network_wifi_start_scan() == ESP_OK) {
-            result = EVENT_HANDLED;
-        }
+        if(network_wifi_start_scan() == ESP_OK) { result = EVENT_HANDLED; }
         break;
     case EN_SCAN_DONE:
         ESP_LOGD(TAG, "Network configuration active, wifi scan completed");
-        if (wifi_scan_done() == ESP_OK) {
-            result = EVENT_HANDLED;
-        }
+        if(wifi_scan_done() == ESP_OK) { result = EVENT_HANDLED; }
         break;
     case EN_CONNECT_NEW:
         result = local_traverse_state(State_Machine, &Wifi_Configuring_State[WIFI_CONFIGURING_CONNECT_STATE], __FUNCTION__);
@@ -787,7 +775,7 @@ static state_machine_result_t WIFI_CONFIGURING_CONNECT_STATE_handler(state_machi
     network_handler_print(State_Machine, true);
     network_t* const nm = (network_t*)State_Machine;
     state_machine_result_t result = EVENT_HANDLED;
-    switch (State_Machine->Event) {
+    switch(State_Machine->Event) {
     case EN_CONNECTED:
         result = EVENT_HANDLED;
         ESP_LOGI(TAG, "Wifi was connected. Waiting for IP address");
@@ -801,7 +789,7 @@ static state_machine_result_t WIFI_CONFIGURING_CONNECT_STATE_handler(state_machi
         result = local_traverse_state(State_Machine, &Wifi_Configuring_State[WIFI_CONFIGURING_CONNECT_SUCCESS_STATE], __FUNCTION__);
         break;
     case EN_LOST_CONNECTION:
-        if (nm->event_parameters->ctx.disconnected_event->reason == WIFI_REASON_ASSOC_LEAVE) {
+        if(nm->event_parameters->ctx.disconnected_event->reason == WIFI_REASON_ASSOC_LEAVE) {
             ESP_LOGI(TAG, "Wifi was disconnected from previous access point. Waiting to connect.");
         } else {
             network_status_update_ip_info(sys_status_reasons_R_FAILED_ATTEMPT);
@@ -845,7 +833,7 @@ static state_machine_result_t WIFI_CONFIGURING_CONNECT_SUCCESS_STATE_handler(sta
     network_handler_print(State_Machine, true);
     state_machine_result_t result = EVENT_HANDLED;
     network_t* const nm = (network_t*)State_Machine;
-    switch (State_Machine->Event) {
+    switch(State_Machine->Event) {
     case EN_UPDATE_STATUS:
         // todo: fix this
         // network_status_update_basic_info();
@@ -890,12 +878,12 @@ static state_machine_result_t WIFI_CONNECTING_STATE_handler(state_machine_t* con
     state_machine_result_t result = EVENT_HANDLED;
     network_t* const nm = (network_t*)State_Machine;
     network_handler_print(State_Machine, true);
-    switch (State_Machine->Event) {
+    switch(State_Machine->Event) {
     case EN_CONNECTED:
         // nothing to do here. Let's wait for IP address
         break;
     case EN_TIMER:
-        if (nm->initial_retries < (platform!=NULL && platform->net.max_initial_wifi_attempt>0?platform->net.max_initial_wifi_attempt:5)) {
+        if(nm->initial_retries < (platform != NULL && platform->net.max_initial_wifi_attempt > 0 ? platform->net.max_initial_wifi_attempt : 5)) {
             nm->initial_retries++;
             ESP_LOGD(TAG, " Retrying connection connection, %d/%d.", nm->initial_retries, platform->net.max_initial_wifi_attempt);
             ESP_LOGI(TAG, "Timer: %s ", STR_OR_ALT(nm->timer_tag, "Ethernet link not detected"));
@@ -904,11 +892,11 @@ static state_machine_result_t WIFI_CONNECTING_STATE_handler(state_machine_t* con
         }
         break;
     case EN_LOST_CONNECTION:
-        if (nm->event_parameters->ctx.disconnected_event->reason == WIFI_REASON_ASSOC_LEAVE ||
+        if(nm->event_parameters->ctx.disconnected_event->reason == WIFI_REASON_ASSOC_LEAVE ||
             nm->event_parameters->ctx.disconnected_event->reason == WIFI_REASON_AUTH_EXPIRE ||
             nm->event_parameters->ctx.disconnected_event->reason == WIFI_REASON_ASSOC_EXPIRE) {
             ESP_LOGI(TAG, "Wifi was disconnected from previous access point. Waiting to connect.");
-        } else if (nm->event_parameters->ctx.disconnected_event->reason != WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT) {
+        } else if(nm->event_parameters->ctx.disconnected_event->reason != WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT) {
             network_status_update_ip_info(sys_status_reasons_R_FAILED_ATTEMPT);
             result = local_traverse_state(State_Machine, &Wifi_Configuring_State[WIFI_CONFIGURING_STATE], __FUNCTION__);
         }
@@ -946,7 +934,7 @@ static state_machine_result_t WIFI_CONNECTING_SCAN_STATE_handler(state_machine_t
     HANDLE_GLOBAL_EVENT(State_Machine);
     state_machine_result_t result = EVENT_HANDLED;
     network_handler_print(State_Machine, true);
-    switch (State_Machine->Event) {
+    switch(State_Machine->Event) {
     case EN_SUCCESS:
         // scan completed, we can try to connect to a known AP now
         network_wifi_activate_strongest_ssid();
@@ -984,7 +972,7 @@ static state_machine_result_t WIFI_CONNECTING_NEW_STATE_handler(state_machine_t*
     state_machine_result_t result = EVENT_HANDLED;
     network_t* const nm = (network_t*)State_Machine;
 
-    switch (State_Machine->Event) {
+    switch(State_Machine->Event) {
     case EN_GOT_IP:
         network_handle_got_ip(State_Machine->Event, nm->event_parameters->ctx.got_ip_event_data);
         FREE_AND_NULL(nm->event_parameters->ctx.got_ip_event_data);
@@ -997,7 +985,7 @@ static state_machine_result_t WIFI_CONNECTING_NEW_STATE_handler(state_machine_t*
         result = EVENT_HANDLED;
         break;
     case EN_LOST_CONNECTION:
-        if (((network_t*)State_Machine)->event_parameters->ctx.disconnected_event->reason == WIFI_REASON_ASSOC_LEAVE) {
+        if(((network_t*)State_Machine)->event_parameters->ctx.disconnected_event->reason == WIFI_REASON_ASSOC_LEAVE) {
             ESP_LOGD(TAG, "Successfully disconnected from the existing access point. ");
             return EVENT_HANDLED;
         }
@@ -1026,7 +1014,7 @@ static state_machine_result_t WIFI_CONNECTING_NEW_STATE_exit_handler(state_machi
 static state_machine_result_t WIFI_CONNECTING_NEW_FAILED_STATE_entry_handler(state_machine_t* const State_Machine) {
     network_t* const nm = (network_t*)State_Machine;
     network_handler_entry_print(State_Machine, true);
-    if (nm->wifi_connected) {
+    if(nm->wifi_connected) {
         // Wifi was already connected to an existing access point. Restore connection
         network_connect_active_ssid(State_Machine);
     }
@@ -1041,7 +1029,7 @@ static state_machine_result_t WIFI_CONNECTING_NEW_FAILED_STATE_handler(state_mac
     state_machine_result_t result = EVENT_HANDLED;
     network_t* const nm = (network_t*)State_Machine;
 
-    switch (State_Machine->Event) {
+    switch(State_Machine->Event) {
     case EN_GOT_IP:
         network_handle_got_ip(State_Machine->Event, nm->event_parameters->ctx.got_ip_event_data);
         FREE_AND_NULL(nm->event_parameters->ctx.got_ip_event_data);
@@ -1080,7 +1068,7 @@ static state_machine_result_t WIFI_CONNECTING_NEW_FAILED_STATE_exit_handler(stat
 static state_machine_result_t WIFI_CONNECTED_STATE_entry_handler(state_machine_t* const State_Machine) {
     network_t* const nm = (network_t*)State_Machine;
     network_handler_entry_print(State_Machine, true);
-    ESP_LOGD(TAG,"Entered WIFI_CONNECTED_STATE ");
+    ESP_LOGD(TAG, "Entered WIFI_CONNECTED_STATE ");
     nm->last_connected = esp_timer_get_time();
     // cancel timeout pulse
     network_set_timer(0, NULL);
@@ -1095,13 +1083,13 @@ static state_machine_result_t WIFI_CONNECTED_STATE_handler(state_machine_t* cons
     network_handler_print(State_Machine, true);
     state_machine_result_t result = EVENT_HANDLED;
     network_t* const nm = (network_t*)State_Machine;
-    switch (State_Machine->Event) {
+    switch(State_Machine->Event) {
     case EN_LOST_CONNECTION:
-        if (is_restarting()) {
+        if(is_restarting()) {
             // ignore this as we're restarting
             return EVENT_HANDLED;
         }
-        if (nm->event_parameters->ctx.disconnected_event->reason == WIFI_REASON_ASSOC_LEAVE) {
+        if(nm->event_parameters->ctx.disconnected_event->reason == WIFI_REASON_ASSOC_LEAVE) {
             ESP_LOGD(TAG, "User disconnected from wifi. Re-initializing connection");
             result = local_traverse_state(State_Machine, &Wifi_Active_State[WIFI_INITIALIZING_STATE], __FUNCTION__);
         } else {
@@ -1140,7 +1128,7 @@ static state_machine_result_t WIFI_USER_DISCONNECTED_STATE_handler(state_machine
     HANDLE_GLOBAL_EVENT(State_Machine);
     network_handler_print(State_Machine, true);
     state_machine_result_t result = EVENT_HANDLED;
-    switch (State_Machine->Event) {
+    switch(State_Machine->Event) {
     case EN_LOST_CONNECTION:
         // this is a success! we're actually asking to disconnect
         result = local_traverse_state(State_Machine, &Wifi_Configuring_State[WIFI_CONFIGURING_STATE], __FUNCTION__);
@@ -1168,12 +1156,12 @@ static state_machine_result_t WIFI_LOST_CONNECTION_STATE_entry_handler(state_mac
     network_status_update_ip_info(sys_status_reasons_R_LOST_CONNECTION);
     // todo: fix this!
     //  network_status_safe_reset_sta_ip_string();
-    if (nm->last_connected > 0) nm->total_connected_time += ((esp_timer_get_time() - nm->last_connected) / (1000 * 1000));
+    if(nm->last_connected > 0) nm->total_connected_time += ((esp_timer_get_time() - nm->last_connected) / (1000 * 1000));
     nm->last_connected = 0;
     nm->num_disconnect++;
     ESP_LOGW(TAG, " Wifi disconnected. Number of disconnects: %d, Average time connected: %d", nm->num_disconnect,
         nm->num_disconnect > 0 ? (nm->total_connected_time / nm->num_disconnect) : 0);
-    if (nm->retries < (platform && platform->net.max_wifi_retry>0?platform->net.max_wifi_retry:5)) {
+    if(nm->retries < (platform && platform->net.max_wifi_retry > 0 ? platform->net.max_wifi_retry : 5)) {
         nm->retries++;
         ESP_LOGD(TAG, " Retrying connection connection, %d/%d.", nm->retries, platform->net.max_wifi_retry);
         network_async(EN_CONNECT);
@@ -1181,7 +1169,7 @@ static state_machine_result_t WIFI_LOST_CONNECTION_STATE_entry_handler(state_mac
         /* In this scenario the connection was lost beyond repair */
         nm->retries = 0;
         ESP_LOGD(TAG, "Checking if ethernet interface is connected");
-        if (network_is_interface_connected(nm->eth_netif)) {
+        if(network_is_interface_connected(nm->eth_netif)) {
             ESP_LOGW(TAG, "Cannot connect to Wifi. Falling back to Ethernet ");
             network_async(EN_ETHERNET_FALLBACK);
         } else {
@@ -1191,10 +1179,10 @@ static state_machine_result_t WIFI_LOST_CONNECTION_STATE_entry_handler(state_mac
 
             /* put us in softAP mode first */
             esp_wifi_get_mode(&mode);
-            if (WIFI_MODE_APSTA != mode) {
+            if(WIFI_MODE_APSTA != mode) {
                 nm->STA_duration = nm->sta_polling_min_ms;
                 network_async_configure();
-            } else if (nm->STA_duration < nm->sta_polling_max_ms) {
+            } else if(nm->STA_duration < nm->sta_polling_max_ms) {
                 nm->STA_duration *= 1.25;
             }
 
@@ -1213,7 +1201,7 @@ static state_machine_result_t WIFI_LOST_CONNECTION_STATE_handler(state_machine_t
     network_t* const nm = (network_t*)State_Machine;
     state_machine_result_t result = EVENT_HANDLED;
     network_handler_print(State_Machine, true);
-    switch (State_Machine->Event) {
+    switch(State_Machine->Event) {
     case EN_CONFIGURE:
         result = local_traverse_state(State_Machine, &Wifi_Configuring_State[WIFI_CONFIGURING_STATE], __FUNCTION__);
         break;
@@ -1253,7 +1241,7 @@ static state_machine_result_t ETH_ACTIVE_CONNECTED_STATE_handler(state_machine_t
     HANDLE_GLOBAL_EVENT(State_Machine);
     state_machine_result_t result = EVENT_HANDLED;
     network_handler_print(State_Machine, true);
-    switch (State_Machine->Event) {
+    switch(State_Machine->Event) {
     case EN_TIMER:
         ESP_LOGD(TAG, "Ignoring ethernet link up timer check");
         result = EVENT_HANDLED;
@@ -1291,16 +1279,16 @@ static void network_interface_coexistence(state_machine_t* state_machine) {
     // this function is called whenever both wifi and ethernet are
     // found to be active at the same time
     network_t* nm = (network_t*)state_machine;
-    if (nm->wifi_connected && state_machine->Event == EN_ETH_GOT_IP) {
+    if(nm->wifi_connected && state_machine->Event == EN_ETH_GOT_IP) {
         network_prioritize_wifi(false);
-        if (platform && !platform->net.eth_boot) {
+        if(platform && !platform->net.eth_boot) {
             ESP_LOGW(TAG, "Option eth_reboot set to reboot when ethernet is connected. Rebooting");
             simple_restart();
         } else {
             ESP_LOGW(TAG, "Option eth_reboot set to not reboot when ethernet is connected. Using "
                           "Wifi interface until next reboot");
         }
-    } else if (get_root(state_machine->State)->Id == NETWORK_ETH_ACTIVE_STATE) {
+    } else if(get_root(state_machine->State)->Id == NETWORK_ETH_ACTIVE_STATE) {
         messaging_post_message(MESSAGING_WARNING, MESSAGING_CLASS_SYSTEM, "Wifi Connected with Ethernet active. System reload needed");
         simple_restart();
     }

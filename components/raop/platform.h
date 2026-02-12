@@ -12,11 +12,11 @@
 #define __PLATFORM_H
 
 #ifdef WIN32
-#define LINUX     0
-#define WIN       1
+#define LINUX 0
+#define WIN 1
 #else
-#define LINUX     1
-#define WIN       0
+#define LINUX 1
+#define WIN 0
 #endif
 
 #include <stdbool.h>
@@ -31,7 +31,7 @@
 #include <iphlpapi.h>
 #include <sys/timeb.h>
 
-typedef unsigned __int8  u8_t;
+typedef unsigned __int8 u8_t;
 typedef unsigned __int16 u16_t;
 typedef unsigned __int32 u32_t;
 typedef unsigned __int64 u64_t;
@@ -41,25 +41,26 @@ typedef __int64 s64_t;
 
 #define inline __inline
 
-int gettimeofday(struct timeval *tv, struct timezone *tz);
-char *strcasestr(const char *haystack, const char *needle);
+int gettimeofday(struct timeval* tv, struct timezone* tz);
+char* strcasestr(const char* haystack, const char* needle);
 
-#define usleep(x) 		Sleep((x)/1000)
-#define sleep(x) 		Sleep((x)*1000)
-#define last_error() 	WSAGetLastError()
+#define usleep(x) Sleep((x) / 1000)
+
+#define sleep(x) Sleep((x) * 1000)
+#define last_error() WSAGetLastError()
 #define ERROR_WOULDBLOCK WSAEWOULDBLOCK
-#define open 			_open
-#define read 			_read
-#define poll 			WSAPoll
-#define snprintf 		_snprintf
-#define strcasecmp 		stricmp
-#define _random(x) 		random(x)
-#define VALGRIND_MAKE_MEM_DEFINED(x,y)
+#define open _open
+#define read _read
+#define poll WSAPoll
+#define snprintf _snprintf
+#define strcasecmp stricmp
+#define _random(x) random(x)
+#define VALGRIND_MAKE_MEM_DEFINED(x, y)
 #define S_ADDR(X) X.S_un.S_addr
 
-#define in_addr_t 	u32_t
-#define socklen_t 	int
-#define ssize_t 	int
+#define in_addr_t u32_t
+#define socklen_t int
+#define ssize_t int
 
 #define RTLD_NOW 0
 
@@ -82,21 +83,21 @@ char *strcasestr(const char *haystack, const char *needle);
 #include <pthread.h>
 #include <errno.h>
 
-#define min(a,b) (((a) < (b)) ? (a) : (b))
-#define max(a,b) (((a) > (b)) ? (a) : (b))
+#define min(a, b) (((a) < (b)) ? (a) : (b))
+#define max(a, b) (((a) > (b)) ? (a) : (b))
 
-typedef int16_t   s16_t;
-typedef int32_t   s32_t;
-typedef int64_t   s64_t;
-typedef uint8_t   u8_t;
-typedef uint16_t   u16_t;
-typedef uint32_t   u32_t;
+typedef int16_t s16_t;
+typedef int32_t s32_t;
+typedef int64_t s64_t;
+typedef uint8_t u8_t;
+typedef uint16_t u16_t;
+typedef uint32_t u32_t;
 typedef unsigned long long u64_t;
 
 #define last_error() errno
 #define ERROR_WOULDBLOCK EWOULDBLOCK
 
-char *strlwr(char *str);
+char* strlwr(char* str);
 #define _random(x) random()
 #define closesocket(s) close(s)
 #define S_ADDR(X) X.s_addr
@@ -104,14 +105,15 @@ char *strlwr(char *str);
 #endif
 
 typedef struct ntp_s {
-	u32_t seconds;
-	u32_t fraction;
-} ntp_t;
+    u32_t seconds;
+    u32_t fraction;
 
-u64_t timeval_to_ntp(struct timeval tv, struct ntp_s *ntp);
-u64_t get_ntp(struct ntp_s *ntp);
+} ntp_t;
+
+u64_t timeval_to_ntp(struct timeval tv, struct ntp_s* ntp);
+u64_t get_ntp(struct ntp_s* ntp);
 // we expect somebody to provide the ms clock, system-wide
 u32_t _gettime_ms_(void);
 #define gettime_ms _gettime_ms_
 
-#endif     // __PLATFORM
+#endif // __PLATFORM

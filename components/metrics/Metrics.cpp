@@ -32,10 +32,10 @@ static const char* TAG = "metrics";
 static bool metrics_usage_gen = false;
 static uint32_t metrics_usage_gen_time = 0;
 #ifndef METRICS_API_KEY
-    #pragma message "Metrics API key needs to be passed from the environment"
-    #define METRICS_API_KEY "ZZZ"
+#pragma message "Metrics API key needs to be passed from the environment"
+#define METRICS_API_KEY "ZZZ"
 #endif
-static const char* metrics_api_key =  METRICS_API_KEY;
+static const char* metrics_api_key = METRICS_API_KEY;
 static const char* parms_str = "params";
 static const char* properties_str = "properties";
 static const char* user_properties_str = "user_properties";
@@ -47,15 +47,15 @@ extern cJSON* get_cmd_list();
 Metrics::Batch batch;
 
 static void metrics_timer_cb(void* timer_id) {
-    if (batch.has_events()) {
-        if (!is_network_connected()) {
+    if(batch.has_events()) {
+        if(!is_network_connected()) {
             ESP_LOGV(TAG, "Network not connected. can't flush");
         } else {
             ESP_LOGV(TAG, "Pushing events");
             batch.push();
         }
     }
-    if (gettime_ms() > metrics_usage_gen_time && !metrics_usage_gen) {
+    if(gettime_ms() > metrics_usage_gen_time && !metrics_usage_gen) {
         metrics_usage_gen = true;
         ESP_LOGV(TAG, "Generate command list to pull features");
         cJSON* cmdlist = get_cmd_list();
@@ -66,7 +66,7 @@ static void metrics_timer_cb(void* timer_id) {
 void metrics_init() {
     ESP_LOGV(TAG, "Initializing metrics");
     batch.configure(metrics_api_key, metrics_url);
-    if (!timer) {
+    if(!timer) {
         ESP_LOGE(TAG, "Metrics Timer failure");
     } else {
         ESP_LOGV(TAG, "Starting timer");
@@ -113,21 +113,17 @@ void metrics_event(const char* name) {
     batch.add_event(name);
 }
 #else
-static const char * not_enabled =  " - (metrics not enabled, this is just marking where the call happens)";
-void metrics_init(){
+static const char* not_enabled = " - (metrics not enabled, this is just marking where the call happens)";
+void metrics_init() {
 #pragma message("Metrics disabled")
-    ESP_LOGD(TAG,"Metrics init%s",not_enabled);
+    ESP_LOGD(TAG, "Metrics init%s", not_enabled);
 }
-void metrics_event_boot(const char* partition){
-    ESP_LOGD(TAG,"Metrics Event Boot from partition %s%s",partition,not_enabled);
-}
-void metrics_event(const char* name){
-    ESP_LOGD(TAG,"Metrics Event %s%s",name,not_enabled);
-}
+void metrics_event_boot(const char* partition) { ESP_LOGD(TAG, "Metrics Event Boot from partition %s%s", partition, not_enabled); }
+void metrics_event(const char* name) { ESP_LOGD(TAG, "Metrics Event %s%s", name, not_enabled); }
 void metrics_add_feature(const char* name, bool active) {
-    ESP_LOGD(TAG,"Metrics add feature %s%s%s",name,active?"ACTIVE":"INACTIVE",not_enabled);
+    ESP_LOGD(TAG, "Metrics add feature %s%s%s", name, active ? "ACTIVE" : "INACTIVE", not_enabled);
 }
-void metrics_add_feature_variant(const char* name, const char* format, ...){
+void metrics_add_feature_variant(const char* name, const char* format, ...) {
     va_list args;
     ESP_LOGV(TAG, "Feature %s", name);
     va_start(args, format);
@@ -142,6 +138,6 @@ void metrics_add_feature_variant(const char* name, const char* format, ...){
     vsnprintf(buffer.data(), buffer.size(), format, args);
     va_end(args);
 
-    ESP_LOGD(TAG,"Metrics add feature %s variant %s%s",name,buffer.data(),not_enabled);
+    ESP_LOGD(TAG, "Metrics add feature %s variant %s%s", name, buffer.data(), not_enabled);
 }
 #endif

@@ -37,17 +37,18 @@ class Event {
         FREE_AND_NULL(_name);
 
         // Iterate through the map and free the elements
-        for (auto& kv : properties) {
+        for(auto& kv : properties) {
             free((void*)kv.first);
             free(kv.second);
         }
         properties.clear(); // Clear the map after freeing memory
         FREE_AND_NULL(_json);
     }
+
   private:
     char* _name = nullptr;
     std::time_t _time;
-    cJSON* _json = nullptr;    
+    cJSON* _json = nullptr;
 };
 
 } // namespace Metrics

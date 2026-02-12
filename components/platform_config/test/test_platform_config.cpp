@@ -43,7 +43,7 @@ bool HasMemoryUsageIncreased(int round) {
     static size_t initialFreeSPIRAM = 0;
     auto minFreeInternal = heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL);
     auto minFreeSPIRAM = heap_caps_get_minimum_free_size(MALLOC_CAP_SPIRAM);
-    if (round > 0) {
+    if(round > 0) {
         postTestFreeInternal = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
         postTestFreeSPIRAM = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
         minFreeInternal = heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL);
@@ -56,7 +56,7 @@ bool HasMemoryUsageIncreased(int round) {
             postTestFreeSPIRAM, minFreeSPIRAM, initialFreeSPIRAM - postTestFreeSPIRAM);
         int32_t diffInternal = initialFreeInternal > postTestFreeInternal ? initialFreeInternal - postTestFreeInternal : 0;
         int32_t diffSPIRAM = initialFreeSPIRAM > postTestFreeSPIRAM ? initialFreeSPIRAM - postTestFreeSPIRAM : 0;
-        if (diffSPIRAM > 0 || diffInternal > 0) {
+        if(diffSPIRAM > 0 || diffInternal > 0) {
             ESP_LOGW(TAG, "Internal increase: %d, SPIRAM: %d", diffInternal, diffSPIRAM);
             return true;
         }
@@ -147,24 +147,24 @@ sys_net_wifi_entry getMockEntry(int i = 0) {
     return mock;
 }
 
-void FillSSIDs(WifiList& manager, int count, int start=1) {
-    for (int i = start; i <= count; i++) {
+void FillSSIDs(WifiList& manager, int count, int start = 1) {
+    for(int i = start; i <= count; i++) {
         auto mock = getMockSTA(i);
         auto& entry = manager.AddUpdate(&mock);
         entry.rssi = 70 + i;
         entry.connected = true;
     }
 }
-void FillSSIDFromAPRec(WifiList& manager, int count, int start=1) {
-    for (int i = start; i <= count; i++) {
+void FillSSIDFromAPRec(WifiList& manager, int count, int start = 1) {
+    for(int i = start; i <= count; i++) {
         auto mock = getMockAPRec(i);
         auto& entry = manager.AddUpdate(&mock);
         entry.rssi = 70 + i;
         entry.connected = true;
     }
 }
-void FillSSIDFromMockEntry(WifiList& manager, int count, int start=1) {
-    for (int i = start; i <= count; i++) {
+void FillSSIDFromMockEntry(WifiList& manager, int count, int start = 1) {
+    for(int i = start; i <= count; i++) {
         auto mock = getMockEntry(i);
         auto& entry = manager.AddUpdate(&mock);
         entry.rssi = 70 + i;
@@ -238,9 +238,7 @@ const sys_config* GetTestConfig() {
     test_config.dev.rotary.longpress = true;
     test_config.has_names = true;
     strcpy(test_config.names.device, "test_name");
-    if (!test_config.target) {
-        test_config.target = strdup_psram("test_target");
-    }
+    if(!test_config.target) { test_config.target = strdup_psram("test_target"); }
     return &test_config;
 }
 void check_sys_config_structure(sys_config* config) {
@@ -674,19 +672,19 @@ TEST_CASE("Remove entries from manager instance", "[WifiCredentialsManager]") {
 TEST_CASE("Reset all entries", "[WifiCredentialsManager]") {
     WifiCredentialsManager manager("test_manager");
     FillSSIDs(manager, 4);
-    for (auto& e : manager) {
+    for(auto& e : manager) {
         TEST_ASSERT_TRUE(e.second.rssi > 0);
         TEST_ASSERT_TRUE(e.second.connected);
     }
     manager.ResetRSSI();
-    for (auto& e : manager) {
+    for(auto& e : manager) {
         TEST_ASSERT_TRUE(e.second.rssi == 0);
         TEST_ASSERT_TRUE(e.second.connected);
     }
     manager.Clear();
     FillSSIDs(manager, 4);
     manager.ResetConnected();
-    for (auto& e : manager) {
+    for(auto& e : manager) {
         TEST_ASSERT_TRUE(e.second.rssi > 0);
         TEST_ASSERT_FALSE(e.second.connected);
     }
@@ -699,10 +697,8 @@ TEST_CASE("Getting/setting Connected", "[WifiCredentialsManager]") {
     auto entry_5 = getMockEntry(5);
     char bssid_buffer[20] = {};
     FillSSIDs(manager, 4);
-    for (auto& e : manager) {
-        if (strcmp(e.second.ssid, "SSID_3") != 0) {
-            e.second.connected = false;
-        }
+    for(auto& e : manager) {
+        if(strcmp(e.second.ssid, "SSID_3") != 0) { e.second.connected = false; }
     }
     auto entry = manager.GetConnected();
     TEST_ASSERT_EQUAL_STRING("SSID_3", entry->ssid);
@@ -732,7 +728,7 @@ TEST_CASE("Getting by index/by name", "[WifiCredentialsManager]") {
     char buffer[25] = {};
     WifiCredentialsManager manager("test_manager");
     FillSSIDs(manager, 4);
-    for (int i = 0; i < manager.GetCount(); i++) {
+    for(int i = 0; i < manager.GetCount(); i++) {
         sprintf(buffer, "SSID_%d", i + 1);
         auto mockap = getMockAPRec(i + 1);
         auto mockSTA = getMockSTA(i + 1);
@@ -763,7 +759,7 @@ TEST_CASE("Update last try", "[WifiCredentialsManager]") {
 
     WifiList manager("test_manager");
     FillSSIDs(manager, 4);
-    for (int i = 0; i < manager.GetCount(); i++) {
+    for(int i = 0; i < manager.GetCount(); i++) {
         sprintf(buffer, "SSID_%d", i + 1);
         auto mockap = getMockAPRec(i + 1);
         auto mockSTA = getMockSTA(i + 1);
@@ -806,7 +802,7 @@ TEST_CASE("Update last seen", "[WifiCredentialsManager]") {
 
     WifiList manager("test_manager");
     FillSSIDs(manager, 4);
-    for (int i = 0; i < manager.GetCount(); i++) {
+    for(int i = 0; i < manager.GetCount(); i++) {
         sprintf(buffer, "SSID_%d", i + 1);
         auto mockap = getMockAPRec(i + 1);
         auto mockSTA = getMockSTA(i + 1);
@@ -840,7 +836,7 @@ TEST_CASE("Update last seen", "[WifiCredentialsManager]") {
 TEST_CASE("Memory leak test", "[WifiCredentialsManager]") {
     char buffer[25] = {};
     char err_buffer[55] = {};
-    int fillqty=20;
+    int fillqty = 20;
     google_protobuf_Timestamp ts;
     bool flag;
 
@@ -850,16 +846,16 @@ TEST_CASE("Memory leak test", "[WifiCredentialsManager]") {
     advanceTime(2);
     HasMemoryUsageIncreased(0);
 
-    for (int runs = 0; runs < 100; runs++) {
+    for(int runs = 0; runs < 100; runs++) {
         WifiCredentialsManager manager("test_manager");
         FillSSIDs(manager, fillqty);
-        for (int i = 1; i <= manager.GetCount(); i++) {
+        for(int i = 1; i <= manager.GetCount(); i++) {
             sprintf(buffer, "SSID_%d", i);
-            sprintf(err_buffer,"Round %d, SSID_%d",runs,i);
+            sprintf(err_buffer, "Round %d, SSID_%d", runs, i);
             auto mockap = getMockAPRec(i);
             auto mockSTA = getMockSTA(i);
             auto entry = manager.Get(buffer);
-            TEST_ASSERT_EQUAL_STRING(buffer,entry->ssid);
+            TEST_ASSERT_EQUAL_STRING(buffer, entry->ssid);
             entry->has_last_seen = false;
             memset(&entry->last_seen, 0x00, sizeof(entry->last_seen));
             manager.UpdateLastSeen(entry);
@@ -868,86 +864,86 @@ TEST_CASE("Memory leak test", "[WifiCredentialsManager]") {
             entry->has_last_seen = false;
             memset(&entry->last_seen, 0x00, sizeof(entry->last_seen));
             manager.UpdateLastSeen(std::string(buffer));
-            TEST_ASSERT_TRUE_MESSAGE(entry->has_last_seen,err_buffer);
-            TEST_ASSERT_TRUE_MESSAGE(entry->last_seen.seconds >= ts.seconds,err_buffer);
+            TEST_ASSERT_TRUE_MESSAGE(entry->has_last_seen, err_buffer);
+            TEST_ASSERT_TRUE_MESSAGE(entry->last_seen.seconds >= ts.seconds, err_buffer);
             entry->has_last_seen = false;
             memset(&entry->last_seen, 0x00, sizeof(entry->last_seen));
             manager.UpdateLastSeen(&mockap);
-            TEST_ASSERT_TRUE_MESSAGE(entry->has_last_seen,err_buffer);
-            TEST_ASSERT_TRUE_MESSAGE(entry->last_seen.seconds >= ts.seconds,err_buffer);
+            TEST_ASSERT_TRUE_MESSAGE(entry->has_last_seen, err_buffer);
+            TEST_ASSERT_TRUE_MESSAGE(entry->last_seen.seconds >= ts.seconds, err_buffer);
             entry->has_last_seen = false;
             memset(&entry->last_seen, 0x00, sizeof(entry->last_seen));
             manager.UpdateLastSeen(&mockSTA);
-            TEST_ASSERT_TRUE_MESSAGE(entry->has_last_seen,err_buffer);
-            TEST_ASSERT_TRUE_MESSAGE(entry->last_seen.seconds >= ts.seconds,err_buffer);
+            TEST_ASSERT_TRUE_MESSAGE(entry->has_last_seen, err_buffer);
+            TEST_ASSERT_TRUE_MESSAGE(entry->last_seen.seconds >= ts.seconds, err_buffer);
         }
         manager.Clear();
     }
     TEST_ASSERT_FALSE(HasMemoryUsageIncreased(1));
 
-    for (int runs = 0; runs < 100; runs++) {
+    for(int runs = 0; runs < 100; runs++) {
         WifiCredentialsManager manager("test_manager");
         FillSSIDFromAPRec(manager, fillqty);
-        for (int i = 1; i <= manager.GetCount(); i++) {
+        for(int i = 1; i <= manager.GetCount(); i++) {
             sprintf(buffer, "SSID_%d", i);
-            sprintf(err_buffer,"Round %d, SSID_%d",runs,i);
+            sprintf(err_buffer, "Round %d, SSID_%d", runs, i);
             auto mockap = getMockAPRec(i);
             auto mockSTA = getMockSTA(i);
-            auto entry = manager.GetIndex(i-1);
+            auto entry = manager.GetIndex(i - 1);
             entry->has_last_seen = false;
             memset(&entry->last_seen, 0x00, sizeof(entry->last_seen));
             manager.UpdateLastSeen(entry);
-            TEST_ASSERT_TRUE_MESSAGE(entry->has_last_seen,err_buffer);
-            TEST_ASSERT_TRUE_MESSAGE(entry->last_seen.seconds >= ts.seconds,err_buffer);
+            TEST_ASSERT_TRUE_MESSAGE(entry->has_last_seen, err_buffer);
+            TEST_ASSERT_TRUE_MESSAGE(entry->last_seen.seconds >= ts.seconds, err_buffer);
             entry->has_last_seen = false;
             memset(&entry->last_seen, 0x00, sizeof(entry->last_seen));
             manager.UpdateLastSeen(std::string(buffer));
-            TEST_ASSERT_TRUE_MESSAGE(entry->has_last_seen,err_buffer);
-            TEST_ASSERT_TRUE_MESSAGE(entry->last_seen.seconds >= ts.seconds,err_buffer);
+            TEST_ASSERT_TRUE_MESSAGE(entry->has_last_seen, err_buffer);
+            TEST_ASSERT_TRUE_MESSAGE(entry->last_seen.seconds >= ts.seconds, err_buffer);
             entry->has_last_seen = false;
             memset(&entry->last_seen, 0x00, sizeof(entry->last_seen));
             manager.UpdateLastSeen(&mockap);
-            TEST_ASSERT_TRUE_MESSAGE(entry->has_last_seen,err_buffer);
-            TEST_ASSERT_TRUE_MESSAGE(entry->last_seen.seconds >= ts.seconds,err_buffer);
+            TEST_ASSERT_TRUE_MESSAGE(entry->has_last_seen, err_buffer);
+            TEST_ASSERT_TRUE_MESSAGE(entry->last_seen.seconds >= ts.seconds, err_buffer);
             entry->has_last_seen = false;
             memset(&entry->last_seen, 0x00, sizeof(entry->last_seen));
             manager.UpdateLastSeen(&mockSTA);
-            TEST_ASSERT_TRUE_MESSAGE(entry->has_last_seen,err_buffer);
-            TEST_ASSERT_TRUE_MESSAGE(entry->last_seen.seconds >= ts.seconds,err_buffer);
+            TEST_ASSERT_TRUE_MESSAGE(entry->has_last_seen, err_buffer);
+            TEST_ASSERT_TRUE_MESSAGE(entry->last_seen.seconds >= ts.seconds, err_buffer);
         }
         manager.Clear();
     }
     TEST_ASSERT_FALSE(HasMemoryUsageIncreased(2));
 
-    for (int runs = 0; runs < 100; runs++) {
+    for(int runs = 0; runs < 100; runs++) {
         WifiCredentialsManager manager("test_manager");
         FillSSIDFromMockEntry(manager, fillqty);
-        for (int i = 1; i <= manager.GetCount(); i++) {
+        for(int i = 1; i <= manager.GetCount(); i++) {
             sprintf(buffer, "SSID_%d", i);
-            sprintf(err_buffer,"Round %d, SSID_%d",runs,i);
+            sprintf(err_buffer, "Round %d, SSID_%d", runs, i);
             auto mockap = getMockAPRec(i);
             auto mockSTA = getMockSTA(i);
-            auto entry = manager.GetIndex(i-1);
+            auto entry = manager.GetIndex(i - 1);
             entry->has_last_seen = false;
             memset(&entry->last_seen, 0x00, sizeof(entry->last_seen));
             manager.UpdateLastSeen(entry);
-            TEST_ASSERT_TRUE_MESSAGE(entry->has_last_seen,err_buffer);
-            TEST_ASSERT_TRUE_MESSAGE(entry->last_seen.seconds >= ts.seconds,err_buffer);
+            TEST_ASSERT_TRUE_MESSAGE(entry->has_last_seen, err_buffer);
+            TEST_ASSERT_TRUE_MESSAGE(entry->last_seen.seconds >= ts.seconds, err_buffer);
             entry->has_last_seen = false;
             memset(&entry->last_seen, 0x00, sizeof(entry->last_seen));
             manager.UpdateLastSeen(std::string(buffer));
-            TEST_ASSERT_TRUE_MESSAGE(entry->has_last_seen,err_buffer);
-            TEST_ASSERT_TRUE_MESSAGE(entry->last_seen.seconds >= ts.seconds,err_buffer);
+            TEST_ASSERT_TRUE_MESSAGE(entry->has_last_seen, err_buffer);
+            TEST_ASSERT_TRUE_MESSAGE(entry->last_seen.seconds >= ts.seconds, err_buffer);
             entry->has_last_seen = false;
             memset(&entry->last_seen, 0x00, sizeof(entry->last_seen));
             manager.UpdateLastSeen(&mockap);
-            TEST_ASSERT_TRUE_MESSAGE(entry->has_last_seen,err_buffer);
-            TEST_ASSERT_TRUE_MESSAGE(entry->last_seen.seconds >= ts.seconds,err_buffer);
+            TEST_ASSERT_TRUE_MESSAGE(entry->has_last_seen, err_buffer);
+            TEST_ASSERT_TRUE_MESSAGE(entry->last_seen.seconds >= ts.seconds, err_buffer);
             entry->has_last_seen = false;
             memset(&entry->last_seen, 0x00, sizeof(entry->last_seen));
             manager.UpdateLastSeen(&mockSTA);
-            TEST_ASSERT_TRUE_MESSAGE(entry->has_last_seen,err_buffer);
-            TEST_ASSERT_TRUE_MESSAGE(entry->last_seen.seconds >= ts.seconds,err_buffer);
+            TEST_ASSERT_TRUE_MESSAGE(entry->has_last_seen, err_buffer);
+            TEST_ASSERT_TRUE_MESSAGE(entry->last_seen.seconds >= ts.seconds, err_buffer);
         }
         manager.Clear();
     }

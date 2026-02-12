@@ -23,68 +23,67 @@
  using ADC, AMP and HALL sensor. Rather than making battery aware, we just ignore
  if as the interrupt lasts 80ns and should be debounced (and the ADC read does not
  happen very often)
-*/ 
+*/
 
-#define BATTERY_TIMER	(10*1000)
+#define BATTERY_TIMER (10 * 1000)
 
-static const char *TAG = "battery";
+static const char* TAG = "battery";
 
 static struct {
-	float sum, avg, scale;
-	int count;
-	sys_battery_config * battery_config;
-	TimerHandle_t timer;
+    float sum, avg, scale;
+    int count;
+    sys_battery_config* battery_config;
+    TimerHandle_t timer;
 } battery;
-#define BATTERY_CHANNEL(b) (b.battery_config?b.battery_config->channel - sys_battery_channels_CH0:-1)
-#define ATTENUATION(b) (b.battery_config?b.battery_config->atten - sys_battery_atten_ATT_0:-1)
+#define BATTERY_CHANNEL(b) (b.battery_config ? b.battery_config->channel - sys_battery_channels_CH0 : -1)
+#define ATTENUATION(b) (b.battery_config ? b.battery_config->atten - sys_battery_atten_ATT_0 : -1)
 void (*battery_handler_svc)(float value, int cells);
 
 /****************************************************************************************
  * 
  */
-float battery_value_svc(void) {
-	return battery.avg;
- }
- 
+float battery_value_svc(void) { return battery.avg; }
+
 /****************************************************************************************
  * 
  */
 uint8_t battery_level_svc(void) {
-	// TODO: this is vastly incorrect
-	if(!battery.battery_config){ return 0; }
-	int level = battery.avg ? (battery.avg - (3.0 * battery.battery_config->cells)) / ((4.2 - 3.0) * battery.battery_config->cells) * 100 : 0;
-	return level < 100 ? level : 100;
+    // TODO: this is vastly incorrect
+    if(!battery.battery_config) { return 0; }
+    int level = battery.avg ? (battery.avg - (3.0 * battery.battery_config->cells)) / ((4.2 - 3.0) * battery.battery_config->cells) * 100 : 0;
+    return level < 100 ? level : 100;
 }
 
 /****************************************************************************************
  * 
  */
 static void battery_callback(TimerHandle_t xTimer) {
-	if(!battery.battery_config){ return;  }
-	
-	battery.sum += adc1_get_raw(BATTERY_CHANNEL(battery)) * battery.battery_config->scale / 4095.0;
-	if (++battery.count == 30) {
-		battery.avg = battery.sum / battery.count;
-		battery.sum = battery.count = 0;
-		if (battery_handler_svc) (battery_handler_svc)(battery.avg, battery.battery_config->cells);
-		ESP_LOGI(TAG, "Voltage %.2fV", battery.avg);
-	}	
+    if(!battery.battery_config) { return; }
+
+    battery.sum += adc1_get_raw(BATTERY_CHANNEL(battery)) * battery.battery_config->scale / 4095.0;
+    if(++battery.count == 30) {
+        battery.avg = battery.sum / battery.count;
+        battery.sum = battery.count = 0;
+        if(battery_handler_svc) (battery_handler_svc)(battery.avg, battery.battery_config->cells);
+        ESP_LOGI(TAG, "Voltage %.2fV", battery.avg);
+    }
 }
 
 /****************************************************************************************
  * 
  */
 void battery_svc_init(void) {
-	if (SYS_DEV_BATTERY(battery.battery_config) && BATTERY_CHANNEL(battery) != -1) {
-		adc1_config_width(ADC_WIDTH_BIT_12);
-		adc1_config_channel_atten(BATTERY_CHANNEL(battery), ATTENUATION(battery));
+    if(SYS_DEV_BATTERY(battery.battery_config) && BATTERY_CHANNEL(battery) != -1) {
+        adc1_config_width(ADC_WIDTH_BIT_12);
+        adc1_config_channel_atten(BATTERY_CHANNEL(battery), ATTENUATION(battery));
 
-		battery.avg = adc1_get_raw(BATTERY_CHANNEL(battery)) * battery.scale / 4095.0;    
-		battery.timer = xTimerCreate("battery", BATTERY_TIMER / portTICK_PERIOD_MS, pdTRUE, NULL, battery_callback);
-		xTimerStart(battery.timer, portMAX_DELAY);
-		
-		ESP_LOGI(TAG, "Battery measure channel: %u, scale %f, atten %d, cells %u, avg %.2fV", BATTERY_CHANNEL(battery), battery.scale, ATTENUATION(battery), battery.battery_config->cells, battery.avg);		
-	} else {
-		ESP_LOGI(TAG, "No battery");
-	}	
+        battery.avg = adc1_get_raw(BATTERY_CHANNEL(battery)) * battery.scale / 4095.0;
+        battery.timer = xTimerCreate("battery", BATTERY_TIMER / portTICK_PERIOD_MS, pdTRUE, NULL, battery_callback);
+        xTimerStart(battery.timer, portMAX_DELAY);
+
+        ESP_LOGI(TAG, "Battery measure channel: %u, scale %f, atten %d, cells %u, avg %.2fV", BATTERY_CHANNEL(battery), battery.scale,
+            ATTENUATION(battery), battery.battery_config->cells, battery.avg);
+    } else {
+        ESP_LOGI(TAG, "No battery");
+    }
 }

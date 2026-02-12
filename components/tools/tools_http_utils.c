@@ -26,8 +26,7 @@ static void http_downloader(void* arg);
 static esp_err_t http_event_handler(esp_http_client_event_t* evt);
 
 void http_download(char* url, size_t max, http_download_cb_t callback, void* context) {
-    http_context_t* http_context =
-        (http_context_t*)heap_caps_calloc(sizeof(http_context_t), 1, MALLOC_CAP_SPIRAM);
+    http_context_t* http_context = (http_context_t*)heap_caps_calloc(sizeof(http_context_t), 1, MALLOC_CAP_SPIRAM);
 
     esp_http_client_config_t config = {
         .url = url,
@@ -40,8 +39,7 @@ void http_download(char* url, size_t max, http_download_cb_t callback, void* con
     http_context->max = max;
     http_context->client = esp_http_client_init(&config);
 
-    xTaskCreateEXTRAM(
-        http_downloader, "downloader", 8 * 1024, http_context, ESP_TASK_PRIO_MIN + 1, NULL);
+    xTaskCreateEXTRAM(http_downloader, "downloader", 8 * 1024, http_context, ESP_TASK_PRIO_MIN + 1, NULL);
 }
 
 static void http_downloader(void* arg) {
@@ -57,17 +55,17 @@ static void http_downloader(void* arg) {
 static esp_err_t http_event_handler(esp_http_client_event_t* evt) {
     http_context_t* http_context = (http_context_t*)evt->user_data;
 
-    if (http_context->abort) return ESP_FAIL;
+    if(http_context->abort) return ESP_FAIL;
 
-    switch (evt->event_id) {
+    switch(evt->event_id) {
     case HTTP_EVENT_ERROR:
         http_context->callback(NULL, 0, http_context->user_context);
         http_context->abort = true;
         break;
     case HTTP_EVENT_ON_HEADER:
-        if (!strcasecmp(evt->header_key, "Content-Length")) {
+        if(!strcasecmp(evt->header_key, "Content-Length")) {
             size_t len = atoi(evt->header_value);
-            if (!len || len > http_context->max) {
+            if(!len || len > http_context->max) {
                 ESP_LOGI(TAG, "content-length null or too large %zu / %zu", len, http_context->max);
                 http_context->abort = true;
             }
@@ -75,8 +73,8 @@ static esp_err_t http_event_handler(esp_http_client_event_t* evt) {
         break;
     case HTTP_EVENT_ON_DATA: {
         size_t len = esp_http_client_get_content_length(evt->client);
-        if (!http_context->data) {
-            if ((http_context->data = (uint8_t*)malloc(len)) == NULL) {
+        if(!http_context->data) {
+            if((http_context->data = (uint8_t*)malloc(len)) == NULL) {
                 http_context->abort = true;
                 ESP_LOGE(TAG, "failed to allocate memory for output buffer %zu", len);
                 return ESP_FAIL;
@@ -92,9 +90,9 @@ static esp_err_t http_event_handler(esp_http_client_event_t* evt) {
     case HTTP_EVENT_DISCONNECTED: {
         int mbedtls_err = 0;
         esp_err_t err = esp_tls_get_and_clear_last_error(evt->data, &mbedtls_err, NULL);
-        if (err != ESP_OK) {
+        if(err != ESP_OK) {
             ESP_LOGE(TAG, "HTTP download disconnect %d", err);
-            if (http_context->data) free(http_context->data);
+            if(http_context->data) free(http_context->data);
             http_context->callback(NULL, 0, http_context->user_context);
             return ESP_FAIL;
         }
@@ -107,7 +105,6 @@ static esp_err_t http_event_handler(esp_http_client_event_t* evt) {
     return ESP_OK;
 }
 
-
 /****************************************************************************************
  * URL tools
  */
@@ -116,12 +113,12 @@ static inline char from_hex(char ch) { return isdigit(ch) ? ch - '0' : tolower(c
 
 void url_decode(char* url) {
     char *p, *src = strdup(url);
-    for (p = src; *src; url++) {
+    for(p = src; *src; url++) {
         *url = *src++;
-        if (*url == '%') {
+        if(*url == '%') {
             *url = from_hex(*src++) << 4;
             *url |= from_hex(*src++);
-        } else if (*url == '+') {
+        } else if(*url == '+') {
             *url = ' ';
         }
     }
@@ -139,10 +136,9 @@ bool in_http_binding(pb_istream_t* stream, pb_byte_t* buf, size_t count) {
     httpd_req_t* req = (httpd_req_t*)stream->state;
     ESP_LOGV(TAG, "Reading %d bytes from http stream", count);
     int received = httpd_req_recv(req, (char*)buf, count);
-    if (received <= 0) {
+    if(received <= 0) {
         stream->errmsg = "Not all data received";
         return false;
     }
-    return received==count;
-    
+    return received == count;
 }

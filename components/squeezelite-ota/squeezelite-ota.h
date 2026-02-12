@@ -27,11 +27,10 @@
 // tasks
 #define OTA_TASK_PRIOTITY 6
 
-
-const char * ota_get_status();
+const char* ota_get_status();
 uint8_t ota_get_pct_complete();
 
-esp_err_t start_ota(const char * bin_url, char * bin_buffer, uint32_t length);
+esp_err_t start_ota(const char* bin_url, char* bin_buffer, uint32_t length);
 in_addr_t discover_ota_server(int max);
 
 // Callback to handle ota when an IP address is obtained

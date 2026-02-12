@@ -23,14 +23,15 @@ void system_time_init(void) {
     char strftime_buf[64];
     time_t now;
     struct tm timeinfo;
-    const char* timezone =
-        platform->has_services && platform->services.timezone && strlen(platform->services.timezone) > 0 ? platform->services.timezone : "EST5EDT,M3.2.0/2,M11.1.0";
+    const char* timezone = platform->has_services && platform->services.timezone && strlen(platform->services.timezone) > 0
+                               ? platform->services.timezone
+                               : "EST5EDT,M3.2.0/2,M11.1.0";
     setenv("TZ", timezone, 1);
     tzset();
     time(&now);
     localtime_r(&now, &timeinfo);
     // Is time set? If not, tm_year will be (1970 - 1900).
-    if (timeinfo.tm_year < (2016 - 1900)) {
+    if(timeinfo.tm_year < (2016 - 1900)) {
         ESP_LOGI(TAG, "Time is not set yet. Connecting to WiFi and getting time over NTP.");
         sntp_servermode_dhcp(2);
         esp_sntp_setoperatingmode(ESP_SNTP_OPMODE_POLL);

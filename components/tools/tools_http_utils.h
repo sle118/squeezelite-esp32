@@ -29,7 +29,6 @@
 extern "C" {
 #endif
 
-
 /**
  * @brief Type definition for a callback function used in HTTP download.
  * 
@@ -75,7 +74,6 @@ void url_decode(char* url);
  */
 bool out_http_binding(pb_ostream_t* stream, const uint8_t* buf, size_t count);
 
-
 /**
  * @brief Callback function for input streaming with HTTP binding.
  * 
@@ -92,8 +90,6 @@ bool out_http_binding(pb_ostream_t* stream, const uint8_t* buf, size_t count);
  *         is returned, it indicates an error in data reception or end of stream.
  */
 bool in_http_binding(pb_istream_t* stream, pb_byte_t* buf, size_t count);
-
-
 
 #ifdef __cplusplus
 }

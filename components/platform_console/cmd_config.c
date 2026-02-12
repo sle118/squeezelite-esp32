@@ -216,12 +216,12 @@ int is_gpio(struct arg_int* gpio, FILE* f, int* gpio_out, bool mandatory, bool o
     const char* name = gpio->hdr.longopts ? gpio->hdr.longopts : gpio->hdr.glossary;
     *gpio_out = -1;
     int t_gpio = gpio->ival[0];
-    if (gpio->count == 0) {
-        if (mandatory) {
+    if(gpio->count == 0) {
+        if(mandatory) {
             fprintf(f, "Missing: %s\n", name);
             res++;
         }
-    } else if ((output && !GPIO_IS_VALID_OUTPUT_GPIO(t_gpio)) || (!GPIO_IS_VALID_GPIO(t_gpio))) {
+    } else if((output && !GPIO_IS_VALID_OUTPUT_GPIO(t_gpio)) || (!GPIO_IS_VALID_GPIO(t_gpio))) {
         fprintf(f, "Invalid %s gpio: [%d] %s\n", name, t_gpio, GPIO_IS_VALID_GPIO(t_gpio) ? NOT_OUTPUT : NOT_GPIO);
         res++;
     } else {
@@ -233,14 +233,14 @@ int is_output_gpio(struct arg_int* gpio, FILE* f, int* gpio_out, bool mandatory)
 int check_missing_parm(struct arg_int* int_parm, FILE* f) {
     int res = 0;
     const char* name = int_parm->hdr.longopts ? int_parm->hdr.longopts : int_parm->hdr.glossary;
-    if (int_parm->count == 0) {
+    if(int_parm->count == 0) {
         fprintf(f, "Missing: %s\n", name);
         res++;
     }
     return res;
 }
 char* strip_bt_name(char* opt_str) {
-    if (!opt_str || strlen(opt_str) == 0) {
+    if(!opt_str || strlen(opt_str) == 0) {
         ESP_LOGW(TAG, "strip_bt_name: opt_str is NULL");
         return NULL;
     }
@@ -248,27 +248,27 @@ char* strip_bt_name(char* opt_str) {
     char* str = strdup_psram(opt_str);
     const char* output_marker = " -o";
 
-    if (!result) {
+    if(!result) {
         ESP_LOGE(TAG, "Error allocating memory for result.");
         return opt_str;
     }
-    if (!str) {
+    if(!str) {
         ESP_LOGE(TAG, "Error duplicating command line string.");
         return opt_str;
     }
     bool quoted = false;
     parse_state_t state = SEARCHING_FOR_BT;
     char* start = strstr(str, output_marker);
-    if (start) {
+    if(start) {
         ESP_LOGV(TAG, "Found output option : %s\n", start);
         start += strlen(output_marker);
         strncpy(result, str, (size_t)(start - str));
         char* pch = strtok(start, " ");
-        while (pch) {
+        while(pch) {
             ESP_LOGV(TAG, "Current output: %s\n[%s]", result, pch);
-            switch (state) {
+            switch(state) {
             case SEARCHING_FOR_BT:
-                if (strcasestr(pch, "BT")) {
+                if(strcasestr(pch, "BT")) {
                     state = SEARCHING_FOR_NAME;
                     quoted = strcasestr(pch, "BT") != NULL;
                     ESP_LOGV(TAG, " - fount BT Start %s", quoted ? "quoted" : "");
@@ -279,7 +279,7 @@ char* strip_bt_name(char* opt_str) {
                 strcat(result, pch);
                 break;
             case SEARCHING_FOR_NAME:
-                if (strcasestr(pch, "name") || strcasestr(pch, "n")) {
+                if(strcasestr(pch, "name") || strcasestr(pch, "n")) {
                     ESP_LOGV(TAG, " - Found name tag");
                     state = SEARCHING_FOR_NAME_START;
                 } else {
@@ -294,10 +294,10 @@ char* strip_bt_name(char* opt_str) {
                 state = SEARCHING_FOR_NAME_END;
                 break;
             case SEARCHING_FOR_NAME_END:
-                if (strcasestr(pch, "\"")) {
+                if(strcasestr(pch, "\"")) {
                     ESP_LOGV(TAG, " - got quoted string");
                     state = FINISHING;
-                } else if (pch[0] == '-') {
+                } else if(pch[0] == '-') {
                     strcat(result, " ");
                     strcat(result, pch);
                     ESP_LOGV(TAG, " - got parameter marker");
@@ -308,7 +308,7 @@ char* strip_bt_name(char* opt_str) {
                 break;
             case SEARCHING_FOR_BT_CMD_END:
                 ESP_LOGV(TAG, " - looking for quoted BT cmd end");
-                if (strcasestr(pch, "\"")) {
+                if(strcasestr(pch, "\"")) {
                     ESP_LOGV(TAG, " - got quote termination");
                     state = FINISHING;
                 }
@@ -343,16 +343,14 @@ static int do_bt_source_cmd(int argc, char** argv) {
     size_t buf_size = 0;
     //	char value[100] ={0};
     FILE* f = system_open_memstream(argv[0], &buf, &buf_size);
-    if (f == NULL) {
-        return 1;
-    }
-    if (nerrors > 0) {
+    if(f == NULL) { return 1; }
+    if(nerrors > 0) {
         arg_print_errors(f, bt_source_args.end, desc_bt_source);
         fclose(f);
         return 1;
     }
 
-    if (bt_source_args.sink_name->count > 0) {
+    if(bt_source_args.sink_name->count > 0) {
         // err = config_set_value(NVS_TYPE_STR, "a2dp_sink_name", bt_source_args.sink_name->sval[0]);
         // if(err!=ESP_OK){
         //     nerrors++;
@@ -378,15 +376,13 @@ static int do_bt_source_cmd(int argc, char** argv) {
         // }
         // TODO: Add support for the commented code
     }
-    if (bt_source_args.pin_code->count > 0) {
+    if(bt_source_args.pin_code->count > 0) {
         const char* v = bt_source_args.pin_code->sval[0];
         bool bInvalid = false;
-        for (int i = 0; i < strlen(v) && !bInvalid; i++) {
-            if (v[i] < '0' || v[i] > '9') {
-                bInvalid = true;
-            }
+        for(int i = 0; i < strlen(v) && !bInvalid; i++) {
+            if(v[i] < '0' || v[i] > '9') { bInvalid = true; }
         }
-        if (bInvalid || strlen(bt_source_args.pin_code->sval[0]) > 16 || strlen(bt_source_args.pin_code->sval[0]) < 4) {
+        if(bInvalid || strlen(bt_source_args.pin_code->sval[0]) > 16 || strlen(bt_source_args.pin_code->sval[0]) < 4) {
             nerrors++;
             fprintf(f, "Pin code %s invalid. Should be numbers only with length between 4 and 16 characters. \n", bt_source_args.pin_code->sval[0]);
         } else {
@@ -442,9 +438,7 @@ static int do_bt_source_cmd(int argc, char** argv) {
     // 	}
     // }
 
-    if (!nerrors) {
-        fprintf(f, "Done.\n");
-    }
+    if(!nerrors) { fprintf(f, "Done.\n"); }
     fflush(f);
     cmd_send_messaging(argv[0], nerrors > 0 ? MESSAGING_ERROR : MESSAGING_INFO, "%s", buf);
     fclose(f);
@@ -453,34 +447,28 @@ static int do_bt_source_cmd(int argc, char** argv) {
 }
 static int do_wifi_join(int argc, char** argv) {
     int nerrors = arg_parse(argc, argv, (void**)&wifi_join_args);
-    if (nerrors > 0) {
-        return 1;
-    }
+    if(nerrors > 0) { return 1; }
 
-	network_async_connect(wifi_join_args.ap_name->sval[0], wifi_join_args.password->count > 0 ? wifi_join_args.password->sval[0] : "");
+    network_async_connect(wifi_join_args.ap_name->sval[0], wifi_join_args.password->count > 0 ? wifi_join_args.password->sval[0] : "");
     return 0;
 }
 static int do_wifi_add(int argc, char** argv) {
     int nerrors = arg_parse(argc, argv, (void**)&wifi_join_args);
-    if (nerrors > 0) {
-        return 1;
-    }
+    if(nerrors > 0) { return 1; }
 
-	network_async_add(wifi_join_args.ap_name->sval[0], wifi_join_args.password->count > 0 ? wifi_join_args.password->sval[0] : "");
+    network_async_add(wifi_join_args.ap_name->sval[0], wifi_join_args.password->count > 0 ? wifi_join_args.password->sval[0] : "");
     return 0;
 }
 static int do_wifi_delete(int argc, char** argv) {
     int nerrors = arg_parse(argc, argv, (void**)&wifi_delete_args);
-    if (nerrors > 0) {
-        return 1;
-    }
-	network_async_delete_connection(wifi_delete_args.ap_name->sval[0]);
+    if(nerrors > 0) { return 1; }
+    network_async_delete_connection(wifi_delete_args.ap_name->sval[0]);
     return 0;
 }
 // Function to handle WiFi scan
 static int do_wifi_scan(int argc, char** argv) {
-    int nerrors = arg_parse(argc, argv, (void**) &wifi_scan_args);
-    if (nerrors > 0) {
+    int nerrors = arg_parse(argc, argv, (void**)&wifi_scan_args);
+    if(nerrors > 0) {
         arg_print_errors(stderr, wifi_scan_args.end, argv[0]);
         return 1;
     }
@@ -490,8 +478,8 @@ static int do_wifi_scan(int argc, char** argv) {
 
 // Function to handle WiFi status
 static int do_wifi_status(int argc, char** argv) {
-    int nerrors = arg_parse(argc, argv, (void**) &wifi_status_args);
-    if (nerrors > 0) {
+    int nerrors = arg_parse(argc, argv, (void**)&wifi_status_args);
+    if(nerrors > 0) {
         arg_print_errors(stderr, wifi_status_args.end, argv[0]);
         return 1;
     }
@@ -501,8 +489,8 @@ static int do_wifi_status(int argc, char** argv) {
 
 // Function to handle WiFi reset
 static int do_wifi_reset(int argc, char** argv) {
-    int nerrors = arg_parse(argc, argv, (void**) &wifi_reset_args);
-    if (nerrors > 0) {
+    int nerrors = arg_parse(argc, argv, (void**)&wifi_reset_args);
+    if(nerrors > 0) {
         arg_print_errors(stderr, wifi_reset_args.end, argv[0]);
         return 1;
     }
@@ -511,17 +499,14 @@ static int do_wifi_reset(int argc, char** argv) {
     return 0;
 }
 
-
 static int do_audio_cmd(int argc, char** argv) {
     esp_err_t err = ESP_OK;
     int nerrors = arg_parse(argc, argv, (void**)&audio_args);
     char* buf = NULL;
     size_t buf_size = 0;
     FILE* f = system_open_memstream(argv[0], &buf, &buf_size);
-    if (f == NULL) {
-        return 1;
-    }
-    if (nerrors > 0) {
+    if(f == NULL) { return 1; }
+    if(nerrors > 0) {
         arg_print_errors(f, audio_args.end, desc_audio);
         fclose(f);
         return 1;
@@ -529,10 +514,10 @@ static int do_audio_cmd(int argc, char** argv) {
 
     err = ESP_OK; // suppress any error code that might have happened in a previous step
 
-    if (audio_args.loudness->count > 0) {
+    if(audio_args.loudness->count > 0) {
         char p[4] = {0};
         int loudness_val = audio_args.loudness->ival[0];
-        if (loudness_val < 0 || loudness_val > 10) {
+        if(loudness_val < 0 || loudness_val > 10) {
             nerrors++;
             fprintf(f, "Invalid loudness value %d. Valid values are between 0 and 10.\n", loudness_val);
         }
@@ -542,7 +527,7 @@ static int do_audio_cmd(int argc, char** argv) {
             // err = config_set_value(NVS_TYPE_STR, "loudness", p);
             // TODO: Add support for the commented code
         }
-        if (err != ESP_OK) {
+        if(err != ESP_OK) {
             nerrors++;
             fprintf(f, "Error setting Loudness value %s. %s\n", p, esp_err_to_name(err));
         } else {
@@ -551,7 +536,7 @@ static int do_audio_cmd(int argc, char** argv) {
         }
     }
 
-    if (audio_args.jack_behavior->count > 0) {
+    if(audio_args.jack_behavior->count > 0) {
         err = ESP_OK; // suppress any error code that might have happened in a previous step
                       // TODO: Add support for the commented code
         // if(strcasecmp(audio_args.jack_behavior->sval[0],"Headphones")==0){
@@ -565,7 +550,7 @@ static int do_audio_cmd(int argc, char** argv) {
         //     fprintf(f,"Unknown Audio Jack Behavior %s.\n",audio_args.jack_behavior->sval[0]);
         // }
 
-        if (err != ESP_OK) {
+        if(err != ESP_OK) {
             nerrors++;
             fprintf(f, "Error setting Audio Jack Behavior %s. %s\n", audio_args.jack_behavior->sval[0], esp_err_to_name(err));
         } else {
@@ -573,9 +558,7 @@ static int do_audio_cmd(int argc, char** argv) {
         }
     }
 
-    if (!nerrors) {
-        fprintf(f, "Done.\n");
-    }
+    if(!nerrors) { fprintf(f, "Done.\n"); }
     fflush(f);
     cmd_send_messaging(argv[0], nerrors > 0 ? MESSAGING_ERROR : MESSAGING_INFO, "%s", buf);
     fclose(f);
@@ -695,11 +678,11 @@ static int do_audio_cmd(int argc, char** argv) {
 // }
 static int is_valid_gpio_number(int gpio, const char* name, FILE* f, bool mandatory, struct arg_int* target, bool output) {
     bool invalid = (!GPIO_IS_VALID_GPIO(gpio) || (output && !GPIO_IS_VALID_OUTPUT_GPIO(gpio)));
-    if (invalid && mandatory && gpio != -1) {
+    if(invalid && mandatory && gpio != -1) {
         fprintf(f, "Error: Invalid mandatory gpio %d for %s\n", gpio, name);
         return 1;
     }
-    if (target && !invalid) {
+    if(target && !invalid) {
         target->count = 1;
         target->ival[0] = gpio;
     }
@@ -709,16 +692,12 @@ static int is_valid_gpio_number(int gpio, const char* name, FILE* f, bool mandat
 #ifdef CONFIG_CSPOT_SINK
 static int do_cspot_config(int argc, char** argv) {
     int nerrors = arg_parse_msg(argc, argv, (struct arg_hdr**)&cspot_args);
-    if (nerrors != 0) {
-        return 1;
-    }
+    if(nerrors != 0) { return 1; }
 
     char* buf = NULL;
     size_t buf_size = 0;
     FILE* f = system_open_memstream(argv[0], &buf, &buf_size);
-    if (f == NULL) {
-        return 1;
-    }
+    if(f == NULL) { return 1; }
 
     // cJSON * cspot_config = config_alloc_get_cjson("cspot_config");
     // if(!cspot_config){
@@ -914,7 +893,7 @@ cJSON* known_model_cb() {
 #ifdef CONFIG_CSPOT_SINK
 cJSON* cspot_cb() {
     cJSON* values = cJSON_CreateObject();
-    if (!values) {
+    if(!values) {
         ESP_LOGE(TAG, "cspot_cb: Failed to create JSON object");
         return NULL;
     }
@@ -1087,15 +1066,11 @@ cJSON* bt_source_cb() {
 
 void get_str_parm_json(struct arg_str* parm, cJSON* entry) {
     const char* name = parm->hdr.longopts ? parm->hdr.longopts : parm->hdr.glossary;
-    if (parm->count > 0) {
-        cJSON_AddStringToObject(entry, name, parm->sval[0]);
-    }
+    if(parm->count > 0) { cJSON_AddStringToObject(entry, name, parm->sval[0]); }
 }
 void get_file_parm_json(struct arg_file* parm, cJSON* entry) {
     const char* name = parm->hdr.longopts ? parm->hdr.longopts : parm->hdr.glossary;
-    if (parm->count > 0) {
-        cJSON_AddStringToObject(entry, name, parm->filename[0]);
-    }
+    if(parm->count > 0) { cJSON_AddStringToObject(entry, name, parm->filename[0]); }
 }
 void get_lit_parm_json(struct arg_lit* parm, cJSON* entry) {
     const char* name = parm->hdr.longopts ? parm->hdr.longopts : parm->hdr.glossary;
@@ -1103,9 +1078,7 @@ void get_lit_parm_json(struct arg_lit* parm, cJSON* entry) {
 }
 void get_int_parm_json(struct arg_int* parm, cJSON* entry) {
     const char* name = parm->hdr.longopts ? parm->hdr.longopts : parm->hdr.glossary;
-    if (parm->count > 0) {
-        cJSON_AddNumberToObject(entry, name, parm->ival[0]);
-    }
+    if(parm->count > 0) { cJSON_AddNumberToObject(entry, name, parm->ival[0]); }
 }
 
 static int do_squeezelite_cmd(int argc, char** argv) {
@@ -1114,9 +1087,7 @@ static int do_squeezelite_cmd(int argc, char** argv) {
     char* buf = NULL;
     size_t buf_size = 0;
     FILE* f = system_open_memstream(argv[0], &buf, &buf_size);
-    if (f == NULL) {
-        return 1;
-    }
+    if(f == NULL) { return 1; }
     fprintf(f, "Not yet implemented!");
     nerrors += 1;
     fflush(f);
@@ -1198,7 +1169,7 @@ static char* get_log_level_options(const char* longname) {
     const char* template = "<%s=info|%s=debug|%s=sdebug>";
     char* options = NULL;
     int len = snprintf(NULL, 0, template, longname, longname, longname);
-    if (len > 0) {
+    if(len > 0) {
         options = malloc_init_external(len + 1);
         snprintf(options, len, template, longname, longname, longname);
     }
@@ -1235,10 +1206,8 @@ static char* get_log_level_options(const char* longname) {
 // 	return dac_list;
 // }
 void replace_char_in_string(char* str, char find, char replace) {
-    for (int i = 0; str[i]; i++) {
-        if (str[i] == find) {
-            str[i] = replace;
-        }
+    for(int i = 0; str[i]; i++) {
+        if(str[i] == find) { str[i] = replace; }
     }
 }
 static esp_err_t save_known_config(cJSON* known_item, const char* name, FILE* f) {
@@ -1249,20 +1218,20 @@ static esp_err_t save_known_config(cJSON* known_item, const char* name, FILE* f)
     FREE_AND_NULL(json_string);
     cJSON* kvp = NULL;
     cJSON* config_array = cJSON_GetObjectItem(known_item, "config");
-    if (config_array && cJSON_IsArray(config_array)) {
+    if(config_array && cJSON_IsArray(config_array)) {
         json_string = cJSON_Print(config_array);
         ESP_LOGD(TAG, "config_array: %s", STR_OR_BLANK(json_string));
         FREE_AND_NULL(json_string);
         cJSON_ArrayForEach(kvp, config_array) {
             cJSON* kvp_value = kvp->child;
-            if (!kvp_value) {
+            if(!kvp_value) {
                 printf("config entry is not an object!\n");
                 err = ESP_FAIL;
                 continue;
             }
             char* key = kvp_value->string;
             char* value = kvp_value->valuestring;
-            if (!key || !value || strlen(key) == 0) {
+            if(!key || !value || strlen(key) == 0) {
                 printf("Invalid config entry %s:%s\n", STR_OR_BLANK(key), STR_OR_BLANK(value));
                 err = ESP_FAIL;
                 continue;
@@ -1271,7 +1240,7 @@ static esp_err_t save_known_config(cJSON* known_item, const char* name, FILE* f)
             fprintf(f, "Storing %s=%s\n", key, value);
             // err = config_set_value(NVS_TYPE_STR,key,value);
             // TODO: Add support for the commented code
-            if (err) {
+            if(err) {
                 fprintf(f, "Failed to store config value: %s\n", esp_err_to_name(err));
                 break;
             }
@@ -1287,12 +1256,10 @@ static esp_err_t save_known_config(cJSON* known_item, const char* name, FILE* f)
         err = ESP_FAIL;
     }
 
-    if (err == ESP_OK) {
+    if(err == ESP_OK) {
         // err = config_set_value(NVS_TYPE_STR,"board_model",name);
         // TODO: Add support for the commented code
-        if (err != ESP_OK) {
-            fprintf(f, "Failed to save board model %s\n", name);
-        }
+        if(err != ESP_OK) { fprintf(f, "Failed to save board model %s\n", name); }
     }
 
     return err;
@@ -1564,76 +1531,53 @@ static void register_squeezelite_config(void) {
 }
 void dummy_register_cmd() {}
 
-
 void register_wifi_commands() {
     // WiFi Join Command
     wifi_join_args.ap_name = arg_str1(NULL, NULL, "<ap_name>", "Access Point to connect to");
     wifi_join_args.password = arg_str0(NULL, NULL, "[password]", "Password for the access point");
     wifi_join_args.end = arg_end(2);
     const esp_console_cmd_t join_cmd = {
-        .command = "wifi_join",
-        .help = "Join a WiFi network",
-        .hint = NULL,
-        .func = &do_wifi_join,
-        .argtable = &wifi_join_args
-    };
+        .command = "wifi_join", .help = "Join a WiFi network", .hint = NULL, .func = &do_wifi_join, .argtable = &wifi_join_args};
     ESP_ERROR_CHECK_WITHOUT_ABORT(esp_console_cmd_register(&join_cmd));
-	wifi_add_args.ap_name = arg_str1(NULL, NULL, "<ap_name>", "Access Point to connect to");
+    wifi_add_args.ap_name = arg_str1(NULL, NULL, "<ap_name>", "Access Point to connect to");
     wifi_add_args.password = arg_str0(NULL, NULL, "[password]", "Password for the access point");
     wifi_add_args.end = arg_end(2);
-    const esp_console_cmd_t add_cmd = {
-        .command = "wifi_add",
+    const esp_console_cmd_t add_cmd = {.command = "wifi_add",
         .help = "Adds a WiFi network to known list without connecting to it",
         .hint = NULL,
         .func = &do_wifi_add,
-        .argtable = &wifi_add_args
-    };
+        .argtable = &wifi_add_args};
     ESP_ERROR_CHECK_WITHOUT_ABORT(esp_console_cmd_register(&add_cmd));
 
     // WiFi Delete Command
     wifi_delete_args.ap_name = arg_str1(NULL, NULL, "<ap_name>", "Access Point to forget");
     wifi_delete_args.end = arg_end(1);
     const esp_console_cmd_t delete_cmd = {
-        .command = "wifi_delete",
-        .help = "Delete a WiFi network",
-        .hint = NULL,
-        .func = &do_wifi_delete,
-        .argtable = &wifi_delete_args
-    };
+        .command = "wifi_delete", .help = "Delete a WiFi network", .hint = NULL, .func = &do_wifi_delete, .argtable = &wifi_delete_args};
     ESP_ERROR_CHECK_WITHOUT_ABORT(esp_console_cmd_register(&delete_cmd));
 
-      // WiFi Scan Command
+    // WiFi Scan Command
     wifi_scan_args.end = arg_end(1);
     const esp_console_cmd_t scan_cmd = {
-        .command = "wifi_scan",
-        .help = "Scan for available WiFi networks",
-        .hint = NULL,
-        .func = &do_wifi_scan,
-        .argtable = &wifi_scan_args
-    };
+        .command = "wifi_scan", .help = "Scan for available WiFi networks", .hint = NULL, .func = &do_wifi_scan, .argtable = &wifi_scan_args};
     ESP_ERROR_CHECK_WITHOUT_ABORT(esp_console_cmd_register(&scan_cmd));
 
     // WiFi Status Command
     wifi_status_args.end = arg_end(1);
-    const esp_console_cmd_t status_cmd = {
-        .command = "wifi_status",
+    const esp_console_cmd_t status_cmd = {.command = "wifi_status",
         .help = "Show current WiFi connection status",
         .hint = NULL,
         .func = &do_wifi_status,
-        .argtable = &wifi_status_args
-    };
+        .argtable = &wifi_status_args};
     ESP_ERROR_CHECK_WITHOUT_ABORT(esp_console_cmd_register(&status_cmd));
-
 
     // WiFi Reset Command
     wifi_reset_args.end = arg_end(1);
-    const esp_console_cmd_t reset_cmd = {
-        .command = "wifi_reset",
+    const esp_console_cmd_t reset_cmd = {.command = "wifi_reset",
         .help = "Reset WiFi configuration to default settings",
         .hint = NULL,
         .func = &do_wifi_reset,
-        .argtable = &wifi_reset_args
-    };
+        .argtable = &wifi_reset_args};
     ESP_ERROR_CHECK_WITHOUT_ABORT(esp_console_cmd_register(&reset_cmd));
 }
 void register_config_cmd(void) {
@@ -1646,7 +1590,7 @@ void register_config_cmd(void) {
 // #endif
 // register_bt_source_config();
 #if CONFIG_WITH_CONFIG_UI
-    if (!is_dac_config_locked()) {
+    if(!is_dac_config_locked()) {
         register_i2s_config();
     } else {
 #if defined(CONFIG_WITH_METRICS)

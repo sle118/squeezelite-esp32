@@ -17,7 +17,7 @@ EXT_RAM_ATTR static bool restarting = false;
 
 uint32_t bootstate_read_counter(void) { return RebootCounter; }
 uint32_t bootstate_uptate_counter(int32_t xValue) {
-    if (RebootCounter > 100) {
+    if(RebootCounter > 100) {
         RebootCounter = 0;
         RecoveryRebootCounter = 0;
     }
@@ -27,7 +27,7 @@ uint32_t bootstate_uptate_counter(int32_t xValue) {
 }
 
 void bootstate_handle_boot() {
-    if (ColdBootIndicatorFlag != 0xFACE) {
+    if(ColdBootIndicatorFlag != 0xFACE) {
         ESP_LOGI(TAG, "System is booting from power on.");
         cold_boot = true;
         ColdBootIndicatorFlag = 0xFACE;
@@ -41,34 +41,32 @@ void bootstate_handle_boot() {
         running->subtype == ESP_PARTITION_SUBTYPE_APP_FACTORY ? "Factory" : "Application");
     is_recovery_running = (running->subtype == ESP_PARTITION_SUBTYPE_APP_FACTORY);
 
-    if (!is_recovery_running) {
+    if(!is_recovery_running) {
         /* unscheduled restart (HW, Watchdog or similar) thus increment dynamic
          * counter then log current boot statistics as a warning */
         uint32_t Counter = bootstate_uptate_counter(1); // increment counter
         ESP_LOGI(TAG, "Reboot counter=%u\n", Counter);
-        if (Counter == 5) {
-            guided_factory();
-        }
+        if(Counter == 5) { guided_factory(); }
     } else {
         uint32_t Counter = bootstate_uptate_counter(1); // increment counter
-        if (RecoveryRebootCounter == 1 && Counter >= 5) {
+        if(RecoveryRebootCounter == 1 && Counter >= 5) {
             // First time we are rebooting in recovery after crashing
             messaging_post_message(MESSAGING_ERROR, MESSAGING_CLASS_SYSTEM,
                 "System was forced into recovery mode after crash likely caused by some bad "
                 "configuration\n");
         }
         ESP_LOGI(TAG, "Recovery Reboot counter=%u\n", Counter);
-        if (RecoveryRebootCounter == 5) {
+        if(RecoveryRebootCounter == 5) {
             ESP_LOGW(TAG, "System rebooted too many times. This could be an indication that "
                           "configuration is corrupted. Erasing config.");
-            if (config_erase_config()) {
+            if(config_erase_config()) {
                 config_raise_changed(true);
                 guided_factory();
             } else {
                 ESP_LOGE(TAG, "Error erasing configuration");
             }
         }
-        if (RecoveryRebootCounter > 5) {
+        if(RecoveryRebootCounter > 5) {
             messaging_post_message(MESSAGING_ERROR, MESSAGING_CLASS_SYSTEM,
                 "System was forced into recovery mode after crash likely caused by some bad "
                 "configuration. Configuration was reset to factory.\n");
@@ -76,32 +74,26 @@ void bootstate_handle_boot() {
     }
 }
 esp_err_t guided_boot(esp_partition_subtype_t partition_subtype) {
-    if (is_recovery_running) {
-        if (partition_subtype == ESP_PARTITION_SUBTYPE_APP_FACTORY) {
-            simple_restart();
-        }
+    if(is_recovery_running) {
+        if(partition_subtype == ESP_PARTITION_SUBTYPE_APP_FACTORY) { simple_restart(); }
     } else {
-        if (partition_subtype != ESP_PARTITION_SUBTYPE_APP_FACTORY) {
-            simple_restart();
-        }
+        if(partition_subtype != ESP_PARTITION_SUBTYPE_APP_FACTORY) { simple_restart(); }
     }
     esp_err_t err = ESP_OK;
     const esp_partition_t* partition;
     esp_partition_iterator_t it = esp_partition_find(ESP_PARTITION_TYPE_APP, partition_subtype, NULL);
 
-    if (it == NULL) {
+    if(it == NULL) {
         log_send_messaging(MESSAGING_ERROR, "Reboot failed. Partitions error");
     } else {
         ESP_LOGD(TAG, "Found partition. Getting info.");
         partition = (esp_partition_t*)esp_partition_get(it);
         ESP_LOGD(TAG, "Releasing partition iterator");
         esp_partition_iterator_release(it);
-        if (partition != NULL) {
+        if(partition != NULL) {
             log_send_messaging(MESSAGING_INFO, "Rebooting to %s", partition->label);
             err = esp_ota_set_boot_partition(partition);
-            if (err != ESP_OK) {
-                log_send_messaging(MESSAGING_ERROR, "Unable to select partition for reboot: %s", esp_err_to_name(err));
-            }
+            if(err != ESP_OK) { log_send_messaging(MESSAGING_ERROR, "Unable to select partition for reboot: %s", esp_err_to_name(err)); }
         } else {
             log_send_messaging(MESSAGING_ERROR, "partition type %u not found!  Unable to reboot to recovery.", partition_subtype);
         }
@@ -127,9 +119,9 @@ void simple_restart() {
     log_send_messaging(MESSAGING_WARNING, "Rebooting.");
 
     TimerHandle_t timer = xTimerCreate("reboot", 1, pdFALSE, nullptr, [](TimerHandle_t xTimer) {
-        if (!config_waitcommit()) {
+        if(!config_waitcommit()) {
             log_send_messaging(MESSAGING_WARNING, "Waiting for configuration to commit ");
-            ESP_LOGD(TAG,"Queuing restart asynchronously to ensure all events are flushed.");
+            ESP_LOGD(TAG, "Queuing restart asynchronously to ensure all events are flushed.");
             network_async_reboot(RESTART);
             return;
         }

@@ -24,16 +24,16 @@ static network_ethernet_detect_func_t* drivers[] = {DM9051_Detect, W5500_Detect,
 #define ETH_TIMEOUT_MS (30 * 1000)
 
 network_ethernet_driver_t* network_ethernet_driver_autodetect() {
-    sys_dev_eth_config * eth_config;
+    sys_dev_eth_config* eth_config;
     sys_dev_eth_common* eth_common;
 
-    if (!SYS_ETH(eth_config) || !SYS_ETH_COMMON(eth_common)) {
+    if(!SYS_ETH(eth_config) || !SYS_ETH_COMMON(eth_common)) {
         ESP_LOGD(TAG, "Ethernet not configured");
         return NULL;
     }
-    for (uint8_t i = _sys_dev_eth_models_MIN; i < _sys_dev_eth_models_MAX; i++) {
+    for(uint8_t i = _sys_dev_eth_models_MIN; i < _sys_dev_eth_models_MAX; i++) {
         network_ethernet_driver_t* found_driver = drivers[i](eth_config);
-        if (found_driver) {
+        if(found_driver) {
             ESP_LOGI(TAG, "Detected driver %s ", sys_dev_eth_models_name(eth_common->model));
             network_driver = found_driver;
             return found_driver;
@@ -48,12 +48,12 @@ esp_netif_t* network_ethernet_get_interface() { return eth_netif; }
 bool network_ethernet_is_up() { return (xEventGroupGetBits(ethernet_event_group) & LINK_UP_BIT) != 0; }
 bool network_ethernet_enabled() { return network_driver != NULL && network_driver->handle != NULL; }
 bool network_ethernet_wait_for_link(uint16_t max_wait_ms) {
-    if (!network_ethernet_enabled()) return false;
+    if(!network_ethernet_enabled()) return false;
     bool link_up = (xEventGroupGetBits(ethernet_event_group) & LINK_UP_BIT) != 0;
-    if (!link_up) {
+    if(!link_up) {
         ESP_LOGD(TAG, "Waiting for Ethernet link to be established...");
         link_up = (xEventGroupWaitBits(ethernet_event_group, LINK_UP_BIT, pdFALSE, pdTRUE, max_wait_ms / portTICK_PERIOD_MS) & LINK_UP_BIT) != 0;
-        if (!link_up) {
+        if(!link_up) {
             ESP_LOGW(TAG, "Ethernet Link timeout.");
         } else {
             ESP_LOGI(TAG, "Ethernet Link Up!");
@@ -66,21 +66,21 @@ static void ETH_Timeout(TimerHandle_t timer);
 void destroy_network_ethernet() {}
 
 static void network_ethernet_print_config(const network_ethernet_driver_t* eth_config) {
-    sys_dev_eth_config * sys_eth;
+    sys_dev_eth_config* sys_eth;
     int mdc = -1, mdio = -1, rst = -1, intr = -1, cs = -1;
     uint32_t speed = 0;
     int8_t host = 0;
 
-    if (SYS_ETH(sys_eth)) {
+    if(SYS_ETH(sys_eth)) {
         rst = sys_eth->common.rst;
 
-        if (sys_eth->which_ethType == sys_dev_eth_config_spi_tag) {
+        if(sys_eth->which_ethType == sys_dev_eth_config_spi_tag) {
             cs = sys_eth->ethType.spi.cs;
             intr = sys_eth->ethType.spi.intr;
             speed = sys_eth->ethType.spi.speed;
             host = sys_eth->ethType.spi.host - sys_dev_common_hosts_Host0;
 
-        } else if (sys_eth->which_ethType == sys_dev_eth_config_rmii_tag) {
+        } else if(sys_eth->which_ethType == sys_dev_eth_config_rmii_tag) {
             mdc = sys_eth->ethType.rmii.mdc;
             mdio = sys_eth->ethType.rmii.mdio;
         }
@@ -88,20 +88,20 @@ static void network_ethernet_print_config(const network_ethernet_driver_t* eth_c
     ESP_LOGI(TAG,
         "Ethernet config => model: %s, valid: %s, type: %s, mdc:%d, mdio:%d, rst:%d, intr:%d, "
         "cs:%d, speed:%d, host:%d",
-        sys_dev_eth_models_name(eth_config->model), eth_config->valid ? "YES" : "NO", eth_config->spi ? "SPI" : "RMII", mdc, mdio, rst, intr, cs, speed,
-        host);
+        sys_dev_eth_models_name(eth_config->model), eth_config->valid ? "YES" : "NO", eth_config->spi ? "SPI" : "RMII", mdc, mdio, rst, intr, cs,
+        speed, host);
 }
 
 void init_network_ethernet() {
     esp_err_t err = ESP_OK;
     ESP_LOGI(TAG, "Attempting to initialize Ethernet");
-    sys_dev_eth_config * sys_eth;
-    if (!SYS_ETH(sys_eth)) {
+    sys_dev_eth_config* sys_eth;
+    if(!SYS_ETH(sys_eth)) {
         ESP_LOGD(TAG, "No ethernet configured");
         return;
     }
     network_ethernet_driver_t* driver = network_ethernet_driver_autodetect();
-    if (!driver || !driver->valid) {
+    if(!driver || !driver->valid) {
         ESP_LOGI(TAG, "No Ethernet configuration, or configuration invalid");
         return;
     }
@@ -115,7 +115,7 @@ void init_network_ethernet() {
     ethernet_event_group = xEventGroupCreate();
     xEventGroupClearBits(ethernet_event_group, LINK_UP_BIT);
     err = network_driver->start(NULL, sys_eth);
-    if (err == ESP_OK) {
+    if(err == ESP_OK) {
         uint8_t mac_address[6];
         esp_read_mac(mac_address, ESP_MAC_ETH);
         char* mac_string = alloc_get_formatted_mac_string(mac_address);
@@ -123,15 +123,15 @@ void init_network_ethernet() {
         FREE_AND_NULL(mac_string);
         esp_eth_ioctl(network_driver->handle, ETH_CMD_S_MAC_ADDR, mac_address);
     }
-    if (err == ESP_OK) {
+    if(err == ESP_OK) {
         ESP_LOGD(TAG, "Attaching ethernet to network interface");
         err = esp_netif_attach(eth_netif, esp_eth_new_netif_glue(network_driver->handle));
     }
-    if (err == ESP_OK) {
+    if(err == ESP_OK) {
         ESP_LOGI(TAG, "Starting ethernet network");
         err = esp_eth_start(network_driver->handle);
     }
-    if (err != ESP_OK) {
+    if(err != ESP_OK) {
         messaging_post_message(MESSAGING_ERROR, MESSAGING_CLASS_SYSTEM, "Configuring Ethernet failed: %s", esp_err_to_name(err));
         network_driver->handle = NULL;
     }
@@ -143,9 +143,9 @@ void network_ethernet_start_timer() { ETH_timer = xTimerCreate("ETH check", pdMS
 static void eth_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data) {
     uint8_t mac_addr[6] = {0};
     /* we can get the ethernet driver handle from event data */
-    if (event_base == ETH_EVENT) {
+    if(event_base == ETH_EVENT) {
         esp_eth_handle_t eth_handle = *(esp_eth_handle_t*)event_data;
-        switch (event_id) {
+        switch(event_id) {
         case ETHERNET_EVENT_CONNECTED:
             xEventGroupSetBits(ethernet_event_group, LINK_UP_BIT);
             esp_eth_ioctl(eth_handle, ETH_CMD_G_MAC_ADDR, mac_addr);

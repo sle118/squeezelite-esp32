@@ -1,3 +1,3 @@
 
 void init_telnet();
-void start_telnet(void * pvParameter);
+void start_telnet(void* pvParameter);

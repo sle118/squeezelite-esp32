@@ -29,8 +29,6 @@
 extern "C" {
 #endif
 
-
-
 uint32_t bootstate_read_counter(void);
 
 /**
