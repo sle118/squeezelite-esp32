@@ -32,8 +32,12 @@ Hard rules:
    - stage evidence + coordination only
    - commit (small message)
    - push via `/home/runner/.local/bin/gitlab_push_origin_main.sh`
+   - if push fails with `HTTP Basic: Access denied`, treat it as a
+     credential blocker:
+     - stop and report `operator_required=yes`
+     - ask operator to refresh the runner PAT with `write_repository`
+       and update `~/.config/codex/credentials/gitlab/git.lecsys.net/runner.env`
 5. Report back:
    - pushed commit SHA
    - evidence paths
    - selected hut-01/hut-02 by-id identities
-
