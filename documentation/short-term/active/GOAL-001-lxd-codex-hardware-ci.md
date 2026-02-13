@@ -556,10 +556,7 @@ Produced in runner repository (by `runner:codex` on the runner VM):
 - Runner VM: two stable `/dev/serial/by-id/*` devices are visible.
   - Evidence (runner repo): `runner_hil_topo_inventory_20260213_215705_utc.log`
   - Evidence (runner repo): `runner_hil_topo_lock_selftest_20260213_215839_utc.log`
-- GitLab push gate: runner repo closeout commits exist locally
-  (`runner/runner-agent@2ebd4da`, `runner/runner-agent@c03a9a0`) but are
-  not yet pushed due to HTTP auth failure (runner PAT needs refresh with
-  `write_repository`).
+- GitLab: WS8 closeout pushed to `runner/runner-agent@c03a9a0`.
 
 ## WS9: Hard power-cycle via Home Assistant relay
 
