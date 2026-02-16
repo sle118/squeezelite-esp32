@@ -478,10 +478,11 @@ The benefit of the "raw" mode is that you can build a player which is as close a
 There is no good or bad option, it's your choice. Use the NVS parameter "lms_ctrls_raw" to change that option
 	
 **Note that gpio 36 and 39 are input only and cannot use interrupt. When using them for a button, a 100ms polling is started which is expensive. Long press is also likely to not work very well**
+
+**Note:** Touch buttons that can be found on some board like the LyraT V4.3 are not supported currently.
+
 ### Ethernet 
 Wired ethernet is supported by esp32 with various options but squeezeESP32 is only supporting a Microchip LAN8720 with a RMII interface like [this](https://www.aliexpress.com/item/32858432526.html) or SPI-ethernet bridges like Davicom DM9051 [that](https://www.amazon.com/dp/B08JLFWX9Z) or W5500 like [this](https://www.aliexpress.com/item/32312441357.html).
-
-**Note:** Touch buttons that can be find on some board like the LyraT V4.3 are not supported currently.
 
 #### RMII (LAN8720)	
 - RMII PHY wiring is fixed and can not be changed
