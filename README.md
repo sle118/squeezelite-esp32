@@ -152,6 +152,21 @@ XMT - 3.3V
 
 Use the `squeezelite-esp32-I2S-4MFlash-sdkconfig.defaults` configuration file.
 
+### ESP32 LyraT Mini v1.2
+
+This board is one of the [audio developpement board](https://docs.espressif.com/projects/esp-adf/en/latest/design-guide/dev-boards/get-started-esp32-lyrat-mini.html) designed by espressif for their ESP-ADF (Espressif Audio Development Framework). It uses ESP32-WROVER-E as it core and ES8311 as DAC. 
+A jack connector can be used or an HP output.
+It also contains 2 LEDS (one green, one blue) and 8 Buttons. Those buttons are not supported for now.
+An ADC is also present on the board, but not used in squeezelite use case.
+
+As for now, audio playback and LEDs are working.
+
+Use the `squeezelite-esp32-I2S-4MFlash-sdkconfig.defaults` configuration file.
+
+- i2c_config: `scl=25,sda=18,speed=400000,port=1`
+- dac_config: `model=es8311,bck=5,ws=25,do=26,sda=18,scl=23,i2c=24`
+- set_GPIO: `22=green,27=red,19=jack` 
+
 ### SqueezeAmpToo !
 
 And the super cool project https://github.com/rochuck/squeeze-amp-too
@@ -183,7 +198,7 @@ bck=<gpio>,ws=<gpio>,do=<gpio>[,mck][,mute=<gpio>[:0|1][,model=TAS57xx|TAS5713|A
 ```
 if "model" is not set or is not recognized, then default "I2S" is used. The option "mck" is used for some codecs that require a master clock (although they should not). Only GPIO0 can be used as MCLK and be aware that this cannot coexit with RMII Ethernet (see ethernet section below). I2C parameters are optional and only needed if your DAC requires an I2C control (See 'dac_controlset' below). Note that "i2c" parameters are decimal, hex notation is not allowed.
 
-So far, TAS57xx, TAS5713, AC101, WM8978 and ES8388 are recognized models where the proper init sequence/volume/power controls are sent. For other codecs that might require an I2C commands, please use the parameter "dac_controlset" that allows definition of simple commands to be sent over i2c for init, power, speakder and headset on and off using a JSON syntax:
+So far, TAS57xx, TAS5713, AC101, WM8978, ES8388 and ES8311 are recognized models where the proper init sequence/volume/power controls are sent. For other codecs that might require an I2C commands, please use the parameter "dac_controlset" that allows definition of simple commands to be sent over i2c for init, power, speakder and headset on and off using a JSON syntax:
 ```json
 { <command>: [ {"reg":<register>,"val":<value>,"mode":<nothing>|"or"|"and"}, ... {{"reg":<register>,"val":<value>,"mode":<nothing>|"or"|"and"} ],
   <command>: [ {"reg":<register>,"val":<value>,"mode":<nothing>|"or"|"and"}, ... {{"reg":<register>,"val":<value>,"mode":<nothing>|"or"|"and"} ],
