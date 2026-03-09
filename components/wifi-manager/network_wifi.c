@@ -474,6 +474,17 @@ esp_netif_t* network_wifi_get_interface() {
 esp_netif_t* network_wifi_get_ap_interface() {
     return wifi_ap_netif;
 }
+static wifi_ps_type_t network_wifi_get_ps_mode() {
+    uint16_t ps_mode = DEFAULT_STA_POWER_SAVE;
+    config_get_uint16t_from_str("wifi_ps", &ps_mode, DEFAULT_STA_POWER_SAVE);
+    if (ps_mode > WIFI_PS_MAX_MODEM) {
+        ESP_LOGW(TAG, "Invalid wifi_ps value %d, defaulting to %d", ps_mode, DEFAULT_STA_POWER_SAVE);
+        ps_mode = DEFAULT_STA_POWER_SAVE;
+    }
+    ESP_LOGI(TAG, "WiFi power save mode: %d (0=none, 1=min_modem, 2=max_modem)", ps_mode);
+    return (wifi_ps_type_t)ps_mode;
+}
+
 esp_err_t network_wifi_set_sta_mode() {
     if (!wifi_netif) {
         ESP_LOGE(TAG, "Wifi not initialized. Cannot set sta mode");
@@ -488,6 +499,8 @@ esp_err_t network_wifi_set_sta_mode() {
         err = esp_wifi_start();
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "Error starting wifi: %s", esp_err_to_name(err));
+        } else {
+            ESP_ERROR_CHECK_WITHOUT_ABORT(esp_wifi_set_ps(network_wifi_get_ps_mode()));
         }
     }
     return err;
@@ -951,9 +964,10 @@ esp_netif_t* network_wifi_config_ap() {
     }
 
     msg = "Setting wifi power save";
-    ESP_LOGD(TAG, "%s (%d)", msg, DEFAULT_STA_POWER_SAVE);
+    wifi_ps_type_t ps_mode = network_wifi_get_ps_mode();
+    ESP_LOGD(TAG, "%s (%d)", msg, ps_mode);
 
-    if ((err = esp_wifi_set_ps(DEFAULT_STA_POWER_SAVE)) != ESP_OK) /* stop AP DHCP server */
+    if ((err = esp_wifi_set_ps(ps_mode)) != ESP_OK)
     {
         ESP_LOGE(TAG, "%s failed. Error %s", msg, esp_err_to_name(err));
         return wifi_ap_netif;
