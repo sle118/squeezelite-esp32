@@ -107,12 +107,12 @@ cspotPlayer::cspotPlayer(const char* name, httpd_handle_t server, int port, cspo
     else this->name = name; 
 
     // Read client credentials from NVS config, fall back to compile-time defines
-    if ((item = cJSON_GetObjectItem(config, "clientId")) != NULL && strlen(item->valuestring) > 0) {
+    if ((item = cJSON_GetObjectItem(config, "clientId")) != NULL && item->valuestring != NULL && strlen(item->valuestring) > 0) {
         this->clientId = item->valuestring;
     } else {
         this->clientId = CLIENT_ID;
     }
-    if ((item = cJSON_GetObjectItem(config, "clientSecret")) != NULL && strlen(item->valuestring) > 0) {
+    if ((item = cJSON_GetObjectItem(config, "clientSecret")) != NULL && item->valuestring != NULL && strlen(item->valuestring) > 0) {
         this->clientSecret = item->valuestring;
     } else {
         this->clientSecret = CLIENT_SECRET;
