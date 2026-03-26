@@ -10,6 +10,7 @@
  */
 #include "squeezelite.h"
 #include "equalizer.h"
+#include "pwm_mastervol.h"
 
 extern struct outputstate output;
 extern struct buffer *outputbuf;
@@ -86,6 +87,7 @@ void output_init_embedded(log_level level, char *device, unsigned output_buf_siz
 	
 	memset(&output, 0, sizeof(output));
 	output_init_common(level, device, output_buf_size, rates, idle);
+	pwm_mastervol_init();
 	output.start_frames = FRAME_BLOCK;
 	output.rate_delay = rate_delay;
 	
@@ -117,6 +119,7 @@ void output_close_embedded(void) {
 
 void set_volume(unsigned left, unsigned right) { 
 	LOG_DEBUG("setting internal gain left: %u right: %u", left, right);
+	pwm_mastervol_set(left, right);
 	if (!volume_cb || !(*volume_cb)(left, right)) {
 		LOCK;
 		output.gainL = left;
@@ -173,6 +176,4 @@ bool output_stopped(void) {
 	return state <= OUTPUT_STOPPED;
 }	
 	
-
-
 

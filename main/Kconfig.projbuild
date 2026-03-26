@@ -234,6 +234,21 @@ menu "Squeezelite-ESP32"
 				int "Mute GPIO active level"
 				depends on MUTE_GPIO != -1
 				default 1
+			config PWM_MASTERVOL_GPIO
+				int "GPIO for PWM master volume"
+				default -1
+				help
+					Dedicated GPIO for optional PWM-based master-volume control. Set to -1 to disable.
+			config PWM_MASTERVOL_DUTY_MIN
+				int "PWM master volume minimum duty"
+				default 0
+				help
+					Minimum raw LEDC duty for the dedicated PWM master-volume output.
+			config PWM_MASTERVOL_DUTY_MAX
+				int "PWM master volume maximum duty"
+				default 8191
+				help
+					Maximum raw LEDC duty for the dedicated PWM master-volume output.
 		endmenu
 
 		menu "SPDIF settings"
