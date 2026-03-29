@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-baboo v6 — TAS5805M Biquad Coefficient Calculator
+Squeezelite-ESP32 — TAS5805M Biquad Coefficient Calculator
 
 Generates NVS-ready byte arrays for all crossover filters.
 Format: 5.27 fixed-point, a1/a2 sign-inverted per TAS5805M convention.
@@ -118,7 +118,7 @@ def compute_all(fs):
 def print_all(fs, coeffs):
     """Pretty-print all coefficients."""
     print(f"\n{'='*60}")
-    print(f"  baboo v6 — TAS5805M Coefficients @ {fs}Hz")
+    print(f"  Squeezelite-ESP32 — TAS5805M Coefficients @ {fs}Hz")
     print(f"  Format: 5.27 fixed-point, a1/a2 sign-inverted")
     print(f"{'='*60}\n")
 
@@ -151,7 +151,7 @@ SLOT_MAP = """
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='baboo v6 coefficient calculator')
+    parser = argparse.ArgumentParser(description='Squeezelite-ESP32 coefficient calculator')
     parser.add_argument('--fs', type=int, default=44100, help='Sample rate (default: 44100)')
     parser.add_argument('--json', action='store_true', help='Output as JSON')
     args = parser.parse_args()

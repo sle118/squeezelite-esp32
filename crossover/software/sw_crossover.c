@@ -1,25 +1,25 @@
 /*
- * baboo v6 — Software crossover LR4 @2500Hz
+ * Software crossover LR4 @2500Hz for Squeezelite-ESP32
  *
  * Linkwitz-Riley 4th order (24dB/oct) crossover at 2500Hz.
  * Two cascaded Butterworth 2nd-order IIR sections per band.
  *
  * Signal chain:
- *   Stereo in → mono (L+R)/2 → LP cascade → R out (woofer/CHA)
- *                              → HP cascade → L out (tweeter/CHB)
+ *   Stereo in -> mono (L+R)/2 -> LP cascade -> R out (woofer/CHA)
+ *                               -> HP cascade -> L out (tweeter/CHB)
  *
- * Note: TAS5805M on Louder ESP32 maps I2S L→CHB, I2S R→CHA.
+ * Note: TAS5805M on Louder ESP32 maps I2S L->CHB, I2S R->CHA.
  * So LP goes to R (woofer) and HP goes to L (tweeter).
  *
  * Biquad: Direct Form II Transposed, float32, ESP32 FPU.
- * Coefficients: Bristow-Johnson cookbook, pre-computed for 44.1/48kHz.
+ * Coefficients: Bristow-Johnson Audio EQ Cookbook, pre-computed for 44.1/48kHz.
  */
 
 #include <stdint.h>
 #include "esp_log.h"
-#include "baboo_crossover.h"
+#include "sw_crossover.h"
 
-static const char TAG[] = "crossover";
+static const char TAG[] = "sw_crossover";
 
 typedef struct {
     float b0, b1, b2, a1, a2;
@@ -63,7 +63,7 @@ static int current_rate;
 #define HP_B1_48 -1.5863625680f
 #define HP_B2_48  0.7931812840f
 
-void baboo_crossover_init(int sample_rate) {
+void sw_crossover_init(int sample_rate) {
     if (sample_rate == current_rate) return;
     current_rate = sample_rate;
 
@@ -82,8 +82,8 @@ void baboo_crossover_init(int sample_rate) {
     ESP_LOGI(TAG, "LR4 @2500Hz initialized for %dHz", sample_rate);
 }
 
-void baboo_crossover_process(uint8_t *buf, int frames) {
-    if (!current_rate) baboo_crossover_init(44100);
+void sw_crossover_process(uint8_t *buf, int frames) {
+    if (!current_rate) sw_crossover_init(44100);
 
     int16_t *s = (int16_t *)buf;
 
@@ -103,7 +103,7 @@ void baboo_crossover_process(uint8_t *buf, int frames) {
         if (hi_i >  32767) hi_i =  32767;
         if (hi_i < -32768) hi_i = -32768;
 
-        s[i * 2]     = (int16_t)lo_i;   /* L = woofer (cavo fisico su R) */
-        s[i * 2 + 1] = (int16_t)hi_i;   /* R = tweeter (cavo fisico su L) */
+        s[i * 2]     = (int16_t)lo_i;   /* L -> woofer */
+        s[i * 2 + 1] = (int16_t)hi_i;   /* R -> tweeter */
     }
 }
