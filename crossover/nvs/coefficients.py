@@ -71,7 +71,7 @@ def high_shelf(fc, fs, gain_db):
     """High shelf filter (Bristow-Johnson Audio EQ Cookbook)."""
     A = 10**(gain_db / 40.0)
     w0 = 2 * math.pi * fc / fs
-    alpha = math.sin(w0) / (2 * 0.707)
+    alpha = math.sin(w0) / math.sqrt(2.0)
     cos_w0 = math.cos(w0)
 
     a0 = (A + 1) - (A - 1) * cos_w0 + 2 * math.sqrt(A) * alpha
