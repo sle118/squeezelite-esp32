@@ -103,7 +103,7 @@ void sw_crossover_process(uint8_t *buf, int frames) {
         if (hi_i >  32767) hi_i =  32767;
         if (hi_i < -32768) hi_i = -32768;
 
-        s[i * 2]     = (int16_t)lo_i;   /* L -> woofer */
-        s[i * 2 + 1] = (int16_t)hi_i;   /* R -> tweeter */
+        s[i * 2]     = (int16_t)lo_i;   /* L -> woofer (physical cable on R) */
+        s[i * 2 + 1] = (int16_t)hi_i;   /* R -> tweeter (physical cable on L) */
     }
 }
