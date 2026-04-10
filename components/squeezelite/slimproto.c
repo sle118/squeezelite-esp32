@@ -901,13 +901,21 @@ void slimproto(log_level level, char *server, u8_t mac[6], const char *name, con
 	}
 
 	if (!slimproto_ip) {
-#if EMBEDDED        
-        // on first attempt, try really hard to connect before exiting (and only exit if we are not on another sink)
+#if EMBEDDED
+        // on first attempt, try to discover but don't exit if no server found
+        // AirPlay/Spotify/BT sinks work independently of LMS
 		slimproto_ip = discover_server(server, MAX_SERVER_RETRIES * 5);
-        if (!slimproto_ip && !output.external) return;
-#else        
+        if (!slimproto_ip) {
+            LOG_INFO("no server found, will keep retrying in background");
+            while (running && !slimproto_ip) {
+                sleep(30);
+                slimproto_ip = discover_server(server, MAX_SERVER_RETRIES);
+            }
+            if (!running) return;
+        }
+#else
     	slimproto_ip = discover_server(server, 0);
-#endif    
+#endif
 	}
 
 	if (!slimproto_port) {
@@ -991,11 +999,15 @@ void slimproto(log_level level, char *server, u8_t mac[6], const char *name, con
 			}
 
 #if EMBEDDED
-			// in embedded we give up after a while no matter what
+			// keep retrying discovery instead of rebooting - other sinks may be active
 			if (++failed_connect > MAX_SERVER_RETRIES && !server) {
 				slimproto_ip = serv_addr.sin_addr.s_addr = discover_server(NULL, MAX_SERVER_RETRIES);
-				if (!slimproto_ip && !output.external) return;
-			} else if (reconnect && MAX_SERVER_RETRIES && failed_connect > 5 * MAX_SERVER_RETRIES && !output.external) return;
+				if (!slimproto_ip) {
+					LOG_INFO("no server found, retrying in 30s");
+					failed_connect = 0;
+					sleep(30);
+				}
+			}
 #else
 			// rediscover server if it was not set at startup or exit 
 			if (!server && ++failed_connect > 5) {

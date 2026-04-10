@@ -58,7 +58,7 @@ project(recovery)
 add_custom_command(
 			TARGET recovery.elf
 			PRE_LINK
-			COMMAND xtensa-esp32-elf-objcopy --weaken-symbol esp_app_desc  ${BUILD_DIR}/esp-idf/app_update/libapp_update.a
+			COMMAND ${CMAKE_OBJCOPY} --weaken-symbol esp_app_desc  ${BUILD_DIR}/esp-idf/app_update/libapp_update.a
 	        VERBATIM
 )
 
