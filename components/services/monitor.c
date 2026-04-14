@@ -222,9 +222,38 @@ static void set_spkfault_gpio(int gpio, char *value) {
  *
  */
 static void pseudo_idle(void *arg) {
+    static int low_mem_count = 0;
+    static uint32_t last_heap_log = 0;
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(1000));
         uint32_t now = pdTICKS_TO_MS(xTaskGetTickCount());
+
+        // reboot if internal heap is critically low for 30+ consecutive seconds
+        size_t free_internal = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+        if (free_internal < 20000) {
+            if (low_mem_count == 0) {
+                messaging_post_message(MESSAGING_WARNING, MESSAGING_CLASS_SYSTEM,
+                    "Low memory warning: %zu bytes free", free_internal);
+            }
+            if (++low_mem_count >= 30) {
+                messaging_post_message(MESSAGING_ERROR, MESSAGING_CLASS_SYSTEM,
+                    "Critical memory (%zu bytes) for 30s, rebooting", free_internal);
+                vTaskDelay(pdMS_TO_TICKS(500));
+                esp_restart();
+            }
+        } else {
+            low_mem_count = 0;
+        }
+
+        // log heap status to web UI every 10 minutes for long-term tracking
+        if (now > last_heap_log + 600000) {
+            last_heap_log = now;
+            messaging_post_message(MESSAGING_INFO, MESSAGING_CLASS_SYSTEM,
+                "Heap: internal %zu (min %zu) external %zu",
+                free_internal,
+                heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL),
+                heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
+        }
 
         if (monitor_stats) monitor_trace(now);
         if (pseudo_idle_svc) pseudo_idle_svc(now);

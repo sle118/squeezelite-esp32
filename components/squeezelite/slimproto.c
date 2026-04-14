@@ -825,6 +825,10 @@ in_addr_t discover_server(char *default_server, int max) {
 	u8_t len;
 
 	int disc_sock = socket(AF_INET, SOCK_DGRAM, 0);
+	if (disc_sock < 0) {
+		LOG_ERROR("failed to create discovery socket");
+		return 0;
+	}
 
 	socklen_t enable = 1;
 	setsockopt(disc_sock, SOL_SOCKET, SO_BROADCAST, (const void *)&enable, sizeof(enable));
