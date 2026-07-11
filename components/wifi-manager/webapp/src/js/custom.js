@@ -965,6 +965,66 @@ window.saveAutoexec1 = function (apply) {
   });
   console.log('sent data:', JSON.stringify(data));
 }
+
+// Save Spotify Connect credentials to NVS (as part of cspot_config JSON)
+window.saveSpotifyConfig = function (apply) {
+  showCmdMessage('spotify-config', 'MESSAGING_INFO', 'Saving Spotify configuration.\n', false);
+  
+  const clientId = $('#spotify-client-id').val().trim();
+  const clientSecret = $('#spotify-client-secret').val().trim();
+  
+  // Get existing cspot_config and update it
+  let cspotConfig = {};
+  if (SystemConfig.cspot_config && SystemConfig.cspot_config.value) {
+    try {
+      cspotConfig = JSON.parse(SystemConfig.cspot_config.value);
+    } catch (e) {
+      console.log('Failed to parse existing cspot_config, starting fresh');
+    }
+  }
+  
+  // Update with new credentials (or remove if empty)
+  if (clientId) {
+    cspotConfig.clientId = clientId;
+  } else {
+    delete cspotConfig.clientId;
+  }
+  if (clientSecret) {
+    cspotConfig.clientSecret = clientSecret;
+  } else {
+    delete cspotConfig.clientSecret;
+  }
+  
+  const data = {
+    timestamp: Date.now(),
+    config: {
+      cspot_config: { value: JSON.stringify(cspotConfig), type: 33 }
+    }
+  };
+  
+  $.ajax({
+    url: '/config.json',
+    dataType: 'text',
+    method: 'POST',
+    cache: false,
+    contentType: 'application/json; charset=utf-8',
+    data: JSON.stringify(data),
+    error: handleExceptionResponse,
+    complete: function (response) {
+      if (response.responseText && JSON.parse(response.responseText).result === 'OK') {
+        showCmdMessage('spotify-config', 'MESSAGING_INFO', 'Spotify configuration saved.\n', true);
+        // Update local cache
+        SystemConfig.cspot_config = { value: JSON.stringify(cspotConfig), type: 33 };
+        if (apply) {
+          delayReboot(1500, 'spotify-config');
+        }
+      } else {
+        showCmdMessage('spotify-config', 'MESSAGING_ERROR', 'Failed to save configuration.\n', true);
+      }
+    }
+  });
+}
+
 window.handleDisconnect = function () {
   $.ajax({
     url: '/connect.json',
@@ -2195,6 +2255,53 @@ function getCommands() {
         });
       }
     });
+    
+    // Inject Spotify credentials card after the cspot options card if it exists
+    if ($('#flds-cfg-syst-cspot').length > 0 && $('#spotify-config-card').length === 0) {
+      const spotifyCredentialsCard = `
+        <div class="card mb-3" id="spotify-config-card" style="display: none;">
+          <div class="card-header">Spotify API Credentials</div>
+          <div class="card-body">
+            <p class="text-muted small">Configure your Spotify Developer App credentials here. If left empty, default (compiled-in) credentials will be used. You need to create a Spotify Developer App at <a href="https://developer.spotify.com/dashboard" target="_blank">developer.spotify.com</a> to get your own Client ID and Secret.</p>
+            <div class="form-group">
+              <label for="spotify-client-id">Client ID</label>
+              <input type="text" class="form-control" id="spotify-client-id" placeholder="Enter Spotify Client ID">
+            </div>
+            <div class="form-group">
+              <label for="spotify-client-secret">Client Secret</label>
+              <input type="password" class="form-control" id="spotify-client-secret" placeholder="Enter Spotify Client Secret">
+            </div>
+            <div style="margin-top: 16px;">
+              <div class="toast hide" role="alert" aria-live="assertive" aria-atomic="true" id="toast_spotify-config">
+                <div class="toast-header"><strong class="mr-auto">Result</strong>
+                  <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+                <div class="toast-body" id="msg_spotify-config"></div>
+              </div>
+            </div>
+            <button id="save-spotify-config" type="button" class="btn btn-info">Save</button>
+            <button id="apply-spotify-config" type="button" class="btn btn-warning">Apply</button>
+          </div>
+        </div>`;
+      // Insert after the cspot options card
+      $('#flds-cfg-syst-cspot').closest('.card').after(spotifyCredentialsCard);
+      // Bind click handlers
+      $('#save-spotify-config').on('click', function () { saveSpotifyConfig(false); });
+      $('#apply-spotify-config').on('click', function () { saveSpotifyConfig(true); });
+      // Apply stored credentials and visibility if getConfig ran first
+      if (window.cspotEnabled) {
+        $("#spotify-config-card").css({ display: 'block' });
+      }
+      if (window.spotifyCredentials) {
+        if (window.spotifyCredentials.clientId) {
+          $('#spotify-client-id').val(window.spotifyCredentials.clientId);
+        }
+        if (window.spotifyCredentials.clientSecret) {
+          $('#spotify-client-secret').val(window.spotifyCredentials.clientSecret);
+        }
+      }
+    }
+    
     loadPresets();
   }).fail(function (xhr, ajaxOptions, thrownError) {
     if (xhr.status == 404) {
@@ -2240,7 +2347,25 @@ function getConfig() {
           $("#s_airplay").css({ display: isEnabled(val) ? 'inline' : 'none' })
         }
         else if (key === 'enable_cspot') {
-          $("#s_cspot").css({ display: isEnabled(val) ? 'inline' : 'none' })
+          $("#s_cspot").css({ display: isEnabled(val) ? 'inline' : 'none' });
+          // Show Spotify config card if cspot is enabled (card may be created later by getCommands)
+          window.cspotEnabled = isEnabled(val);
+          $("#spotify-config-card").css({ display: isEnabled(val) ? 'block' : 'none' });
+        }
+        else if (key === 'cspot_config') {
+          // Parse and store Spotify credentials (card may be created later by getCommands)
+          try {
+            const cspotConfig = JSON.parse(val);
+            window.spotifyCredentials = cspotConfig;
+            if (cspotConfig.clientId) {
+              $('#spotify-client-id').val(cspotConfig.clientId);
+            }
+            if (cspotConfig.clientSecret) {
+              $('#spotify-client-secret').val(cspotConfig.clientSecret);
+            }
+          } catch (e) {
+            console.log('Failed to parse cspot_config:', e);
+          }
         }
         else if (key == 'preset_name') {
           preset_name = val;

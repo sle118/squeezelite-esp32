@@ -57,6 +57,8 @@ static const struct {
 class cspotPlayer : public bell::Task {
 private:
     std::string name;
+    std::string clientId;
+    std::string clientSecret;
     bell::WrappedSemaphore clientConnected;
     std::atomic<bool> isPaused;
     enum states { ABORT, LINKED, DISCO };
@@ -103,6 +105,18 @@ cspotPlayer::cspotPlayer(const char* name, httpd_handle_t server, int port, cspo
     if ((item = cJSON_GetObjectItem(config, "bitrate")) != NULL) bitrate = item->valueint;   
     if ((item = cJSON_GetObjectItem(config, "deviceName") ) != NULL) this->name = item->valuestring;
     else this->name = name; 
+
+    // Read client credentials from NVS config, fall back to compile-time defines
+    if ((item = cJSON_GetObjectItem(config, "clientId")) != NULL && item->valuestring != NULL && strlen(item->valuestring) > 0) {
+        this->clientId = item->valuestring;
+    } else {
+        this->clientId = CLIENT_ID;
+    }
+    if ((item = cJSON_GetObjectItem(config, "clientSecret")) != NULL && item->valuestring != NULL && strlen(item->valuestring) > 0) {
+        this->clientSecret = item->valuestring;
+    } else {
+        this->clientSecret = CLIENT_SECRET;
+    }
     
     if ((item = cJSON_GetObjectItem(config, "zeroConf")) != NULL) {
         zeroConf = item->valueint;
@@ -375,8 +389,8 @@ void cspotPlayer::runTask() {
 
         ctx->session->connectWithRandomAp();
         ctx->config.authData = ctx->session->authenticate(blob);
-        ctx->config.clientId = CLIENT_ID;
-        ctx->config.clientSecret = CLIENT_SECRET;
+        ctx->config.clientId = clientId;
+        ctx->config.clientSecret = clientSecret;
 
         // Auth successful
         if (ctx->config.authData.size() > 0) {
