@@ -4,6 +4,7 @@
 #include <functional>        // for __base
 #include <initializer_list>  // for initializer_list
 #include <map>               // for operator!=, operator==
+#include <stdexcept>         // for runtime_error
 #include <string_view>       // for string_view
 #include <type_traits>       // for remove_extent_t
 
@@ -130,14 +131,37 @@ size_t CDNAudioFile::readBytes(uint8_t* dst, size_t bytes) {
       this->enableRequestMargin = false;
     }
 
-    this->httpConnection->get(
-        cdnUrl, {bell::HTTPClient::RangeHeader::range(
-                    requestPosition, requestPosition + HTTP_BUFFER_SIZE - 1)});
-    this->lastRequestPosition = requestPosition;
-    this->lastRequestCapacity = this->httpConnection->contentLength();
+    size_t readCapacity = 0;
 
-    this->httpConnection->stream().read((char*)this->httpBuffer.data(),
-                                        lastRequestCapacity);
+    try {
+      this->httpConnection->get(
+          cdnUrl,
+          {bell::HTTPClient::RangeHeader::range(
+              requestPosition, requestPosition + HTTP_BUFFER_SIZE - 1)});
+      readCapacity = this->httpConnection->contentLength();
+
+      this->httpConnection->stream().read((char*)this->httpBuffer.data(),
+                                          readCapacity);
+
+      if (this->httpConnection->stream().gcount() !=
+          (std::streamsize)readCapacity) {
+        throw std::runtime_error("Short read of audio chunk body");
+      }
+    } catch (const std::exception& e) {
+      // A network failure must not propagate through the vorbis C call
+      // frames above us (TrackPlayer::runTask has no handler). Invalidate
+      // the cache window and report EOF so the player survives and moves
+      // on to the next track.
+      CSPOT_LOG(error, "Failed to read audio chunk at %u: %s",
+                (unsigned int)requestPosition, e.what());
+      this->lastRequestPosition = 0;
+      this->lastRequestCapacity = 0;
+      return 0;
+    }
+
+    this->lastRequestPosition = requestPosition;
+    this->lastRequestCapacity = readCapacity;
+
     this->decrypt(this->httpBuffer.data(), lastRequestCapacity,
 
                   this->lastRequestPosition);
