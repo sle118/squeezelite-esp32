@@ -1,6 +1,6 @@
 /* libFLAC - Free Lossless Audio Codec library
  * Copyright (C) 2000-2009  Josh Coalson
- * Copyright (C) 2011-2022  Xiph.Org Foundation
+ * Copyright (C) 2011-2025  Xiph.Org Foundation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -95,7 +95,7 @@
 /** These \#defines will mirror the libtool-based library version number, see
  * http://www.gnu.org/software/libtool/manual/libtool.html#Libtool-versioning
  */
-#define FLAC_API_VERSION_CURRENT 12
+#define FLAC_API_VERSION_CURRENT 14
 #define FLAC_API_VERSION_REVISION 0 /**< see above */
 #define FLAC_API_VERSION_AGE 0 /**< see above */
 
