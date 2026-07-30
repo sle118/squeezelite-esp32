@@ -27,6 +27,11 @@ Copyright (c) 2017-2021 Sebastien L
 #include "network_wifi.h"
 #include "network_status.h"
 #include "tools.h"
+#include "mbedtls/base64.h"
+
+esp_err_t request_auth(httpd_req_t *req);
+static const char auth_header[] = "Authorization";
+static const int BASIC_INDEX = 6;
 
 #define HTTP_STACK_SIZE	(5*1024)
 const char str_na[]="N/A";
@@ -37,7 +42,7 @@ static const char TAG[] = "httpd_handlers";
 
 SemaphoreHandle_t http_server_config_mutex = NULL;
 extern RingbufHandle_t messaging;
-#define AUTH_TOKEN_SIZE 50
+
 typedef struct session_context {
     char * auth_token;
     bool authenticated;
@@ -217,11 +222,65 @@ session_context_t* get_session_context(httpd_req_t *req){
 
 bool is_user_authenticated(httpd_req_t *req){
 	session_context_t *ctx_data = get_session_context(req);
+	char *auth_password = config_alloc_get_str("http_password", NULL, NULL);
+
+	// Only do auth if it's configured
+	if (auth_password == NULL) {
+		ctx_data->authenticated = true;
+	}
+	
+	if (strlen(auth_password) == 0) {
+		FREE_AND_NULL(auth_password);
+		ctx_data->authenticated = true;
+	}
 
 	if(ctx_data->authenticated){
 		ESP_LOGD_LOC(TAG,"User is authenticated.");
-		return true;
+		return ctx_data->authenticated;
 	}
+
+	// See if we have an auth header to work with
+	// Header will be formatted 'Basic base64(user:pass)' for basic auth
+	size_t header_len = httpd_req_get_hdr_value_len(req, auth_header);
+	if (header_len > 7) {
+		char *val = calloc(header_len+1,1); // NULL Terminator
+		if (val) {
+			esp_err_t error = httpd_req_get_hdr_value_str(req, auth_header, val, header_len+1);
+			if (ESP_OK == error) {
+				ESP_LOGD(TAG, "Auth header: %s:", val);
+				int base64_err = 0;
+				size_t out_size = 0;
+
+				// Get required size of buffer
+				mbedtls_base64_decode(NULL, 0, &out_size, 
+					(unsigned char *)val+BASIC_INDEX, header_len-BASIC_INDEX);
+				
+				unsigned int bytes_written = 0;
+				char *user_pass = calloc(out_size+1,1);	// NULL Terminator
+				if (user_pass != NULL) {
+					// Decode and parse
+					base64_err = mbedtls_base64_decode(
+						(unsigned char *)user_pass, out_size+1, &bytes_written, 
+						(unsigned char *)val+BASIC_INDEX, header_len-BASIC_INDEX);
+					if (base64_err == 0) {
+						/*char *user = */ strsep(&user_pass, ":");
+						char *pass = strsep(&user_pass, ":");
+
+						if (pass != NULL && 0 == strcmp(auth_password, pass)) {
+							ctx_data->authenticated = true;
+						}
+					} else {
+						ESP_LOGE(TAG, "Failed base64 decoding, size: %i, error: %i:", out_size, base64_err);
+					}
+					FREE_AND_NULL(user_pass);
+				}
+			} else {
+				ESP_LOGE(TAG,"Failed to get header value, error: %i", error);
+			}
+			FREE_AND_NULL(val);
+		}
+	}
+	FREE_AND_NULL(auth_password);
 
 	ESP_LOGD(TAG, "Heap internal:%zu (min:%zu) external:%zu (min:%zu) dma:%zu (min:%zu)",
 			heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
@@ -231,11 +290,15 @@ bool is_user_authenticated(httpd_req_t *req){
 			heap_caps_get_free_size(MALLOC_CAP_DMA),
 			heap_caps_get_minimum_free_size(MALLOC_CAP_DMA));
 
-	// todo:  ask for user to authenticate
-	return false;
+	return ctx_data->authenticated;
 }
 
-
+// Helper to request basic authentication
+esp_err_t request_auth(httpd_req_t *req) {
+	// Set the required auth header to request basic auth
+	httpd_resp_set_hdr(req, "WWW-Authenticate", "Basic realm=\"SqueezeLite\"");
+	return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Authentication required");
+}
 
 /* Copies the full path into destination buffer and returns
  * pointer to requested file name */
@@ -345,7 +408,7 @@ esp_err_t root_get_handler(httpd_req_t *req){
     httpd_resp_set_hdr(req, "Accept-Encoding", "identity");
 
     if(!is_user_authenticated(req)){
-    	// todo:  send password entry page and return
+    	return request_auth(req);
     }
 	int idx=-1;
 	if((idx=resource_get_index("index.html"))>=0){
@@ -409,8 +472,7 @@ esp_err_t ap_scan_handler(httpd_req_t *req){
     const char empty[] = "{}";
 	ESP_LOGD_LOC(TAG, "serving [%s]", req->uri);
     if(!is_user_authenticated(req)){
-    	// todo:  redirect to login page
-    	// return ESP_OK;
+    	return request_auth(req);
     }
 	network_async_scan();
 	esp_err_t err = set_content_type_from_req(req);
@@ -423,8 +485,7 @@ esp_err_t ap_scan_handler(httpd_req_t *req){
 esp_err_t console_cmd_get_handler(httpd_req_t *req){
     ESP_LOGD_LOC(TAG, "serving [%s]", req->uri);
     if(!is_user_authenticated(req)){
-    	// todo:  redirect to login page
-    	// return ESP_OK;
+    	return request_auth(req);
     }
     /* if we can get the mutex, write the last version of the AP list */
 	esp_err_t err = set_content_type_from_req(req);
@@ -452,8 +513,7 @@ esp_err_t console_cmd_post_handler(httpd_req_t *req){
 		return err;
 	}
 	if(!is_user_authenticated(req)){
-		// todo:  redirect to login page
-		// return ESP_OK;
+		return request_auth(req);
 	}
 	err = set_content_type_from_req(req);
 	if(err != ESP_OK){
@@ -464,13 +524,13 @@ esp_err_t console_cmd_post_handler(httpd_req_t *req){
 
 	cJSON *root = cJSON_Parse(command);
 	if(root == NULL){
-		ESP_LOGE_LOC(TAG, "Parsing command. Received content was: %s",command);
+		ESP_LOGI_LOC(TAG, "Parsing command. Received content was: %s",command);
 		httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Malformed command json.  Unable to parse content.");
 		return ESP_FAIL;
 	}
 	char * root_str = cJSON_Print(root);
 	if(root_str!=NULL){
-		ESP_LOGD(TAG, "Processing command item: \n%s", root_str);
+		ESP_LOGI(TAG, "Processing command item: \n%s", root_str);
 		free(root_str);
 	}
 	cJSON *item=cJSON_GetObjectItemCaseSensitive(root, "command");
@@ -497,8 +557,7 @@ esp_err_t console_cmd_post_handler(httpd_req_t *req){
 esp_err_t ap_get_handler(httpd_req_t *req){
     ESP_LOGD_LOC(TAG, "serving [%s]", req->uri);
     if(!is_user_authenticated(req)){
-    	// todo:  redirect to login page
-    	// return ESP_OK;
+    	return request_auth(req);
     }
     /* if we can get the mutex, write the last version of the AP list */
 	esp_err_t err = set_content_type_from_req(req);
@@ -525,8 +584,7 @@ esp_err_t ap_get_handler(httpd_req_t *req){
 esp_err_t config_get_handler(httpd_req_t *req){
     ESP_LOGD_LOC(TAG, "serving [%s]", req->uri);
     if(!is_user_authenticated(req)){
-    	// todo:  redirect to login page
-    	// return ESP_OK;
+    	return request_auth(req);
     }
 	esp_err_t err = set_content_type_from_req(req);
 	if(err == ESP_OK){
@@ -593,8 +651,7 @@ esp_err_t config_post_handler(httpd_req_t *req){
         return err;
     }
     if(!is_user_authenticated(req)){
-    	// todo:  redirect to login page
-    	// return ESP_OK;
+		return request_auth(req);
     }
 	err = set_content_type_from_req(req);
 	if(err != ESP_OK){
@@ -709,6 +766,7 @@ esp_err_t config_post_handler(httpd_req_t *req){
     return err;
 
 }
+
 esp_err_t connect_post_handler(httpd_req_t *req){
     ESP_LOGD_LOC(TAG, "serving [%s]", req->uri);
     char success[]="{}";
@@ -727,8 +785,7 @@ esp_err_t connect_post_handler(httpd_req_t *req){
 
 	char *buf = ((rest_server_context_t *)(req->user_ctx))->scratch;
     if(!is_user_authenticated(req)){
-    	// todo:  redirect to login page
-    	// return ESP_OK;
+		return request_auth(req);
     }
 	cJSON *root = cJSON_Parse(buf);
 
@@ -774,8 +831,7 @@ esp_err_t connect_delete_handler(httpd_req_t *req){
 	char success[]="{}";
     ESP_LOGD_LOC(TAG, "serving [%s]", req->uri);
     if(!is_user_authenticated(req)){
-    	// todo:  redirect to login page
-    	// return ESP_OK;
+    	return request_auth(req);
     }
 	esp_err_t err = set_content_type_from_req(req);
 	if(err != ESP_OK){
@@ -790,8 +846,7 @@ esp_err_t reboot_ota_post_handler(httpd_req_t *req){
 	char success[]="{}";
 	ESP_LOGD_LOC(TAG, "serving [%s]", req->uri);
     if(!is_user_authenticated(req)){
-    	// todo:  redirect to login page
-    	// return ESP_OK;
+    	return request_auth(req);
     }
     esp_err_t err = set_content_type_from_req(req);
 	if(err != ESP_OK){
@@ -806,8 +861,7 @@ esp_err_t reboot_post_handler(httpd_req_t *req){
     ESP_LOGD_LOC(TAG, "serving [%s]", req->uri);
     char success[]="{}";
     if(!is_user_authenticated(req)){
-    	// todo:  redirect to login page
-    	// return ESP_OK;
+    	return request_auth(req);
     }
     esp_err_t err = set_content_type_from_req(req);
 	if(err != ESP_OK){
@@ -821,8 +875,7 @@ esp_err_t recovery_post_handler(httpd_req_t *req){
     ESP_LOGD_LOC(TAG, "serving [%s]", req->uri);
     char success[]="{}";
     if(!is_user_authenticated(req)){
-    	// todo:  redirect to login page
-    	// return ESP_OK;
+    	return request_auth(req);
     }
     esp_err_t err = set_content_type_from_req(req);
 	if(err != ESP_OK){
@@ -840,8 +893,7 @@ esp_err_t flash_post_handler(httpd_req_t *req){
 		ESP_LOGD_LOC(TAG, "serving [%s]", req->uri);
 		char success[]="File uploaded. Flashing started.";
 		if(!is_user_authenticated(req)){
-			// todo:  redirect to login page
-			// return ESP_OK;
+			return request_auth(req);
 		}
 		err = httpd_resp_set_type(req, HTTPD_TYPE_TEXT);
 		if(err != ESP_OK){
@@ -1084,8 +1136,7 @@ esp_err_t redirect_ev_handler(httpd_req_t *req){
 esp_err_t messages_get_handler(httpd_req_t *req){
     ESP_LOGD_LOC(TAG, "serving [%s]", req->uri);
     if(!is_user_authenticated(req)){
-    	// todo:  redirect to login page
-    	// return ESP_OK;
+    	return request_auth(req);
     }
     esp_err_t err = set_content_type_from_req(req);
 	if(err != ESP_OK){
@@ -1107,8 +1158,7 @@ esp_err_t messages_get_handler(httpd_req_t *req){
 esp_err_t status_get_handler(httpd_req_t *req){
     ESP_LOGD_LOC(TAG, "serving [%s]", req->uri);
     if(!is_user_authenticated(req)){
-    	// todo:  redirect to login page
-    	// return ESP_OK;
+    	return request_auth(req);
     }
     esp_err_t err = set_content_type_from_req(req);
 	if(err != ESP_OK){
