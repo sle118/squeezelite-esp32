@@ -17,6 +17,8 @@ jobs:
   bootstrap:
     name: Global setup
     runs-on: ubuntu-latest
+    env:
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
     container:
       image: sle118/squeezelite-esp32-idfv435
     outputs:
@@ -99,6 +101,8 @@ jobs:
           components/wifi-manager/webapp/*.cmake 
   build:
     runs-on: ubuntu-latest
+    env:
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
     container:
       image: sle118/squeezelite-esp32-idfv435
     needs: [bootstrap]
