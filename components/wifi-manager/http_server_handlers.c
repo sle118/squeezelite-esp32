@@ -950,10 +950,10 @@ esp_err_t process_redirect(httpd_req_t *req, const char * status){
 	char * redirect=malloc_init_external(buf_size);
 
 	if(strcasestr(status,"302")){
-		size_t url_buf_size = strlen(location_prefix) + strlen(ap_ip_address)+1;
+		size_t url_buf_size = strlen(location_prefix) + strlen(ap_ip_address)+2;
 		redirect_url = malloc_init_external(url_buf_size);
 		memset(redirect_url,0x00,url_buf_size);
-		snprintf(redirect_url, buf_size,"%s%s/",location_prefix, ap_ip_address);
+		snprintf(redirect_url, url_buf_size,"%s%s/",location_prefix, ap_ip_address);
 		ESP_LOGW_LOC(TAG,  "Redirecting host [%s] to %s (from uri %s)",remote_ip, redirect_url,req->uri);
 		httpd_resp_set_hdr(req,"Location",redirect_url);
 		snprintf(redirect, buf_size,"OK");

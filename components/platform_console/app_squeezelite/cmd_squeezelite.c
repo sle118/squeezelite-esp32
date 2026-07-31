@@ -81,11 +81,10 @@ static void squeezelite_thread(void *arg){
     cmd_send_messaging("cfg-audio-tmpl",ret > 1 ?  MESSAGING_ERROR : MESSAGING_WARNING,"squeezelite exited with error code %d\n", ret);
 
     if (ret <= 1) {
-        int wait = 60;
         wait_for_commit();
-        cmd_send_messaging("cfg-audio-tmpl",MESSAGING_ERROR,"Rebooting in %d sec\n", wait);
-        vTaskDelay( pdMS_TO_TICKS(wait * 1000));
-        esp_restart();
+        cmd_send_messaging("cfg-audio-tmpl",MESSAGING_WARNING,"Squeezelite exited (no server). Other sinks still active.\n");
+        // Don't reboot - AirPlay/Spotify/BT sinks run independently
+        vTaskSuspend(NULL);
     } else {
 		cmd_send_messaging("cfg-audio-tmpl",MESSAGING_ERROR,"Correct command line and reboot\n");
         vTaskSuspend(NULL);

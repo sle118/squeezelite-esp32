@@ -768,6 +768,8 @@ static void network_wifi_event_handler(void* arg, esp_event_base_t event_base, i
             wifi_event_sta_disconnected_t* s = (wifi_event_sta_disconnected_t*)event_data;
             char* bssid = network_manager_alloc_get_mac_string(s->bssid);
             ESP_LOGW(TAG, "WIFI_EVENT_STA_DISCONNECTED. From BSSID: %s, reason code: %d (%s)", STR_OR_BLANK(bssid), s->reason, get_disconnect_code_desc(s->reason));
+            messaging_post_message(MESSAGING_WARNING, MESSAGING_CLASS_SYSTEM,
+                "WiFi disconnected (reason: %d %s)", s->reason, get_disconnect_code_desc(s->reason));
             FREE_AND_NULL(bssid);
             if (s->reason == WIFI_REASON_ROAMING) {
                 ESP_LOGI(TAG, "WiFi Roaming to new access point");
