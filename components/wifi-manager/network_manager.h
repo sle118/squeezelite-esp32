@@ -228,10 +228,12 @@ bool network_is_interface_connected(esp_netif_t * interface);
  */
 #define DEFAULT_STA_ONLY 					1
 
-/** @brief Defines if wifi power save shall be enabled.
- *  Value: WIFI_PS_NONE for full power (wifi modem always on)
- *  Value: WIFI_PS_MODEM for power save (wifi modem sleep periodically)
+/** @brief Defines the default wifi power save mode.
+ *  Value: WIFI_PS_NONE (0) for full power (wifi modem always on)
+ *  Value: WIFI_PS_MIN_MODEM (1) for minimum power save (wifi modem sleeps periodically)
+ *  Value: WIFI_PS_MAX_MODEM (2) for maximum power save
  *  Note: Power save is only effective when in STA only mode
+ *  Can be overridden via NVS key "wifi_ps" (0, 1, or 2)
  */
 #define DEFAULT_STA_POWER_SAVE 				WIFI_PS_MIN_MODEM
 
