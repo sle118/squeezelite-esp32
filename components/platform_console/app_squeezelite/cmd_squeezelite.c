@@ -85,6 +85,8 @@ static void squeezelite_thread(void *arg){
         wait_for_commit();
         cmd_send_messaging("cfg-audio-tmpl",MESSAGING_ERROR,"Rebooting in %d sec\n", wait);
         vTaskDelay( pdMS_TO_TICKS(wait * 1000));
+        ESP_LOGW(TAG, "Deliberate Squeezelite restart; resetting boot-loop counter");
+        halSTORAGE_RebootCounterUpdate(0);
         esp_restart();
     } else {
 		cmd_send_messaging("cfg-audio-tmpl",MESSAGING_ERROR,"Correct command line and reboot\n");
