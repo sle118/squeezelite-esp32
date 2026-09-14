@@ -84,6 +84,10 @@ static uint32_t sink_data_handler(const uint8_t *data, uint32_t len, int retries
 	while (len && wait && sink_state == SINK_RUNNING) {
 		bytes = min(_buf_space(outputbuf), _buf_cont_write(outputbuf)) / (BYTES_PER_FRAME / 4);
 		bytes = min(len, bytes);
+		// only whole 16-bit stereo frames (4 source bytes): _buf_space() is size - used - 1, so a
+		// nearly full buffer yields an odd count that would split a sample and desynchronise the
+		// source pointer from the ring writep (silence on 32-bit builds, noise on 16-bit)
+		bytes -= bytes % 4;
 #if BYTES_PER_FRAME == 4
 		memcpy(outputbuf->writep, data, bytes);
 #else
@@ -102,7 +106,7 @@ static uint32_t sink_data_handler(const uint8_t *data, uint32_t len, int retries
         written += bytes;
 				
 		// allow i2s to empty the buffer if needed
-		if (len && !space) {
+		if (len && (!space || !bytes)) {
             if (!retries) break;
 			wait--;
 			UNLOCK_O; usleep(50000); LOCK_O;
