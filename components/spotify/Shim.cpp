@@ -15,6 +15,8 @@
 #include <fstream>
 #include <stdarg.h>
 #include <ApResolve.h>
+#include <deque>
+#include <mutex>
 
 #include "BellTask.h"
 #include "MDNSService.h"
@@ -71,6 +73,8 @@ private:
     cspot_cmd_cb_t cmdHandler;
     cspot_data_cb_t dataHandler;
     std::string lastTrackId;
+    std::deque<std::string> trackIds;
+    std::mutex trackIdsMutex;
     cspot::TrackInfo trackInfo;
 
     std::shared_ptr<cspot::LoginBlob> blob;
@@ -129,6 +133,11 @@ size_t cspotPlayer::pcmWrite(uint8_t *pcm, size_t bytes, std::string_view trackI
     if (lastTrackId != trackId) {
         CSPOT_LOG(info, "new track started <%s> => <%s>", lastTrackId.c_str(), trackId.data());
         lastTrackId = trackId;
+        
+        std::unique_lock lock(trackIdsMutex);
+        trackIds.emplace_back(trackId);
+        lock.unlock();
+        
         trackHandler();
     }
 
@@ -213,7 +222,10 @@ esp_err_t cspotPlayer::handlePOST(httpd_req_t *request) {
 void cspotPlayer::eventHandler(std::unique_ptr<cspot::SpircHandler::Event> event) {
     switch (event->eventType) {
     case cspot::SpircHandler::EventType::PLAYBACK_START: {
+        std::unique_lock lock(trackIdsMutex);
+        trackIds.clear();
         lastTrackId.clear();
+        lock.unlock();
         // we are not playing anymore
         trackStatus = TRACK_INIT;
         // memorize position for when track's beginning will be detected
@@ -424,10 +436,17 @@ void cspotPlayer::runTask() {
                     // inform Spotify that next track has started (don't need to be super accurate)
                     uint32_t started;
                     cmdHandler(CSPOT_QUERY_STARTED, &started);
-                    if (started) {
+                    if (started) {                      
                         CSPOT_LOG(info, "next track's audio has reached DAC (offset %d)", startOffset);
-                        if (notify) spirc->notifyAudioReachedPlayback(lastTrackId);
-                        else notify = true;
+                        
+                        std::unique_lock lock(trackIdsMutex);
+                        auto trackId = std::move(trackIds.front());                       
+                        trackIds.pop_front(); 
+                        lock.unlock();
+                        
+                        if (notify) spirc->notifyAudioReachedPlayback(trackId);
+                        else notify = true;                        
+                        
                         cmdHandler(CSPOT_TRACK_INFO, trackInfo.duration, startOffset, trackInfo.artist.c_str(),
                                     trackInfo.album.c_str(), trackInfo.name.c_str(), trackInfo.imageUrl.c_str());
                         spirc->updatePositionMs(startOffset);
