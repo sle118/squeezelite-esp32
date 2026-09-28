@@ -1,6 +1,7 @@
 #pragma once
 
 #include <pb_encode.h>
+#include <mutex>
 #include <optional>
 #include <string_view>
 #include <vector>
@@ -26,7 +27,17 @@ struct TrackReference {
 
   bool operator==(const TrackReference& other) const;
 
-  // Encodes list of track references into a pb structure, used by nanopb
+  /* Argument for pbEncodeTrackList: the track list together with the mutex
+   * that guards it. Frames are encoded from whatever thread calls notify()
+   * while the mercury thread can rebuild the list, so the encoder must hold
+   * the same lock as the writers. */
+  struct LockedTrackList {
+    std::mutex* mutex;
+    std::vector<TrackReference>* tracks;
+  };
+
+  // Encodes list of track references into a pb structure, used by nanopb.
+  // *arg must point at a LockedTrackList
   static bool pbEncodeTrackList(pb_ostream_t* stream, const pb_field_t* field,
                                 void* const* arg);
 

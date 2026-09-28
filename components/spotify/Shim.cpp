@@ -426,7 +426,7 @@ void cspotPlayer::runTask() {
                     cmdHandler(CSPOT_QUERY_STARTED, &started);
                     if (started) {
                         CSPOT_LOG(info, "next track's audio has reached DAC (offset %d)", startOffset);
-                        if (notify) spirc->notifyAudioReachedPlayback();
+                        if (notify) spirc->notifyAudioReachedPlayback(lastTrackId);
                         else notify = true;
                         cmdHandler(CSPOT_TRACK_INFO, trackInfo.duration, startOffset, trackInfo.artist.c_str(),
                                     trackInfo.album.c_str(), trackInfo.name.c_str(), trackInfo.imageUrl.c_str());

@@ -1,3 +1,6 @@
+2026-09-28
+ - fix various cspot issues (reconnect races and track changes)
+
 2026-07-30
  - update flac to stock 1.4
  - fix some oggflac error

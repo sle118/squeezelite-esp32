@@ -71,33 +71,35 @@ void AccessKeyFetcher::updateAccessKey() {
   do {
     CSPOT_LOG(info, "Access token expired, fetching new one...");
 
-    auto credentials = "grant_type=client_credentials&client_id=" + ctx->config.clientId + "&client_secret=" + ctx->config.clientSecret;
+    auto credentials =
+        "grant_type=client_credentials&client_id=" + ctx->config.clientId +
+        "&client_secret=" + ctx->config.clientSecret;
     std::vector<uint8_t> body(credentials.begin(), credentials.end());
-    
+
     auto response = bell::HTTPClient::post(
         "https://accounts.spotify.com/api/token",
-        { {"Content-Type", "application/x-www-form-urlencoded"} }, body);
-    
+        {{"Content-Type", "application/x-www-form-urlencoded"}}, body);
+
 #ifdef BELL_ONLY_CJSON
     cJSON* root = cJSON_Parse(response->body().data());
     if (!cJSON_GetObjectItem(root, "error")) {
-        accessKey = std::string(cJSON_GetObjectItem(root, "access_token")->valuestring);
-        int expiresIn = cJSON_GetObjectItem(root, "expires_in")->valueint;
-        cJSON_Delete(root);
+      accessKey =
+          std::string(cJSON_GetObjectItem(root, "access_token")->valuestring);
+      int expiresIn = cJSON_GetObjectItem(root, "expires_in")->valueint;
+      cJSON_Delete(root);
 #else
     auto root = nlohmann::json::parse(response->bytes());
     if (!root.contains("error")) {
-        accessKey = std::string(root["access_token"]);
-        int expiresIn = root["expires_in"];
+      accessKey = std::string(root["access_token"]);
+      int expiresIn = root["expires_in"];
 #endif
-        // Successfully received an auth token
+      // Successfully received an auth token
       CSPOT_LOG(info, "Access token sucessfully fetched");
       success = true;
 
       this->expiresAt =
-            ctx->timeProvider->getSyncedTimestamp() + (expiresIn * 1000);
-    }
-    else {
+          ctx->timeProvider->getSyncedTimestamp() + (expiresIn * 1000);
+    } else {
       CSPOT_LOG(error, "Failed to fetch access token");
       BELL_SLEEP_MS(3000);
     }
