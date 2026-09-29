@@ -288,10 +288,13 @@ static void handle_telnet_conn() {
 
 // ******************* stdout/stderr Redirection to ringbuffer
 static ssize_t stdout_write(int fd, const void * data, size_t size) {
-	// flush the buffer and send item
+	// Keep the process-wide stdout hook non-blocking and stack-light.  In
+	// particular, this function can be called by ESP-IDF's timer and event-loop
+	// tasks, whose stacks are sized for system callbacks rather than socket I/O.
+	// The dedicated telnet task drains the ring buffer via process_logs().
+	// If the buffer is full, drop this write rather than blocking a system task.
 	if (buf_handle) {
-		process_logs(size, true);
-		xRingbufferSend(buf_handle, data, size, 0);
+		(void) xRingbufferSend(buf_handle, data, size, 0);
 	}
 	
 	// mirror to uart if required
