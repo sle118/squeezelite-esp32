@@ -1087,7 +1087,7 @@ static state_machine_result_t WIFI_LOST_CONNECTION_STATE_handler(state_machine_t
             result= local_traverse_state(State_Machine, &Wifi_Active_State[WIFI_LOST_CONNECTION_STATE],__FUNCTION__);
             break;
         case EN_CONNECT:
-            result= local_traverse_state(State_Machine, &Wifi_Configuring_State[WIFI_CONNECTING_STATE],__FUNCTION__);
+            result= local_traverse_state(State_Machine, &Wifi_Active_State[WIFI_CONNECTING_STATE],__FUNCTION__);
             break;
         default:
             result= EVENT_UN_HANDLED;
