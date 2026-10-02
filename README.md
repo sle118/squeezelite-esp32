@@ -597,7 +597,7 @@ At this point, the device should have disabled its built-in access point and sho
 ## Spotify
 By default, SqueezeESP32 will use ZeroConf to advertise its Spotify capabilties. This means that until at least one local Spotify Connect application controllers discovers and connects to it, SqueezeESP32 will not be registered to Spotify servers. As a consequence, Spotify's WebAPI will not be able to see it (for example, Home Assistant services will miss it). Once you are connected to it using for example Spotify Desktop app, it will be registered and displayed everywhere.
 
-If you want the player to be registered at start-up, you need to disable the ZeroConf option using the WebUI or `cspot_config::ZeroConf`. In that mode, the first time you run SqueezeESP32, it will be in ZeroConf mode and when you connect to it using a controller for the firt time, it receives and store credentials that will be used next time (after reboot). 
+If you want the player to be registered at start-up, you need to disable the ZeroConf option using the WebUI or `cspot_config::ZeroConf`. In that mode, the first time you run SqueezeESP32, it will be in ZeroConf mode and when you connect to it using a controller for the first time, it receives and store credentials that will be used next time (after reboot). 
 
 Set ZeroConf to 1 will always force ZeroConf mode to be used. 
 

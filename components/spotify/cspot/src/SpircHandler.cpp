@@ -85,26 +85,28 @@ void SpircHandler::notifyAudioEnded() {
   trackPlayer->resetState(true);
 }
 
-void SpircHandler::notifyAudioReachedPlayback() {
-  int offset = 0;
+void SpircHandler::notifyAudioReachedPlayback(std::string_view identifier) {
+  std::shared_ptr<QueuedTrack> currentTrack;
 
-  // get HEAD track
-  auto currentTrack = trackQueue->consumeTrack(nullptr, offset);
+  /* Validation and queue advancement happen as one atomic operation inside
+   * TrackQueue: a Load/Replace frame can rebuild the queue from the mercury
+   * thread at any moment, and a stale notification (e.g. from a stream that
+   * predates the rebuild) must neither consume the pending notify nor pop the
+   * queue one track early - that desyncs playback with no way to resync.
+   * Callers that cannot identify the playing track (flow mode) pass an empty
+   * identifier and keep the legacy behavior. */
+  switch (trackQueue->notifyTrackReached(identifier, currentTrack)) {
+    case TrackQueue::Reached::IGNORED:
+      return;
+    case TrackQueue::Reached::CONSUMED_PENDING:
+      playbackState->updatePositionMs(currentTrack->requestedPosition);
 
-  // Do not execute when meta is already updated
-  if (trackQueue->notifyPending) {
-    trackQueue->notifyPending = false;
-
-    playbackState->updatePositionMs(currentTrack->requestedPosition);
-
-    // Reset position in queued track
-    currentTrack->requestedPosition = 0;
-  } else {
-    trackQueue->skipTrack(TrackQueue::SkipDirection::NEXT, false);
-    playbackState->updatePositionMs(0);
-
-    // we moved to next track, re-acquire currentTrack again
-    currentTrack = trackQueue->consumeTrack(nullptr, offset);
+      // Reset position in queued track
+      currentTrack->requestedPosition = 0;
+      break;
+    case TrackQueue::Reached::ADVANCED:
+      playbackState->updatePositionMs(0);
+      break;
   }
 
   this->notify();
@@ -118,6 +120,7 @@ void SpircHandler::updatePositionMs(uint32_t position) {
 }
 
 void SpircHandler::disconnect() {
+  this->ctx->session->disable();
   this->trackQueue->stopTask();
   this->trackPlayer->stop();
   this->ctx->session->disconnect();

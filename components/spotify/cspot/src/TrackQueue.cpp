@@ -124,6 +124,12 @@ QueuedTrack::QueuedTrack(TrackReference& ref,
                          std::shared_ptr<cspot::Context> ctx,
                          uint32_t requestedPosition)
     : requestedPosition(requestedPosition), ctx(ctx) {
+  // A file id alone cannot prove which playback instance a notification is
+  // about (same track queued twice, PREV restart), so every queue entry gets
+  // a process-unique sequence number woven into its identifier
+  static std::atomic<uint32_t> seq(0);
+  instanceSeq = ++seq;
+
   this->ref = ref;
 
   loadedSemaphore = std::make_shared<bell::WrappedSemaphore>();
@@ -236,8 +242,8 @@ void QueuedTrack::stepParseMetadata(Track* pbTrack, Episode* pbEpisode) {
     return;
   }
 
-  // Assign track identifier
-  identifier = bytesToHexString(fileId);
+  // Assign track identifier, unique per queue entry, not just per file
+  identifier = bytesToHexString(fileId) + "#" + std::to_string(instanceSeq);
 
   state = State::KEY_REQUIRED;
 }
@@ -372,10 +378,12 @@ TrackQueue::TrackQueue(std::shared_ptr<cspot::Context> ctx,
   processSemaphore = std::make_shared<bell::WrappedSemaphore>();
   playableSemaphore = std::make_shared<bell::WrappedSemaphore>();
 
-  // Assign encode callback to track list
+  // Assign encode callback to track list; the encoder runs on whatever
+  // thread sends a frame, so hand it the list together with its guard
+  pbTracksArg = {&tracksMutex, &currentTracks};
   playbackState->innerFrame.state.track.funcs.encode =
       &TrackReference::pbEncodeTrackList;
-  playbackState->innerFrame.state.track.arg = &currentTracks;
+  playbackState->innerFrame.state.track.arg = &pbTracksArg;
   pbTrack = Track_init_zero;
   pbEpisode = Episode_init_zero;
 
@@ -393,6 +401,9 @@ TrackQueue::~TrackQueue() {
 }
 
 TrackInfo TrackQueue::getTrackInfo(std::string_view identifier) {
+  // preloadedTracks can be rebuilt by the mercury thread at any moment
+  std::scoped_lock lock(tracksMutex);
+
   for (auto& track : preloadedTracks) {
     if (track->identifier == identifier)
       return track->trackInfo;
@@ -413,13 +424,15 @@ void TrackQueue::runTask() {
     // Make sure we have the newest access key
     accessKey = accessKeyFetcher->getAccessKey();
 
-    int loadedIndex = currentTracksIndex;
-
-    // No tracks loaded yet
-    if (loadedIndex < 0) {
-      continue;
-    } else {
+    {
+      // currentTracksIndex and preloadedTracks are mutated by other threads
+      // under tracksMutex, read them under it as well
       std::scoped_lock lock(tracksMutex);
+
+      // No tracks loaded yet
+      if (currentTracksIndex < 0) {
+        continue;
+      }
 
       trackQueue = preloadedTracks;
     }
@@ -444,7 +457,8 @@ std::shared_ptr<QueuedTrack> TrackQueue::consumeTrack(
     std::shared_ptr<QueuedTrack> prevTrack, int& offset) {
   std::scoped_lock lock(tracksMutex);
 
-  if (currentTracksIndex == -1 || currentTracksIndex >= currentTracks.size()) {
+  if (currentTracksIndex == -1 || currentTracksIndex >= currentTracks.size() ||
+      preloadedTracks.empty()) {
     return nullptr;
   }
 
@@ -494,6 +508,9 @@ void TrackQueue::processTrack(std::shared_ptr<QueuedTrack> track) {
       track->stepLoadCDNUrl(accessKey);
 
       if (track->state == QueuedTrack::State::READY) {
+        // queueNextTrack() mutates preloadedTracks, which other threads
+        // access under tracksMutex; this runs on the queue task
+        std::scoped_lock lock(tracksMutex);
         if (preloadedTracks.size() < MAX_TRACKS_PRELOAD) {
           // Queue a new track to preload
           queueNextTrack(preloadedTracks.size());
@@ -531,8 +548,13 @@ bool TrackQueue::queueNextTrack(int offset, uint32_t positionMs) {
 }
 
 bool TrackQueue::skipTrack(SkipDirection dir, bool expectNotify) {
-  bool skipped = true;
   std::scoped_lock lock(tracksMutex);
+
+  return skipTrackUnlocked(dir, expectNotify);
+}
+
+bool TrackQueue::skipTrackUnlocked(SkipDirection dir, bool expectNotify) {
+  bool skipped = true;
 
   if (dir == SkipDirection::PREV) {
     uint64_t position =
@@ -580,6 +602,61 @@ bool TrackQueue::skipTrack(SkipDirection dir, bool expectNotify) {
   return skipped;
 }
 
+TrackQueue::Reached TrackQueue::notifyTrackReached(
+    std::string_view identifier, std::shared_ptr<QueuedTrack>& current) {
+  std::scoped_lock lock(tracksMutex);
+
+  if (currentTracksIndex == -1 || currentTracksIndex >= currentTracks.size() ||
+      preloadedTracks.empty()) {
+    return Reached::IGNORED;
+  }
+
+  // deque may be popped below, keep the head alive
+  auto head = preloadedTracks[0];
+
+  // Do not execute when meta is already updated
+  if (notifyPending) {
+    /* The pending notification belongs to the queue head; a stale streamer
+     * (e.g. one started right before a Load frame rebuilt the queue) must not
+     * consume it, or every later notification pops the queue one track early
+     * and playback never resyncs */
+    if (!identifier.empty() && head->identifier != identifier) {
+      CSPOT_LOG(info, "stale notification for %s while expecting %s => ignored",
+                std::string(identifier).c_str(), head->identifier.c_str());
+      return Reached::IGNORED;
+    }
+    notifyPending = false;
+    current = head;
+    return Reached::CONSUMED_PENDING;
+  }
+
+  if (!identifier.empty()) {
+    if (head->identifier == identifier) {
+      // re-announcement of the entry we already advanced to
+      CSPOT_LOG(info, "duplicate notification for %s => ignored",
+                std::string(identifier).c_str());
+      return Reached::IGNORED;
+    }
+    if (preloadedTracks.size() < 2 ||
+        preloadedTracks[1]->identifier != identifier) {
+      CSPOT_LOG(info, "stale notification for %s while playing %s => ignored",
+                std::string(identifier).c_str(), head->identifier.c_str());
+      return Reached::IGNORED;
+    }
+  }
+
+  skipTrackUnlocked(SkipDirection::NEXT, false);
+
+  // with an empty identifier the skip may fail at the end of the queue; the
+  // legacy behavior is to re-notify the head in that case
+  if (preloadedTracks.empty()) {
+    return Reached::IGNORED;
+  }
+
+  current = preloadedTracks[0];
+  return Reached::ADVANCED;
+}
+
 bool TrackQueue::hasTracks() {
   std::scoped_lock lock(tracksMutex);
 
@@ -612,7 +689,7 @@ bool TrackQueue::updateTracks(uint32_t requestedPosition, bool initial) {
     notifyPending = true;
 
     playableSemaphore->give();
-  } else if (preloadedTracks[0]->loading) {
+  } else if (!preloadedTracks.empty() && preloadedTracks[0]->loading) {
     // try to not re-load track if we are still loading it
 
     // remove everything except first track

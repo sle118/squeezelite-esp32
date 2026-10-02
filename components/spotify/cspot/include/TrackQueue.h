@@ -5,6 +5,7 @@
 #include <deque>
 #include <functional>
 #include <mutex>
+#include <string_view>
 
 #include "BellTask.h"
 #include "PlaybackState.h"
@@ -77,6 +78,10 @@ class QueuedTrack {
  private:
   std::shared_ptr<cspot::Context> ctx;
 
+  // Distinguishes this queue entry from any other entry for the same file
+  // (same track queued twice, or the same track re-queued by a PREV restart)
+  uint32_t instanceSeq;
+
   uint64_t pendingMercuryRequest = 0;
   uint32_t pendingAudioKeyRequest = 0;
 
@@ -92,6 +97,9 @@ class TrackQueue : public bell::Task {
 
   enum class SkipDirection { NEXT, PREV };
 
+  // Outcome of a "track reached playback" notification
+  enum class Reached { IGNORED, CONSUMED_PENDING, ADVANCED };
+
   std::shared_ptr<bell::WrappedSemaphore> playableSemaphore;
   std::atomic<bool> notifyPending = false;
 
@@ -106,6 +114,17 @@ class TrackQueue : public bell::Task {
   std::shared_ptr<QueuedTrack> consumeTrack(
       std::shared_ptr<QueuedTrack> prevSong, int& offset);
 
+  /* Atomically validate a "track reached playback" notification against the
+   * queue and advance it when appropriate. Validation and advancement must
+   * happen under a single tracksMutex hold: a Load/Replace frame can rebuild
+   * the queue from the mercury thread at any moment, and a decision taken on
+   * a stale snapshot would pop the rebuilt queue one entry early. `current`
+   * receives the up-to-date head unless the notification was ignored. An
+   * empty identifier skips validation (callers that cannot identify the
+   * playing track, e.g. flow mode). */
+  Reached notifyTrackReached(std::string_view identifier,
+                             std::shared_ptr<QueuedTrack>& current);
+
  private:
   static const int MAX_TRACKS_PRELOAD = 3;
 
@@ -117,6 +136,10 @@ class TrackQueue : public bell::Task {
   std::deque<std::shared_ptr<QueuedTrack>> preloadedTracks;
   std::vector<TrackReference> currentTracks;
   std::mutex tracksMutex, runningMutex;
+
+  // nanopb encode argument: currentTracks plus its guard (see
+  // TrackReference::pbEncodeTrackList)
+  TrackReference::LockedTrackList pbTracksArg;
 
   // PB data
   Track pbTrack;
@@ -130,5 +153,6 @@ class TrackQueue : public bell::Task {
 
   void processTrack(std::shared_ptr<QueuedTrack> track);
   bool queueNextTrack(int offset = 0, uint32_t positionMs = 0);
+  bool skipTrackUnlocked(SkipDirection dir, bool expectNotify);
 };
 }  // namespace cspot
