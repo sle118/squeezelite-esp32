@@ -1,3 +1,10 @@
+2026-10-03
+ - fix ancient issue in core cspot PlainConection read upon EINTR
+ 
+2026-09-29
+ - fix cspot trackId changes
+ - merge various PR: telnet, wifi config state, externel sink, webserver overflow
+
 2026-09-28
  - fix various cspot issues (reconnect races and track changes)
 
