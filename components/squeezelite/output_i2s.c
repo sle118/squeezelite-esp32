@@ -521,7 +521,7 @@ static void output_thread_i2s(void *arg) {
 	size_t bytes;
 	frames_t iframes = FRAME_BLOCK;
 	uint32_t timer_start = 0;
-	int discard = 0;
+	frames_t discard = 0;
 	uint32_t fullness = gettime_ms();
 	bool synced;
 	output_state state = OUTPUT_OFF - 1;
@@ -561,6 +561,8 @@ static void output_thread_i2s(void *arg) {
 				adac->power(ADAC_STANDBY);
 			}
 			usleep(100000);
+			// nothing is written to DMA while off, so don't let fullness go stale
+			fullness = gettime_ms();
 			continue;
 		} else if (output.state == OUTPUT_STOPPED) {
 			synced = false;
@@ -570,7 +572,11 @@ static void output_thread_i2s(void *arg) {
 		output.updated = gettime_ms();
 		output.frames_played_dmp = output.frames_played;
 		// try to estimate how much we have consumed from the DMA buffer (calculation is incorrect at the very beginning ...)
-		output.device_frames = dma_buf_frames - ((output.updated - fullness) * output.current_sample_rate) / 1000;
+		// clamp to 0 as a long gap since last write would underflow and make discard huge
+		{
+			uint64_t consumed = ((uint64_t) (output.updated - fullness) * output.current_sample_rate) / 1000;
+			output.device_frames = consumed < dma_buf_frames ? dma_buf_frames - consumed : 0;
+		}
         // we'll try to produce iframes if we have any, but we might return less if outpuf does not have enough
 		_output_frames( iframes );
 		// oframes must be a global updated by the write callback
