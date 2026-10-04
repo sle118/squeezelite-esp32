@@ -103,7 +103,7 @@ class Task {
                        if (resources->xStack) heap_caps_free(resources->xStack);                         
                        heap_caps_free(resources->xTaskBuffer);
                        delete resources;
-                       xTimerDelete(xTimer, portMAX_DELAY);
+                       xTimerDelete(xTimer, 0);
                      });
     xTimerStart(timer, portMAX_DELAY);
 
