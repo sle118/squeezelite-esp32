@@ -265,7 +265,7 @@ static void handle_telnet_conn() {
 
 		if (FD_ISSET(partnerSocket, &rfds)) { 
 			int len = recv(partnerSocket, pTelnetUserData->rxbuf, TELNET_RX_BUF, 0);
-			if (!len) break;
+			if (len <= 0) break;
 			telnet_recv(tnHandle, pTelnetUserData->rxbuf, len);
 		}
 

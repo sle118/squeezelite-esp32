@@ -1,3 +1,10 @@
+2026-10-04
+ - in rtp, fix pointer size error in alac_decode
+ - fix message fmt using an already formetted string
+ - in spotify, fix missing catch on early (after boot) AP connection
+ - fix loudness memory corruption and equalizer reset
+ - fix telnet large memory corruption when connection fails
+ 
 2026-10-03
  - fix ancient issue in core cspot PlainConection read upon EINTR
  

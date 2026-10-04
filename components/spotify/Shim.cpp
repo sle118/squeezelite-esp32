@@ -387,7 +387,14 @@ void cspotPlayer::runTask() {
         else if (bitrate == 96) ctx->config.audioFormat = AudioFormat_OGG_VORBIS_96;
         else ctx->config.audioFormat = AudioFormat_OGG_VORBIS_160;
 
-        ctx->session->connectWithRandomAp();
+        try {
+            ctx->session->connectWithRandomAp();
+        } catch (const std::exception& e) {
+            CSPOT_LOG(error, "Connection failed: %s", e.what());
+            BELL_SLEEP_MS(1000);
+            continue;
+        }
+
         ctx->config.authData = ctx->session->authenticate(blob);
         ctx->config.clientId = CLIENT_ID;
         ctx->config.clientSecret = CLIENT_SECRET;
