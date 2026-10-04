@@ -409,7 +409,7 @@ static int seq_order(seq_t a, seq_t b) {
 }
 
 /*---------------------------------------------------------------------------*/
-static void alac_decode(rtp_t *ctx, s16_t *dest, char *buf, int len, u16_t *outsize) {
+static u16_t alac_decode(rtp_t *ctx, s16_t *dest, char *buf, int len) {
 	unsigned char iv[16];
 	int aeslen;
     unsigned int frames;
@@ -429,7 +429,7 @@ static void alac_decode(rtp_t *ctx, s16_t *dest, char *buf, int len, u16_t *outs
 		alac_to_pcm(ctx->alac_codec, (unsigned char*) buf, (unsigned char*) dest, 2, &frames);
 	}	
 	
-	*outsize = frames * 4;
+	return frames * 4;
 }
 
 
@@ -524,7 +524,7 @@ static void buffer_put_packet(rtp_t *ctx, seq_t seqno, unsigned rtptime, bool fi
 	}
 
 	if (abuf) {
-		alac_decode(ctx, abuf->data, data, len, &abuf->len);
+		abuf->len = alac_decode(ctx, abuf->data, data, len);
 		abuf->ready = 1;
         abuf->missed = 0;
 		// this is the local rtptime when this frame is expected to play

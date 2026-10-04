@@ -83,6 +83,14 @@ static SSL_CTX *SSLctx;
 SSL *ssl;
 #endif
 
+static inline u32_t read_le32(const void *src) {
+    const u8_t *p = src;
+    return (u32_t)p[0]
+         | (u32_t)p[1] << 8
+         | (u32_t)p[2] << 16
+         | (u32_t)p[3] << 24;
+}
+
 #if !USE_SSL
 #define _recv(ssl, fc, buf, n, opt) recv(fd, buf, n, opt)
 #define _send(ssl, fd, buf, n, opt) send(fd, buf, n, opt)
@@ -268,8 +276,8 @@ static void stream_ogg(size_t n) {
 			if (ofs) {			
 				// u32:len,char[]:vendorId, u32:N, N x (u32:len,char[]:comment)
 				char* p = (char*) ogg.data + ofs;
-				p += *p + 4;
-				u32_t count = *p;
+				p += read_le32(p) + 4;
+				u32_t count = read_le32(p);
 				p += 4;
 
 				// LMS metadata format for Ogg is "Ogg", N x (u16:len,char[]:comment)
@@ -277,12 +285,12 @@ static void stream_ogg(size_t n) {
 				stream.header_len = 3;
 
 				for (u32_t len; count--; p += len) {
-					len = *p;
+					len = read_le32(p);
 					p += 4;
 
 					// only report what we use and don't overflow (network byte order)
 					if (!strncasecmp(p, "TITLE=", 6) || !strncasecmp(p, "ARTIST=", 7) || !strncasecmp(p, "ALBUM=", 6)) {
-						if (stream.header_len + len > MAX_HEADER) break;
+						if (stream.header_len + len + 2 > MAX_HEADER) break;
 						stream.header[stream.header_len++] = len >> 8;
 						stream.header[stream.header_len++] = len;
 						memcpy(stream.header + stream.header_len, p, len);

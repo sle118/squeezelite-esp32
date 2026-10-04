@@ -315,7 +315,6 @@ void cmd_send_messaging(const char * cmdname,messaging_types msgtype, const char
 		strcpy(message_txt,cmdname);
 		strcat(message_txt,"\n");
 		vsprintf((message_txt+cmd_len), fmt, va);
-		va_end(va);
 		ESP_LOG_LEVEL_LOCAL(messaging_type_to_err_type(msgtype),tag, "%s",message_txt);
 		messaging_post_text(msgtype, MESSAGING_CLASS_CFGCMD, message_txt );
 		free(message_txt);
@@ -323,4 +322,5 @@ void cmd_send_messaging(const char * cmdname,messaging_types msgtype, const char
 	else{
 		ESP_LOGE(tag, "Memory allocation failed while sending message");
 	}
+	va_end(va);    
 }
