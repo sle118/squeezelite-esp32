@@ -226,7 +226,6 @@ static void stream_ogg(size_t n) {
 				ogg.match = 0;
 			} else {
                 if (!ogg.match) LOG_INFO("OggS not at expected position %zu/%zu", pos, n);
-                LOG_INFO("OggS not at expected position %zu/%zu", pos, n);
 				return;
 			}
 			break;

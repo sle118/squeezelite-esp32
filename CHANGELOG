@@ -1,4 +1,6 @@
 2026-10-04
+ - fix oggflac comment count & size + HEADER buffer overflow
+ - fix BellTask end of task might use deleted stack
  - in rtp, fix pointer size error in alac_decode
  - fix message fmt using an already formetted string
  - in spotify, fix missing catch on early (after boot) AP connection
