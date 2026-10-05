@@ -378,6 +378,8 @@ void cspotPlayer::runTask() {
 
     // gone with the wind...
     while (1) {
+        int attempts = 5;
+        
         if (useZeroConf) clientConnected.wait();
         CSPOT_LOG(info, "Spotify client launched for %s", name.c_str());
 
@@ -387,13 +389,18 @@ void cspotPlayer::runTask() {
         else if (bitrate == 96) ctx->config.audioFormat = AudioFormat_OGG_VORBIS_96;
         else ctx->config.audioFormat = AudioFormat_OGG_VORBIS_160;
 
-        try {
-            ctx->session->connectWithRandomAp();
-        } catch (const std::exception& e) {
-            CSPOT_LOG(error, "Connection failed: %s", e.what());
-            BELL_SLEEP_MS(1000);
-            continue;
-        }
+        while (attempts) {
+            try {
+                ctx->session->connectWithRandomAp();
+                break;
+            } catch (const std::exception& e) {
+                attempts--;                
+                CSPOT_LOG(error, "Connection failed: %s (%d)", e.what(), attempts);
+                BELL_SLEEP_MS(1000);
+            }
+        }    
+        
+        if (!attempts) continue;
 
         ctx->config.authData = ctx->session->authenticate(blob);
         ctx->config.clientId = CLIENT_ID;
