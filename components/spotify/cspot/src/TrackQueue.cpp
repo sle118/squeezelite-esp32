@@ -299,7 +299,7 @@ void QueuedTrack::stepLoadCDNUrl(const std::string& accessKey) {
     std::string_view result = req->body();
 
 #ifdef BELL_ONLY_CJSON
-    cJSON* jsonResult = cJSON_Parse(result.data());
+    cJSON* jsonResult = cJSON_ParseWithLength(result.data(), result.size());
     cdnUrl = cJSON_GetArrayItem(cJSON_GetObjectItem(jsonResult, "cdnurl"), 0)
                  ->valuestring;
     cJSON_Delete(jsonResult);

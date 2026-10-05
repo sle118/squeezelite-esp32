@@ -124,8 +124,7 @@ class MercurySession : public bell::Task, public cspot::Session {
   unsigned long long lastPingTimestamp = -1;
   std::string countryCode = "";
 
-  std::mutex isRunningMutex;
-  std::recursive_mutex connectingMutex;
+  std::mutex isRunningMutex, connectingMutex;
   std::atomic<bool> isRunning = false;
   std::atomic<bool> executeEstabilishedCallback = false;
 

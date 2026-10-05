@@ -1,3 +1,8 @@
+2026-05-10
+ - initial connectWithRandomAP tries 5 times ebfore waiting for another connect
+ - mercury session uses a loop instead of recursing for reconnect
+ - cJSON_parse was not given a length
+ 
 2026-10-04
  - fix oggflac comment count & size + HEADER buffer overflow
  - fix BellTask end of task might use deleted stack
