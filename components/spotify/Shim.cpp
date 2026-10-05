@@ -394,9 +394,8 @@ void cspotPlayer::runTask() {
                 ctx->session->connectWithRandomAp();
                 break;
             } catch (const std::exception& e) {
-                attempts--;                
                 CSPOT_LOG(error, "Connection failed: %s (%d)", e.what(), attempts);
-                BELL_SLEEP_MS(1000);
+                if (--attempts) BELL_SLEEP_MS(1000);
             }
         }    
         
