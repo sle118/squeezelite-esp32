@@ -28,6 +28,7 @@ static char TAG[] = "SSD1351";
 struct PrivateSpace {
 	uint8_t *iRAM, *Shadowbuffer;
 	uint8_t ReMap, PageSize;
+    uint16_t iRAMSize;
 };
 
 // Functions are not declared to minimize # of lines
@@ -83,7 +84,7 @@ static void Update16( struct GDS_Device* Device ) {
 			for (int i = FirstRow; i <= LastRow; i++) {
 				memcpy(optr, Private->Shadowbuffer + (i * Device->Width + FirstCol) * 2, ChunkSize);
 				optr += ChunkSize;
-				if (optr - Private->iRAM < PAGE_BLOCK && i < LastRow) continue;
+				if (optr - Private->iRAM < (Private->iRAMSize - ChunkSize) && i < LastRow) continue;
 				Device->WriteData(Device, Private->iRAM, optr - Private->iRAM);
 				optr = Private->iRAM;
 			}
@@ -150,7 +151,7 @@ static void Update24( struct GDS_Device* Device ) {
 			for (int i = FirstRow; i <= LastRow; i++) {
 				memcpy(optr, Private->Shadowbuffer + (i * Device->Width + FirstCol) * 3, ChunkSize);
 				optr += ChunkSize;
-				if (optr - Private->iRAM < PAGE_BLOCK && i < LastRow) continue;
+				if (optr - Private->iRAM < (Private->iRAMSize - ChunkSize) && i < LastRow) continue;
 				Device->WriteData(Device, Private->iRAM, optr - Private->iRAM);
 				optr = Private->iRAM;
 			}	
@@ -209,7 +210,8 @@ static bool Init( struct GDS_Device* Device ) {
 	memset(Private->Shadowbuffer, 0xFF, Device->FramebufferSize);
 #endif
 #ifdef USE_IRAM
-	Private->iRAM = heap_caps_malloc( (Private->PageSize + 1) * Device->Width * Depth, MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA );
+    Private->iRAMSize = (Private->PageSize + 1) * Device->Width * Depth;    
+    Private->iRAM = heap_caps_malloc( Private->iRAMSize, MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA );
 #endif
 
 	ESP_LOGI(TAG, "SSD1351 with bit depth %u, page %u, iRAM %p", Device->Depth, Private->PageSize, Private->iRAM);
