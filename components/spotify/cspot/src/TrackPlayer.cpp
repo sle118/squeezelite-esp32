@@ -174,12 +174,15 @@ void TrackPlayer::runTask() {
 
     {
       std::scoped_lock lock(playbackMutex);
-
-      currentTrackStream = track->getAudioFile();
-
-      // Open the stream
-      currentTrackStream->openStream();
-
+      try {
+        currentTrackStream = track->getAudioFile();
+        currentTrackStream->openStream();
+      } catch (const std::exception& e) {
+        CSPOT_LOG(error, "Failed to open audio stream: %s", e.what());
+        currentSongPlaying = false;
+        continue;
+      }
+     
       if (pendingReset || !currentSongPlaying) {
         continue;
       }
