@@ -1,3 +1,6 @@
+2026-10-06
+ - fix https://github.com/sle118/squeezelite-esp32/issues/558 (PAGE_BLOCK can be more than actual buffer)
+ 
 2026-05-10
  - initial connectWithRandomAP tries 5 times ebfore waiting for another connect
  - mercury session uses a loop instead of recursing for reconnect
