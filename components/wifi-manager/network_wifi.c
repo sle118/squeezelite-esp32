@@ -8,6 +8,7 @@
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_system.h"
+#include "esp_timer.h"
 #include "esp_wifi.h"
 #include "esp_wifi_types.h"
 #include "lwip/sockets.h"
@@ -39,6 +40,18 @@ esp_netif_t* wifi_netif;
 esp_netif_t* wifi_ap_netif;
 
 wifi_ap_record_t* accessp_records = NULL;
+
+volatile int cached_rssi = 0;
+volatile uint32_t wifi_disconnects = 0;
+static esp_timer_handle_t rssi_timer;
+
+static void rssi_timer_cb(void* arg) {
+    wifi_ap_record_t wifidata;
+    if (esp_wifi_sta_get_ap_info(&wifidata) == ESP_OK) {
+        cached_rssi = wifidata.rssi;
+    }
+}
+
 #define UINT_TO_STRING(val)                \
     static char loc[sizeof(val) + 1];      \
     memset(loc, 0x00, sizeof(loc));        \
@@ -153,7 +166,7 @@ esp_err_t network_wifi_add_ap(known_access_point_t* item) {
 esp_err_t network_wifi_add_ap_copy(const known_access_point_t* known_ap) {
     known_access_point_t* item = NULL;
     esp_err_t err = ESP_OK;
-    
+
     if (!known_ap) {
         ESP_LOGE(TAG, "Invalid access point entry");
         return ESP_ERR_INVALID_ARG;
@@ -383,7 +396,7 @@ esp_err_t network_wifi_delete_ap(const char* key) {
         return ESP_ERR_INVALID_ARG;
     }
 
-    /* 
+    /*
      * Check if we're deleting the active network
      */
     ESP_LOGD(TAG, "Deleting AP %s. Checking if this is the active AP", key);
@@ -510,6 +523,13 @@ esp_netif_t* network_wifi_start() {
                                                                           NULL));
         MEMTRACE_PRINT_DELTA_MESSAGE("Setting up wifi Storage");
         ESP_ERROR_CHECK_WITHOUT_ABORT(esp_wifi_set_storage(WIFI_STORAGE_RAM));
+
+        const esp_timer_create_args_t rssi_timer_args = {
+            .callback = &rssi_timer_cb,
+            .name = "rssi_timer"
+        };
+        esp_timer_create(&rssi_timer_args, &rssi_timer);
+        esp_timer_start_periodic(rssi_timer, 5000000); // 5 seconds
     }
     MEMTRACE_PRINT_DELTA_MESSAGE("Setting up wifi mode as STA");
     network_wifi_set_sta_mode();
@@ -766,6 +786,9 @@ static void network_wifi_event_handler(void* arg, esp_event_base_t event_base, i
             //		    		uint8_t reason
             //		    		reason of disconnection
             wifi_event_sta_disconnected_t* s = (wifi_event_sta_disconnected_t*)event_data;
+
+            wifi_disconnects++;
+
             char* bssid = network_manager_alloc_get_mac_string(s->bssid);
             ESP_LOGW(TAG, "WIFI_EVENT_STA_DISCONNECTED. From BSSID: %s, reason code: %d (%s)", STR_OR_BLANK(bssid), s->reason, get_disconnect_code_desc(s->reason));
             FREE_AND_NULL(bssid);
@@ -883,8 +906,8 @@ esp_netif_t* network_wifi_config_ap() {
     network_wifi_set_ipv4val("ap_ip_address", DEFAULT_AP_IP, (ip4_addr_t*)&info.ip);
     network_wifi_set_ipv4val("ap_ip_gateway", CONFIG_DEFAULT_AP_GATEWAY, (ip4_addr_t*)&info.gw);
     network_wifi_set_ipv4val("ap_ip_netmask", CONFIG_DEFAULT_AP_NETMASK, (ip4_addr_t*)&info.netmask);
-    /* In order to change the IP info structure, we have to first stop 
-     * the DHCP server on the new interface 
+    /* In order to change the IP info structure, we have to first stop
+     * the DHCP server on the new interface
     */
     network_start_stop_dhcps(wifi_ap_netif, false);
     ESP_LOGD(TAG, "Setting tcp_ip info for access point");
