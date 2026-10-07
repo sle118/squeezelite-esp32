@@ -163,6 +163,7 @@ void TrackPlayer::runTask() {
 
       if (track->state != QueuedTrack::State::READY) {
         CSPOT_LOG(error, "Track failed to load, skipping it");
+        track->abandonned = true;
         this->eofCallback();
         continue;
       }

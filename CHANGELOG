@@ -1,3 +1,6 @@
+2026-10-07
+ - fix cspot track failed blocks queue
+ 
 2026-10-06
  - fix https://github.com/sle118/squeezelite-esp32/issues/558 (PAGE_BLOCK can be more than actual buffer)
  

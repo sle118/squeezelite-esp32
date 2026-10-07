@@ -56,6 +56,7 @@ class QueuedTrack {
   uint32_t requestedPosition;
   std::string identifier;
   bool loading = false;
+  std::atomic <bool> abandonned = false;
 
   // Will return nullptr if the track is not ready
   std::shared_ptr<cspot::CDNAudioFile> getAudioFile();
