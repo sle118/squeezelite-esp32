@@ -686,7 +686,15 @@ Note: You can use `idf.py build -DDEPTH=32` to build the 32 bits version and add
 
 If you have already cloned the repository and you are getting compile errors on one of the submodules (e.g. telnet), run the following git command in the root of the repository location: `git submodule update --init --recursive`
 
-### Rebuild codecs (highly recommended to NOT try that)
+## S3 version
+There is esp32s3 file named sdkconfig.defaults.esp32s3 in build_scripts/. Use that file and rename it sdkconfig.default in your root directory and do a build with esp32s3 set as the target. If you use 
+```
+idf.py -D SDKCONFIG_DEFAULTS=sdkconfig.defaults.esp32s3 set-target esp32s3
+```
+be ware that an existing sdkconfig.default is still read and the IDF_TARGET will be taken from there, so compliation will be wrong and fail.
+
+
+## Rebuild codecs (highly recommended to NOT try that)
 - for codecs libraries, add -mlongcalls if you want to rebuild them, but you should not (use the provided ones in codecs/lib). if you really want to rebuild them, open an issue
 - libmad, libflac (no esp's version), libvorbis (tremor - not esp's version), alac work
 - libfaad does not really support real time, but if you want to try (but using helixaac is a better option)
