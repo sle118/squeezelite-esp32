@@ -1,3 +1,7 @@
+2026-10-08
+ - use dev/console instead of dev/uart/0 in telnet redirect (work for all including s3)
+ - make an s3 config
+ 
 2026-10-07
  - fix cspot track failed blocks queue
  

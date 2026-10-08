@@ -125,7 +125,7 @@ void init_telnet(){
 	vfs.open = &stdout_open;
 	vfs.fstat = &stdout_fstat;
 
-	if (bMirrorToUART) uart_fd = open("/dev/uart/0", O_RDWR);
+	if (bMirrorToUART) uart_fd = open("/dev/console", O_RDWR);
 
 	ESP_ERROR_CHECK(esp_vfs_register("/dev/pkspstdout", &vfs, NULL));
 	freopen("/dev/pkspstdout", "w", stdout);
