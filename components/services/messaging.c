@@ -220,6 +220,26 @@ esp_err_t messaging_post_to_queue(messaging_handle_t subscriber_handle, single_m
 		return ESP_LOG_DEBUG;
 	}
     
+static void messaging_post(single_message_t * message) {
+	messaging_list_t * cur=&top;
+	message->sent_time = esp_timer_get_time() / 1000;
+	if(message->type==MESSAGING_WARNING) {
+		ESP_LOGW(tag,"%s",message->message);	
+	}
+	else if(message->type==MESSAGING_ERROR) {
+		ESP_LOGE(tag,"%s",message->message);	
+	}
+	else {
+		ESP_LOGD(tag,"Post: %s",message->message);
+	}
+
+	while(cur){
+		messaging_post_to_queue(get_handle_ptr(cur),  message, message->msg_size);
+		cur = get_struct_ptr(cur->next);
+	}
+	FREE_AND_NULL(message);
+}
+    
 void messaging_post_message(messaging_types type,messaging_classes msg_class, const char *fmt, ...){
     va_list va;
 	va_start(va, fmt);
@@ -231,33 +251,29 @@ void vmessaging_post_message(messaging_types type,messaging_classes msg_class, c
 	single_message_t * message=NULL;
 	size_t msg_size=0;
 	size_t ln =0;
-	messaging_list_t * cur=&top;
 	ln = vsnprintf(NULL, 0, fmt, va)+1;
 	msg_size = sizeof(single_message_t)+ln;
 	message = (single_message_t *)malloc_init_external(msg_size);
+    if (!message) return;
 	vsprintf(message->message, fmt, va);
 	message->msg_size = msg_size;
 	message->type = type;
 	message->msg_class = msg_class;
-	message->sent_time = esp_timer_get_time() / 1000;
-	if(type==MESSAGING_WARNING) {
-		ESP_LOGW(tag,"%s",message->message);	
-	}
-	else if(type==MESSAGING_ERROR) {
-		ESP_LOGE(tag,"%s",message->message);	
-	}
-	else {
-		ESP_LOGD(tag,"Post: %s",message->message);
-	}
-
-	while(cur){
-		messaging_post_to_queue(get_handle_ptr(cur),  message, msg_size);
-		cur = get_struct_ptr(cur->next);
-	}
-	FREE_AND_NULL(message);
-	return;
-
+    messaging_post(message);
 }
+
+void messaging_post_text(messaging_types type,messaging_classes msg_class, const char *txt){    
+	single_message_t * message=NULL;
+	size_t msg_size = sizeof(single_message_t)+strlen(txt) + 1;
+	message = (single_message_t *)malloc_init_external(msg_size);
+    if (!message) return;    
+    strcpy(message->message, txt);
+	message->msg_size = msg_size;
+	message->type = type;
+	message->msg_class = msg_class;
+    messaging_post(message);
+}
+    
 char * messaging_alloc_format_string(const char *fmt, ...) {
 	va_list va;
 	va_start(va, fmt);
@@ -265,11 +281,11 @@ char * messaging_alloc_format_string(const char *fmt, ...) {
 	char * message_txt = malloc_init_external(ln);
 	if(message_txt){
 		vsprintf(message_txt, fmt, va);
-		va_end(va);
 	}
 	else{
 		ESP_LOGE(tag, "Memory allocation failed while sending message");
 	}
+    va_end(va);    
 	return message_txt;
 }
 void log_send_messaging(messaging_types msgtype,const char *fmt, ...) {
@@ -279,14 +295,14 @@ void log_send_messaging(messaging_types msgtype,const char *fmt, ...) {
 	char * message_txt = malloc_init_external(ln);
 	if(message_txt){
 		vsprintf(message_txt, fmt, va);
-		va_end(va);
 		ESP_LOG_LEVEL_LOCAL(messaging_type_to_err_type(msgtype),tag, "%s",message_txt);
-		messaging_post_message(msgtype, MESSAGING_CLASS_SYSTEM, message_txt );
+		messaging_post_text(msgtype, MESSAGING_CLASS_SYSTEM, message_txt );
 		free(message_txt);
 	}
 	else{
 		ESP_LOGE(tag, "Memory allocation failed while sending message");
 	}
+	va_end(va);    
 }
 
 void cmd_send_messaging(const char * cmdname,messaging_types msgtype, const char *fmt, ...){
@@ -299,12 +315,12 @@ void cmd_send_messaging(const char * cmdname,messaging_types msgtype, const char
 		strcpy(message_txt,cmdname);
 		strcat(message_txt,"\n");
 		vsprintf((message_txt+cmd_len), fmt, va);
-		va_end(va);
 		ESP_LOG_LEVEL_LOCAL(messaging_type_to_err_type(msgtype),tag, "%s",message_txt);
-		messaging_post_message(msgtype, MESSAGING_CLASS_CFGCMD, message_txt );
+		messaging_post_text(msgtype, MESSAGING_CLASS_CFGCMD, message_txt );
 		free(message_txt);
 	}
 	else{
 		ESP_LOGE(tag, "Memory allocation failed while sending message");
 	}
+	va_end(va);    
 }

@@ -84,6 +84,8 @@ static uint32_t sink_data_handler(const uint8_t *data, uint32_t len, int retries
 	while (len && wait && sink_state == SINK_RUNNING) {
 		bytes = min(_buf_space(outputbuf), _buf_cont_write(outputbuf)) / (BYTES_PER_FRAME / 4);
 		bytes = min(len, bytes);
+        bytes &= ~0x03;
+
 #if BYTES_PER_FRAME == 4
 		memcpy(outputbuf->writep, data, bytes);
 #else
@@ -102,7 +104,7 @@ static uint32_t sink_data_handler(const uint8_t *data, uint32_t len, int retries
         written += bytes;
 				
 		// allow i2s to empty the buffer if needed
-		if (len && !space) {
+		if (len && (!space || !bytes)) {
             if (!retries) break;
 			wait--;
 			UNLOCK_O; usleep(50000); LOCK_O;
@@ -110,8 +112,6 @@ static uint32_t sink_data_handler(const uint8_t *data, uint32_t len, int retries
 	}	
 
 	if (!wait) {
-        // re-align the buffer according to what we threw away
-        _buf_inc_writep(outputbuf, outputbuf->size - (BYTES_PER_FRAME - (len % BYTES_PER_FRAME)));
 		LOG_WARN("Waited too long, dropping frames %d", len);
 	}
     

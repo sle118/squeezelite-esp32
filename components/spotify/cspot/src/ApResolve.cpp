@@ -30,7 +30,7 @@ std::string ApResolve::fetchFirstApAddress() {
 
   // parse json with nlohmann
 #ifdef BELL_ONLY_CJSON
-  cJSON* json = cJSON_Parse(responseStr.data());
+  cJSON* json = cJSON_ParseWithLength(responseStr.data(), responseStr.size());
   auto ap_string = std::string(
       cJSON_GetArrayItem(cJSON_GetObjectItem(json, "ap_list"), 0)->valuestring);
   cJSON_Delete(json);

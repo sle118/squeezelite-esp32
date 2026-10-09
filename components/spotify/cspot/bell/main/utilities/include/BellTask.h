@@ -31,31 +31,25 @@ class Task {
     this->core = core;
     this->runOnPSRAM = runOnPSRAM;
 #ifdef ESP_PLATFORM
-    this->xStack = NULL;
+    this->resources = NULL;
     this->priority = CONFIG_ESP32_PTHREAD_TASK_PRIO_DEFAULT + priority;
     if (this->priority <= ESP_TASK_PRIO_MIN)
       this->priority = ESP_TASK_PRIO_MIN + 1;
-    if (runOnPSRAM) {
-      this->xStack = (StackType_t*)heap_caps_malloc(
-          this->stackSize, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    }
 #endif
   }
-  virtual ~Task() {
-#ifdef ESP_PLATFORM
-    if (xStack)
-      heap_caps_free(xStack);
-#endif
-  }
+  virtual ~Task() = default;
 
   bool startTask() {
 #ifdef ESP_PLATFORM
     if (runOnPSRAM) {
-      xTaskBuffer = (StaticTask_t*)heap_caps_malloc(
+      resources = new TaskResources_t;
+      resources->xStack = (StackType_t*)heap_caps_malloc(
+          this->stackSize, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);        
+      resources->xTaskBuffer = (StaticTask_t*)heap_caps_malloc(
           sizeof(StaticTask_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
       return (xTaskCreateStaticPinnedToCore(
                   taskEntryFuncPSRAM, this->TASK.c_str(), this->stackSize, this,
-                  this->priority, xStack, xTaskBuffer, this->core) != NULL);
+                  this->priority, resources->xStack, resources->xTaskBuffer, this->core) != NULL);
     } else {
       printf("task on internal %s", this->TASK.c_str());
       esp_pthread_cfg_t cfg = esp_pthread_get_default_config();
@@ -91,19 +85,25 @@ class Task {
 #endif
 #ifdef ESP_PLATFORM
   int priority;
-  StaticTask_t* xTaskBuffer;
-  StackType_t* xStack;
+  struct TaskResources_t {
+    StaticTask_t* xTaskBuffer;
+    StackType_t* xStack;
+  } *resources;  
 
   static void taskEntryFuncPSRAM(void* This) {
     Task* self = (Task*)This;
+    TaskResources_t* resources = self->resources;
     self->runTask();
 
     // TCB are cleanup in IDLE task, so give it some time
     TimerHandle_t timer =
-        xTimerCreate("cleanup", pdMS_TO_TICKS(5000), pdFALSE, self->xTaskBuffer,
+        xTimerCreate("cleanup", pdMS_TO_TICKS(5000), pdFALSE, resources,
                      [](TimerHandle_t xTimer) {
-                       heap_caps_free(pvTimerGetTimerID(xTimer));
-                       xTimerDelete(xTimer, portMAX_DELAY);
+                       TaskResources_t *resources = (TaskResources_t*) pvTimerGetTimerID(xTimer);
+                       if (resources->xStack) heap_caps_free(resources->xStack);                         
+                       heap_caps_free(resources->xTaskBuffer);
+                       delete resources;
+                       xTimerDelete(xTimer, 0);
                      });
     xTimerStart(timer, portMAX_DELAY);
 

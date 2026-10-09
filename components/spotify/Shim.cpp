@@ -15,6 +15,8 @@
 #include <fstream>
 #include <stdarg.h>
 #include <ApResolve.h>
+#include <deque>
+#include <mutex>
 
 #include "BellTask.h"
 #include "MDNSService.h"
@@ -70,7 +72,8 @@ private:
     int serverPort;
     cspot_cmd_cb_t cmdHandler;
     cspot_data_cb_t dataHandler;
-    std::string lastTrackId;
+    std::string streamTrackId, playTrackId;
+    std::mutex trackMutex;
     cspot::TrackInfo trackInfo;
 
     std::shared_ptr<cspot::LoginBlob> blob;
@@ -126,15 +129,23 @@ cspotPlayer::cspotPlayer(const char* name, httpd_handle_t server, int port, cspo
 }
 
 size_t cspotPlayer::pcmWrite(uint8_t *pcm, size_t bytes, std::string_view trackId) {
-    if (lastTrackId != trackId) {
-        CSPOT_LOG(info, "new track started <%s> => <%s>", lastTrackId.c_str(), trackId.data());
-        lastTrackId = trackId;
+    /* The audio buffer can be large (the sink buffer) so we might be way in advance compared 
+     * to real time. We then need to manage having just one streaming and one playing and be
+     * careful for notification especially when seeking */
+    if (streamTrackId != trackId) {
+        CSPOT_LOG(info, "new track started <%s> => <%s>", streamTrackId.c_str(), trackId.data());
+        
+        std::unique_lock lock(trackMutex);
+        if (this->playTrackId != trackId && this->playTrackId != this->streamTrackId) return (size_t) 0;
+        this->streamTrackId = trackId;
+        lock.unlock();
+        
         trackHandler();
-    }
-
-    return dataHandler(pcm, bytes);
+    }    
+    
+    return dataHandler(pcm, bytes);        
 }
-
+     
 extern "C" {
     static esp_err_t handleGET(httpd_req_t *request) {
         return player->handleGET(request);
@@ -213,7 +224,10 @@ esp_err_t cspotPlayer::handlePOST(httpd_req_t *request) {
 void cspotPlayer::eventHandler(std::unique_ptr<cspot::SpircHandler::Event> event) {
     switch (event->eventType) {
     case cspot::SpircHandler::EventType::PLAYBACK_START: {
-        lastTrackId.clear();
+        std::unique_lock lock(trackMutex);
+        playTrackId.clear();
+        streamTrackId.clear();
+        lock.unlock();
         // we are not playing anymore
         trackStatus = TRACK_INIT;
         // memorize position for when track's beginning will be detected
@@ -364,6 +378,8 @@ void cspotPlayer::runTask() {
 
     // gone with the wind...
     while (1) {
+        int attempts = 5;
+        
         if (useZeroConf) clientConnected.wait();
         CSPOT_LOG(info, "Spotify client launched for %s", name.c_str());
 
@@ -373,7 +389,18 @@ void cspotPlayer::runTask() {
         else if (bitrate == 96) ctx->config.audioFormat = AudioFormat_OGG_VORBIS_96;
         else ctx->config.audioFormat = AudioFormat_OGG_VORBIS_160;
 
-        ctx->session->connectWithRandomAp();
+        while (attempts) {
+            try {
+                ctx->session->connectWithRandomAp();
+                break;
+            } catch (const std::exception& e) {
+                CSPOT_LOG(error, "Connection failed: %s (%d)", e.what(), attempts);
+                if (--attempts) BELL_SLEEP_MS(1000);
+            }
+        }    
+        
+        if (!attempts) continue;
+
         ctx->config.authData = ctx->session->authenticate(blob);
         ctx->config.clientId = CLIENT_ID;
         ctx->config.clientSecret = CLIENT_SECRET;
@@ -424,12 +451,18 @@ void cspotPlayer::runTask() {
                     // inform Spotify that next track has started (don't need to be super accurate)
                     uint32_t started;
                     cmdHandler(CSPOT_QUERY_STARTED, &started);
-                    if (started) {
+                    if (started) {                      
                         CSPOT_LOG(info, "next track's audio has reached DAC (offset %d)", startOffset);
-                        if (notify) spirc->notifyAudioReachedPlayback();
-                        else notify = true;
+                        
+                        std::unique_lock lock(trackMutex);
+                        playTrackId = streamTrackId;                    
+                        if (notify) spirc->notifyAudioReachedPlayback(playTrackId);
+                        else notify = true;         
+                        lock.unlock();                        
+                        
                         cmdHandler(CSPOT_TRACK_INFO, trackInfo.duration, startOffset, trackInfo.artist.c_str(),
                                     trackInfo.album.c_str(), trackInfo.name.c_str(), trackInfo.imageUrl.c_str());
+                                    
                         spirc->updatePositionMs(startOffset);
                         startOffset = 0;
                         trackStatus = TRACK_STREAM;

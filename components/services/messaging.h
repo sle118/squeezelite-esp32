@@ -34,6 +34,7 @@ cJSON *  messaging_retrieve_messages(RingbufHandle_t buf_handle);
 messaging_handle_t messaging_register_subscriber(uint8_t max_count, char * name);
 esp_err_t messaging_post_to_queue(messaging_handle_t subscriber_handle, single_message_t * message, size_t message_size);
 void messaging_post_message(messaging_types type,messaging_classes msg_class, const char * fmt, ...);
+void messaging_post_text(messaging_types type,messaging_classes msg_class, const char * text);
 void vmessaging_post_message(messaging_types type,messaging_classes msg_class, const char *fmt, va_list va);
 cJSON *  messaging_retrieve_messages(RingbufHandle_t buf_handle);
 single_message_t *  messaging_retrieve_message(RingbufHandle_t buf_handle);

@@ -63,29 +63,27 @@ void MercurySession::runTask() {
 }
 
 void MercurySession::reconnect() {
-  isReconnecting = true;
+  std::scoped_lock lock(connectingMutex);
 
-  try {
-    this->conn = nullptr;
-    this->shanConn = nullptr;
+  while (isRunning) {
+    try {
+      this->conn = nullptr;
+      this->shanConn = nullptr;
 
-    this->connectWithRandomAp();
-    this->authenticate(this->authBlob);
+      this->connectWithRandomAp();
+      this->authenticate(this->authBlob);
 
-    CSPOT_LOG(info, "Reconnection successful");
+      CSPOT_LOG(info, "Reconnection successful");
 
-    BELL_SLEEP_MS(100);
+      BELL_SLEEP_MS(100);
 
-    lastPingTimestamp = timeProvider->getSyncedTimestamp();
-    isReconnecting = false;
+      lastPingTimestamp = timeProvider->getSyncedTimestamp();
 
-    this->executeEstabilishedCallback = true;
-  } catch (...) {
-    CSPOT_LOG(error, "Cannot reconnect, will retry in 5s");
-    BELL_SLEEP_MS(5000);
-
-    if (isRunning) {
-      return reconnect();
+      this->executeEstabilishedCallback = true;
+      break;
+    } catch (...) {
+      CSPOT_LOG(error, "Cannot reconnect, will retry in 5s");
+      BELL_SLEEP_MS(5000);
     }
   }
 }
@@ -127,7 +125,12 @@ void MercurySession::unregisterAudioKey(uint32_t sequenceId) {
 void MercurySession::disconnect() {
   CSPOT_LOG(info, "Disconnecting mercury session");
   this->isRunning = false;
-  conn->close();
+
+  // make sure we have a connection or are not reconnecting
+  std::unique_lock connlock(connectingMutex);
+  if (conn) conn->close();
+  connlock.unlock();
+
   std::scoped_lock lock(this->isRunningMutex);
 }
 
@@ -248,6 +251,11 @@ uint64_t MercurySession::executeSubscription(RequestType method,
                                              ResponseCallback callback,
                                              ResponseCallback subscription,
                                              DataParts& payload) {
+
+  // make sure we are not reconnecting or stopped
+  std::scoped_lock lock(connectingMutex);
+  if (!isRunning) return 0;
+
   CSPOT_LOG(debug, "Executing Mercury Request, type %s",
             RequestTypeMap[method].c_str());
 
@@ -321,6 +329,10 @@ uint32_t MercurySession::requestAudioKey(const std::vector<uint8_t>& trackId,
                                          AudioKeyCallback audioCallback) {
   auto buffer = fileId;
 
+  // make sure we are not reconnecting or stopped
+  std::scoped_lock lock(connectingMutex);
+  if (!isRunning) return 0;
+  
   // Store callback
   this->audioKeyCallbacks.insert({this->audioKeySequence, audioCallback});
 

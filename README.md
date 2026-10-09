@@ -176,6 +176,10 @@ Use the `squeezelite-esp32-I2S-4MFlash-sdkconfig.defaults` configuration file.
 
 And the super cool project https://github.com/rochuck/squeeze-amp-too
 
+### ESP32-s3 boards
+
+Assuming you recompile the application (see later) this code works on an esp32-s3 and with much more CPU room. Note that the s3 does not include BT classic and has various flash and PSRAM bus sizes(octal) that you must be aware.
+
 ## Configuration
 To access NVS, in the webUI, go to credits and select "shows nvs editor". Go into the NVS editor tab to change NFS parameters. In syntax description below \<\> means a value while \[\] describe optional parameters. 
 
@@ -597,7 +601,7 @@ At this point, the device should have disabled its built-in access point and sho
 ## Spotify
 By default, SqueezeESP32 will use ZeroConf to advertise its Spotify capabilties. This means that until at least one local Spotify Connect application controllers discovers and connects to it, SqueezeESP32 will not be registered to Spotify servers. As a consequence, Spotify's WebAPI will not be able to see it (for example, Home Assistant services will miss it). Once you are connected to it using for example Spotify Desktop app, it will be registered and displayed everywhere.
 
-If you want the player to be registered at start-up, you need to disable the ZeroConf option using the WebUI or `cspot_config::ZeroConf`. In that mode, the first time you run SqueezeESP32, it will be in ZeroConf mode and when you connect to it using a controller for the firt time, it receives and store credentials that will be used next time (after reboot). 
+If you want the player to be registered at start-up, you need to disable the ZeroConf option using the WebUI or `cspot_config::ZeroConf`. In that mode, the first time you run SqueezeESP32, it will be in ZeroConf mode and when you connect to it using a controller for the first time, it receives and store credentials that will be used next time (after reboot). 
 
 Set ZeroConf to 1 will always force ZeroConf mode to be used. 
 
@@ -685,6 +689,15 @@ Use `idf.py monitor` to monitor the application (see esp-idf documentation)
 Note: You can use `idf.py build -DDEPTH=32` to build the 32 bits version and add the `-DVERSION=<your_version>` to add a custom version name (it will be 0.0-<your_version>). If you want to change the whole version string, see squeezelite.h. You can also disable the SBR extension of AAC codecs as it consumes a lot of CPU and might overload the esp32. Use `-DAAC_DISABLE_SBR=1` for that
 
 If you have already cloned the repository and you are getting compile errors on one of the submodules (e.g. telnet), run the following git command in the root of the repository location: `git submodule update --init --recursive`
+
+### S3 version
+There is esp32s3 file named sdkconfig.defaults.esp32s3 in build_scripts/. Use that file and rename it sdkconfig.default in your root directory and do a build with esp32s3 set as the target. If you use 
+```
+idf.py -D SDKCONFIG_DEFAULTS=sdkconfig.defaults.esp32s3 set-target esp32s3
+```
+be ware that an existing sdkconfig.default is still read and the IDF_TARGET will be taken from there, so compliation will be wrong and fail.
+Pay attention to the s3 version you have as it might have octal SPI flash and/or octal SPI PSRAM (WROOM-1 has octal PSRAM and WROOM-2 have both octal flash and PSRAM) and you must config the options (idf.py menuconfig) so that it matches.
+
 
 ### Rebuild codecs (highly recommended to NOT try that)
 - for codecs libraries, add -mlongcalls if you want to rebuild them, but you should not (use the provided ones in codecs/lib). if you really want to rebuild them, open an issue
