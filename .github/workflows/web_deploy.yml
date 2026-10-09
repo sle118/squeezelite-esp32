@@ -10,7 +10,7 @@ jobs:
     name: Update Web Installer After Release
     runs-on: ubuntu-latest
     container:
-      image: sle118/squeezelite-esp32-idfv43
+      image: sle118/squeezelite-esp32-idfv448:4.4.8
     env:
       WEB_INSTALLER: ${{ secrets.WEB_INSTALLER }}
     steps:
@@ -20,7 +20,7 @@ jobs:
           submodules: true    
       - name: Update Web Installer Project
         run: |
-          . /opt/esp/python_env/idf4.3_py3.8_env/bin/activate
+          . "$IDF_PATH/export.sh"
           git config --global --add safe.directory /__w/squeezelite-esp32/squeezelite-esp32   
           build_tools.py manifest --flash_file "/build/flash_project_args" --outdir "./bin_files" --manif_name "manifest" --max_count 3
           build_tools.py pushinstaller --source "./bin_files" --manif_name "manifest" --target "web-installer" --url "https://github.com/sle118/squeezelite-esp32-installer.git" --artifacts "docs/artifacts" --web_installer_branch "main" --token "${{env.WEB_INSTALLER}}"

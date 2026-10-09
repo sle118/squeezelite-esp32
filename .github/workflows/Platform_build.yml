@@ -20,7 +20,7 @@ jobs:
     env:
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
     container:
-      image: sle118/squeezelite-esp32-idfv435
+      image: sle118/squeezelite-esp32-idfv448:4.4.8
     outputs:
       build_number: ${{ steps.buildnumber.outputs.build_number }}
       ui_build: ${{ steps.build_flags.outputs.ui_build }}
@@ -47,7 +47,7 @@ jobs:
         echo "release_build_option=$release_build_option" >> "$GITHUB_OUTPUT"
         echo "Dumping environment"
         env
-        . /opt/esp/python_env/idf4.3_py3.8_env/bin/activate
+        . "$IDF_PATH/export.sh"
         # build_flags support the following options
         # --mock - to mock the compilation part - this is to be used for testing only
         # --force - to force a release build even if the last commit message doesn't contain the word "release"
@@ -104,7 +104,7 @@ jobs:
     env:
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
     container:
-      image: sle118/squeezelite-esp32-idfv435
+      image: sle118/squeezelite-esp32-idfv448:4.4.8
     needs: [bootstrap]
     strategy:
       matrix:
@@ -129,10 +129,10 @@ jobs:
           echo Environment File name: $GITHUB_ENV        
     - name: Set build parameters
       run: |
-        . /opt/esp/python_env/idf4.3_py3.8_env/bin/activate
+        . "$IDF_PATH/export.sh"
         git config --global --add safe.directory /__w/squeezelite-esp32/squeezelite-esp32   
         git status
-        build_tools.py environment --build ${{ needs.bootstrap.outputs.build_number }} --env_file "$GITHUB_ENV" --node "${{matrix.node}}" --depth ${{matrix.depth}} --major 2 --docker sle118/squeezelite-esp32-idfv435 
+        build_tools.py environment --build ${{ needs.bootstrap.outputs.build_number }} --env_file "$GITHUB_ENV" --node "${{matrix.node}}" --depth ${{matrix.depth}} --major 2 --docker sle118/squeezelite-esp32-idfv448:4.4.8
         
     - uses: actions/download-artifact@v4
       name: Restore common objects
@@ -143,7 +143,7 @@ jobs:
       env:
         SPOTIFY_SECRET: -DCLIENT_ID="${{ secrets.SPOTIFY_CLIENT_ID }}" -DCLIENT_SECRET="${{ secrets.SPOTIFY_CLIENT_SECRET }}"
       run: |
-        . ${IDF_PYTHON_ENV_PATH}/bin/activate
+        . "$IDF_PATH/export.sh"
         echo "Copying target sdkconfig"
         cp build-scripts/${TARGET_BUILD_NAME}-sdkconfig.defaults sdkconfig
         echo "Building project"

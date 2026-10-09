@@ -203,7 +203,7 @@ parser_environment.add_argument(
 parser_environment.add_argument(
     '--major', type=str, help='Major version', default='2')
 parser_environment.add_argument(
-    '--docker', type=str, help='Docker image to use', default='sle118/squeezelite-esp32-idfv43')
+    '--docker', type=str, help='Docker image to use', default='sle118/squeezelite-esp32-idfv448:4.4.8')
 
 parser_show = subparsers.add_parser("show",
                                     add_help=False,
@@ -749,7 +749,7 @@ def handle_environment(args):
     github_env.tag = f'{args.node}.{args.depth}.{args.build}.{github_env.branch_name}'.rstrip()
     github_env.last_commit = commit_message
     github_env.DOCKER_IMAGE_NAME = args.docker
-    github_env.name = f"{args.major}.{str(args.build)}-{args.depth}#v4.3#{args.node}#{github_env.branch_name}"
+    github_env.name = f"{args.major}.{str(args.build)}-{args.depth}#v4.4#{args.node}#{github_env.branch_name}"
     github_env.artifact_prefix = format_artifact_name(
         'squeezelite-esp32-', github_env)
     github_env.artifact_file_name = f"{github_env.artifact_prefix}.zip"
