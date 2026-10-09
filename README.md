@@ -176,7 +176,7 @@ Use the `squeezelite-esp32-I2S-4MFlash-sdkconfig.defaults` configuration file.
 
 And the super cool project https://github.com/rochuck/squeeze-amp-too
 
-### esp32-s3 boards
+### ESP32-s3 boards
 
 Assuming you recompile the application (see later) this code works on an esp32-s3 and with much more CPU room. Note that the s3 does not include BT classic and has various flash and PSRAM bus sizes(octal) that you must be aware.
 
