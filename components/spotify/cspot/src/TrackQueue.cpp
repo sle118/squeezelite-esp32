@@ -299,7 +299,7 @@ void QueuedTrack::stepLoadCDNUrl(const std::string& accessKey) {
     std::string_view result = req->body();
 
 #ifdef BELL_ONLY_CJSON
-    cJSON* jsonResult = cJSON_Parse(result.data());
+    cJSON* jsonResult = cJSON_ParseWithLength(result.data(), result.size());
     cdnUrl = cJSON_GetArrayItem(cJSON_GetObjectItem(jsonResult, "cdnurl"), 0)
                  ->valuestring;
     cJSON_Delete(jsonResult);
@@ -611,49 +611,42 @@ TrackQueue::Reached TrackQueue::notifyTrackReached(
     return Reached::IGNORED;
   }
 
-  // deque may be popped below, keep the head alive
-  auto head = preloadedTracks[0];
-
-  // Do not execute when meta is already updated
-  if (notifyPending) {
-    /* The pending notification belongs to the queue head; a stale streamer
-     * (e.g. one started right before a Load frame rebuilt the queue) must not
-     * consume it, or every later notification pops the queue one track early
-     * and playback never resyncs */
-    if (!identifier.empty() && head->identifier != identifier) {
-      CSPOT_LOG(info, "stale notification for %s while expecting %s => ignored",
-                std::string(identifier).c_str(), head->identifier.c_str());
-      return Reached::IGNORED;
-    }
-    notifyPending = false;
-    current = head;
-    return Reached::CONSUMED_PENDING;
-  }
+  // Validate the entire path before changing the queue. A decoder can skip
+  // entries without advancing the track that is currently audible.
+  size_t advances = notifyPending ? 0 : 1;
 
   if (!identifier.empty()) {
-    if (head->identifier == identifier) {
-      // re-announcement of the entry we already advanced to
-      CSPOT_LOG(info, "duplicate notification for %s => ignored",
-                std::string(identifier).c_str());
-      return Reached::IGNORED;
+    // Start at the expected entry. Only abandoned entries may be bypassed.
+    while (advances < preloadedTracks.size() &&
+           preloadedTracks[advances]->identifier != identifier &&
+           preloadedTracks[advances]->abandonned) {
+      ++advances;
     }
-    if (preloadedTracks.size() < 2 ||
-        preloadedTracks[1]->identifier != identifier) {
-      CSPOT_LOG(info, "stale notification for %s while playing %s => ignored",
-                std::string(identifier).c_str(), head->identifier.c_str());
+
+    if (advances >= preloadedTracks.size() ||
+        advances >= currentTracks.size() - currentTracksIndex ||
+        preloadedTracks[advances]->identifier != identifier) {
+      CSPOT_LOG(info, "unexpected notification for %s while at %s => ignored",
+                std::string(identifier).c_str(),
+                preloadedTracks[0]->identifier.c_str());
       return Reached::IGNORED;
     }
   }
 
-  skipTrackUnlocked(SkipDirection::NEXT, false);
+  for (size_t i = 0; i < advances; ++i) {
+    skipTrackUnlocked(SkipDirection::NEXT, false);
+  }
 
-  // with an empty identifier the skip may fail at the end of the queue; the
-  // legacy behavior is to re-notify the head in that case
+  // With an empty identifier, preserve the legacy end-of-queue behavior.
   if (preloadedTracks.empty()) {
     return Reached::IGNORED;
   }
 
   current = preloadedTracks[0];
+  if (notifyPending) {
+    notifyPending = false;
+    return Reached::CONSUMED_PENDING;
+  }
   return Reached::ADVANCED;
 }
 

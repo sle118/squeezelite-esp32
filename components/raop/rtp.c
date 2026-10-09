@@ -409,9 +409,10 @@ static int seq_order(seq_t a, seq_t b) {
 }
 
 /*---------------------------------------------------------------------------*/
-static void alac_decode(rtp_t *ctx, s16_t *dest, char *buf, int len, u16_t *outsize) {
+static u16_t alac_decode(rtp_t *ctx, s16_t *dest, char *buf, int len) {
 	unsigned char iv[16];
 	int aeslen;
+    unsigned int frames;
 	assert(len<=MAX_PACKET);
 
 	if (ctx->decrypt) {
@@ -423,12 +424,12 @@ static void alac_decode(rtp_t *ctx, s16_t *dest, char *buf, int len, u16_t *outs
 		mbedtls_aes_crypt_cbc(&ctx->aes, MBEDTLS_AES_DECRYPT, aeslen, iv, (unsigned char*) buf, ctx->decrypt_buf);
 #endif
 		memcpy(ctx->decrypt_buf+aeslen, buf+aeslen, len-aeslen);
-		alac_to_pcm(ctx->alac_codec, (unsigned char*) ctx->decrypt_buf, (unsigned char*) dest, 2, (unsigned int*) outsize);
+		alac_to_pcm(ctx->alac_codec, (unsigned char*) ctx->decrypt_buf, (unsigned char*) dest, 2, &frames);
 	} else {
-		alac_to_pcm(ctx->alac_codec, (unsigned char*) buf, (unsigned char*) dest, 2, (unsigned int*) outsize);
+		alac_to_pcm(ctx->alac_codec, (unsigned char*) buf, (unsigned char*) dest, 2, &frames);
 	}	
 	
-	*outsize *= 4;
+	return frames * 4;
 }
 
 
@@ -523,7 +524,7 @@ static void buffer_put_packet(rtp_t *ctx, seq_t seqno, unsigned rtptime, bool fi
 	}
 
 	if (abuf) {
-		alac_decode(ctx, abuf->data, data, len, &abuf->len);
+		abuf->len = alac_decode(ctx, abuf->data, data, len);
 		abuf->ready = 1;
         abuf->missed = 0;
 		// this is the local rtptime when this frame is expected to play

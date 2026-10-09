@@ -81,7 +81,7 @@ void AccessKeyFetcher::updateAccessKey() {
         {{"Content-Type", "application/x-www-form-urlencoded"}}, body);
 
 #ifdef BELL_ONLY_CJSON
-    cJSON* root = cJSON_Parse(response->body().data());
+    cJSON* root = cJSON_ParseWithLength(response->body().data(), response->body().size());
     if (!cJSON_GetObjectItem(root, "error")) {
       accessKey =
           std::string(cJSON_GetObjectItem(root, "access_token")->valuestring);

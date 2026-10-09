@@ -67,14 +67,19 @@ static const float loudness_envelope_coefficients[EQ_BANDS][POLYNOME_COUNT] = {
 static void calculate_loudness(void) {
     char trace[EQ_BANDS * 5 + 1];
     size_t n = 0;
+    
 	for (int i = 0; i < EQ_BANDS; i++) {
+        equalizer.loudness_gain[i] = 0;
 		for (int j = 0; j < POLYNOME_COUNT && equalizer.loudness != 0; j++) {
 			equalizer.loudness_gain[i] +=
 				loudness_envelope_coefficients[i][j] * pow(equalizer.volume, j);
 		}
 		equalizer.loudness_gain[i] *= equalizer.loudness / 2;
-        n += sprintf(trace + n, "%.2g%c", equalizer.loudness_gain[i], i < EQ_BANDS ? ',' : '\0');
+        int bytes = snprintf(trace + n, sizeof(trace) - n, "%.2g,", equalizer.loudness_gain[i]);
+        if (bytes > 0) n += min((size_t)bytes, sizeof(trace)-n-1);
 	}
+    
+    if (n && trace[n-1] == ',') trace[n-1] = '\0'; 
     LOG_INFO("loudness %s", trace);    
 }
 

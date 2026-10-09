@@ -43,9 +43,9 @@ bool TrackReference::pbEncodeTrackList(pb_ostream_t* stream,
   // concurrent rebuild cannot reallocate the vector under us
   std::scoped_lock lock(*locked->mutex);
   auto& trackQueue = *locked->tracks;
-#ifdef ESP_PLATFORM  
+#ifdef ESP_PLATFORM
   static TrackRef msg = TrackRef_init_zero;
-#else  
+#else
   TrackRef msg = TrackRef_init_zero;
 #endif
 

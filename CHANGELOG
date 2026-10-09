@@ -1,3 +1,37 @@
+2026-10-09
+ - blank stat struct in stdout_fstat to avoid newlib using a large buffer on each stack for logs (crash when telnet activated)
+ 
+2026-10-08
+ - use dev/console instead of dev/uart/0 in telnet redirect (work for all including s3)
+ - make a s3 config
+ 
+2026-10-07
+ - fix cspot track failed blocks queue
+ 
+2026-10-06
+ - fix https://github.com/sle118/squeezelite-esp32/issues/558 (PAGE_BLOCK can be more than actual buffer)
+ 
+2026-05-10
+ - initial connectWithRandomAP tries 5 times ebfore waiting for another connect
+ - mercury session uses a loop instead of recursing for reconnect
+ - cJSON_parse was not given a length
+ 
+2026-10-04
+ - fix oggflac comment count & size + HEADER buffer overflow
+ - fix BellTask end of task might use deleted stack
+ - in rtp, fix pointer size error in alac_decode
+ - fix message fmt using an already formetted string
+ - in spotify, fix missing catch on early (after boot) AP connection
+ - fix loudness memory corruption and equalizer reset
+ - fix telnet large memory corruption when connection fails
+ 
+2026-10-03
+ - fix ancient issue in core cspot PlainConection read upon EINTR
+ 
+2026-09-29
+ - fix cspot trackId changes
+ - merge various PR: telnet, wifi config state, externel sink, webserver overflow
+
 2026-09-28
  - fix various cspot issues (reconnect races and track changes)
 

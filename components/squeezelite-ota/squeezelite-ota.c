@@ -210,7 +210,7 @@ void sendMessaging(messaging_types type,const char * fmt, ...){
     free(msg_str);
     cJSON_AddNumberToObject(msg,"ota_pct",	ota_get_pct_complete()	);
     char * json_msg = cJSON_PrintUnformatted(msg);
-	messaging_post_message(type, MESSAGING_CLASS_OTA, json_msg);
+	messaging_post_text(type, MESSAGING_CLASS_OTA, json_msg);
 	free(json_msg);
 	cJSON_Delete(msg);
     _printMemStats();

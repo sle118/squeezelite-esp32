@@ -65,26 +65,25 @@ void MercurySession::runTask() {
 void MercurySession::reconnect() {
   std::scoped_lock lock(connectingMutex);
 
-  try {
-    this->conn = nullptr;
-    this->shanConn = nullptr;
+  while (isRunning) {
+    try {
+      this->conn = nullptr;
+      this->shanConn = nullptr;
 
-    this->connectWithRandomAp();
-    this->authenticate(this->authBlob);
+      this->connectWithRandomAp();
+      this->authenticate(this->authBlob);
 
-    CSPOT_LOG(info, "Reconnection successful");
+      CSPOT_LOG(info, "Reconnection successful");
 
-    BELL_SLEEP_MS(100);
+      BELL_SLEEP_MS(100);
 
-    lastPingTimestamp = timeProvider->getSyncedTimestamp();
+      lastPingTimestamp = timeProvider->getSyncedTimestamp();
 
-    this->executeEstabilishedCallback = true;
-  } catch (...) {
-    CSPOT_LOG(error, "Cannot reconnect, will retry in 5s");
-    BELL_SLEEP_MS(5000);
-
-    if (isRunning) {
-      return reconnect();
+      this->executeEstabilishedCallback = true;
+      break;
+    } catch (...) {
+      CSPOT_LOG(error, "Cannot reconnect, will retry in 5s");
+      BELL_SLEEP_MS(5000);
     }
   }
 }

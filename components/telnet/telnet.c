@@ -125,7 +125,7 @@ void init_telnet(){
 	vfs.open = &stdout_open;
 	vfs.fstat = &stdout_fstat;
 
-	if (bMirrorToUART) uart_fd = open("/dev/uart/0", O_RDWR);
+	if (bMirrorToUART) uart_fd = open("/dev/console", O_RDWR);
 
 	ESP_ERROR_CHECK(esp_vfs_register("/dev/pkspstdout", &vfs, NULL));
 	freopen("/dev/pkspstdout", "w", stdout);
@@ -265,7 +265,7 @@ static void handle_telnet_conn() {
 
 		if (FD_ISSET(partnerSocket, &rfds)) { 
 			int len = recv(partnerSocket, pTelnetUserData->rxbuf, TELNET_RX_BUF, 0);
-			if (!len) break;
+			if (len <= 0) break;
 			telnet_recv(tnHandle, pTelnetUserData->rxbuf, len);
 		}
 
@@ -306,6 +306,7 @@ static int stdout_open(const char * path, int flags, int mode) {
 }
 
 static int stdout_fstat(int fd, struct stat * st) {
+    memset(st, 0, sizeof(*st));
 	st->st_mode = S_IFCHR;
 	return 0;
 }

@@ -139,7 +139,7 @@ void LoginBlob::loadUserPass(const std::string& username,
 
 void LoginBlob::loadJson(const std::string& json) {
 #ifdef BELL_ONLY_CJSON
-  cJSON* root = cJSON_Parse(json.c_str());
+  cJSON* root = cJSON_ParseWithLength(json.c_str(), json.size());
   this->authType = cJSON_GetObjectItem(root, "authType")->valueint;
   this->username = cJSON_GetObjectItem(root, "username")->valuestring;
   std::string authDataObject =
