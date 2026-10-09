@@ -68,6 +68,25 @@ bool network_ethernet_is_up() {
 bool network_ethernet_enabled() {
     return  network_driver !=NULL && network_driver->handle != NULL;
 }
+
+esp_err_t network_ethernet_recover() {
+    if (!network_ethernet_enabled()) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    ESP_LOGW(TAG, "Restarting Ethernet stack after persistent TCP reconnect failures");
+    esp_err_t err = esp_eth_stop(network_driver->handle);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "esp_eth_stop failed: %s", esp_err_to_name(err));
+    }
+    vTaskDelay(pdMS_TO_TICKS(100));
+    esp_err_t start_err = esp_eth_start(network_driver->handle);
+    if (start_err != ESP_OK) {
+        ESP_LOGW(TAG, "esp_eth_start failed: %s", esp_err_to_name(start_err));
+        return start_err;
+    }
+    return err;
+}
 bool network_ethernet_wait_for_link(uint16_t max_wait_ms){
     if(!network_ethernet_enabled()) return false;
 	bool link_up=(xEventGroupGetBits(ethernet_event_group) & LINK_UP_BIT)!=0;
