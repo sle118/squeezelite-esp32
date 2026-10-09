@@ -61,7 +61,7 @@ static bool init(char *config, int i2c_port, i2s_config_t *i2s_config, bool *mck
 	i2c_write_shadow(6, 0);
 	i2c_write_shadow(10, 8);
 	i2c_write_shadow(43, 16);
-	i2c_write_shadow(49, 102);
+	i2c_write_shadow(49, 6);
 	
 	return true;
 }	

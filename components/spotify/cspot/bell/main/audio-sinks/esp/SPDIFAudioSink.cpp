@@ -2,7 +2,7 @@
 
 #include "driver/i2s.h"
 
-// See http://www.hardwarebook.info/S/PDIF for more info on this protocol
+// See http://www.hardwarebook.info/S-PDIF for more info on this protocol
 // Conversion table to biphase code mark (LSB first, ending in 1)
 static const uint16_t bmc_convert[256] = {
     0x3333, 0xb333, 0xd333, 0x5333, 0xcb33, 0x4b33, 0x2b33, 0xab33, 0xcd33,

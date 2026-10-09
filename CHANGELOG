@@ -1,5 +1,7 @@
 2026-10-09
  - blank stat struct in stdout_fstat to avoid newlib using a large buffer on each stack for logs (crash when telnet activated)
+ - fix WM8978 register initialiaztion for stereo audio
+ - fixx obj-copy in root CMakeLists
  
 2026-10-08
  - use dev/console instead of dev/uart/0 in telnet redirect (work for all including s3)
