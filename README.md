@@ -176,6 +176,10 @@ Use the `squeezelite-esp32-I2S-4MFlash-sdkconfig.defaults` configuration file.
 
 And the super cool project https://github.com/rochuck/squeeze-amp-too
 
+### esp32-s3 boards
+
+Assuming you recompile the application (see later) this code works on an esp32-s3 and with much more CPU room. Note that the s3 does not include BT classic and has various flash and PSRAM bus sizes(octal) that you must be aware.
+
 ## Configuration
 To access NVS, in the webUI, go to credits and select "shows nvs editor". Go into the NVS editor tab to change NFS parameters. In syntax description below \<\> means a value while \[\] describe optional parameters. 
 
@@ -692,6 +696,7 @@ There is esp32s3 file named sdkconfig.defaults.esp32s3 in build_scripts/. Use th
 idf.py -D SDKCONFIG_DEFAULTS=sdkconfig.defaults.esp32s3 set-target esp32s3
 ```
 be ware that an existing sdkconfig.default is still read and the IDF_TARGET will be taken from there, so compliation will be wrong and fail.
+Pay attention to the s3 version you have as it might have octal SPI flash and/or octal SPI PSRAM (WROOM-1 has octal PSRAM and WROOM-2 have both octal flash and PSRAM) and you must config the options (idf.py menuconfig) so that it matches.
 
 
 ### Rebuild codecs (highly recommended to NOT try that)
