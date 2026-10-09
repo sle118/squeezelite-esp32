@@ -306,6 +306,7 @@ static int stdout_open(const char * path, int flags, int mode) {
 }
 
 static int stdout_fstat(int fd, struct stat * st) {
+    memset(st, 0, sizeof(*st));
 	st->st_mode = S_IFCHR;
 	return 0;
 }
