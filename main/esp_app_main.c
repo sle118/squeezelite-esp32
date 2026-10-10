@@ -32,6 +32,7 @@
 #include "trace.h"
 #include "network_manager.h"
 #include "squeezelite-ota.h"
+#include "ota_check.h"
 #include <math.h>
 #include "audio_controls.h"
 #include "platform_config.h"
@@ -115,7 +116,9 @@ const DefaultStringVal defaultStringVals[] = {
     {"dhcp_tmout", "8"},
     {"staapdelay", "60"},
     {"ota_allow_flash", "0"},
+    {"ota_check_h", "0"},
     {"mqtt_broker", ""},
+    {"mqtt_enable", "1"},
     {"mqtt_prefix", "squeezelite"},
     {"mqtt_user", ""},
     {"mqtt_pass", ""},
@@ -499,6 +502,9 @@ void app_main()
 	MEMTRACE_PRINT_DELTA_MESSAGE("Starting Console");
 	console_start();
 	MEMTRACE_PRINT_DELTA_MESSAGE("Console started");
+	// Periodic notify-only OTA check (NVS ota_check_h, 0 = disabled).
+	// Task self-gates on wifi association; safe in both app partitions.
+	ota_start_periodic_check();
 	if(fwurl && strlen(fwurl)>0){
 		if(is_recovery_running){
 			while(!bNetworkConnected){

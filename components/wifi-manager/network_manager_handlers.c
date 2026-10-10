@@ -135,8 +135,20 @@ static void network_initialize_state_machine_globals(){
     if (handle_global_event(m) == EVENT_HANDLED) \
         return EVENT_HANDLED;
 
-static void network_connect_active_ssid(state_machine_t* const State_Machine) {
+// Extract the SSID from a disconnect event and count one consecutive failure
+// against the known-AP entry (persists to NVS, drives failover ordering).
+static void network_mark_failed_from_event(state_machine_t* const State_Machine) {
     network_t* const nm = (network_t*)State_Machine;
+    if (!nm->event_parameters || !nm->event_parameters->disconnected_event) return;
+    wifi_event_sta_disconnected_t *ev = nm->event_parameters->disconnected_event;
+    if (ev->ssid_len == 0) return;
+    char ssid[MAX_SSID_SIZE + 1];
+    size_t n = ev->ssid_len > MAX_SSID_SIZE ? MAX_SSID_SIZE : ev->ssid_len;
+    memcpy(ssid, ev->ssid, n);
+    ssid[n] = 0;
+    network_wifi_mark_ap_failed(ssid);
+}
+static void network_connect_active_ssid(state_machine_t* const State_Machine) {    network_t* const nm = (network_t*)State_Machine;
     if (network_wifi_connect_active_ssid() != ESP_OK) {
         ESP_LOGE(TAG, "Oups.  Something went wrong!");
         nm->wifi_connected = false;
@@ -749,6 +761,7 @@ static state_machine_result_t WIFI_CONFIGURING_CONNECT_STATE_handler(state_machi
             }
             else {
                 network_status_update_ip_info(UPDATE_FAILED_ATTEMPT);
+                network_mark_failed_from_event(State_Machine);
                 result = local_traverse_state(State_Machine, &Wifi_Configuring_State[WIFI_CONFIGURING_STATE],__FUNCTION__);
             }
             break;
@@ -871,6 +884,7 @@ static state_machine_result_t WIFI_CONNECTING_STATE_handler(state_machine_t* con
                 // Wrong password / auth mismatch: report, don't spin on same AP.
                 ESP_LOGW(TAG,"Auth failed - check password/authmode, trying next known AP");
                 network_status_update_ip_info(UPDATE_FAILED_ATTEMPT);
+                network_mark_failed_from_event(State_Machine);
                 network_wifi_set_found_ap();
                 if (network_wifi_get_known_count_in_range() > 1 &&
                     network_wifi_connect_next_in_range() == ESP_OK) {
@@ -880,6 +894,7 @@ static state_machine_result_t WIFI_CONNECTING_STATE_handler(state_machine_t* con
             }
             else if(nm->event_parameters->disconnected_event->reason != WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT) {
                 network_status_update_ip_info(UPDATE_FAILED_ATTEMPT);
+                network_mark_failed_from_event(State_Machine);
                 result = local_traverse_state(State_Machine, &Wifi_Configuring_State[WIFI_CONFIGURING_STATE],__FUNCTION__);
             }
             break;
@@ -1013,6 +1028,16 @@ static state_machine_result_t WIFI_CONNECTED_STATE_entry_handler(state_machine_t
         ESP_LOGD(TAG, "Wifi Config changed. Saving it.");
         network_wifi_save_sta_config();
     }
+    // Connection succeeded: reset this AP's consecutive-fail counter.
+    {
+        const wifi_sta_config_t* sta = network_wifi_get_active_config();
+        if (sta && sta->ssid[0]) {
+            char ssid[MAX_SSID_SIZE + 1];
+            strncpy(ssid, (const char*)sta->ssid, MAX_SSID_SIZE);
+            ssid[MAX_SSID_SIZE] = 0;
+            network_wifi_mark_ap_success(ssid);
+        }
+    }
     ESP_LOGD(TAG, "Updating the ip info json.");
     network_interface_coexistence(State_Machine);
     nm->wifi_connected = true;
@@ -1084,6 +1109,7 @@ static state_machine_result_t WIFI_LOST_CONNECTION_STATE_entry_handler(state_mac
     network_handler_entry_print(State_Machine,true);
     ESP_LOGE(TAG, " WiFi Connection lost.");
     messaging_post_message(MESSAGING_WARNING, MESSAGING_CLASS_SYSTEM, "WiFi Connection lost");
+    network_mark_failed_from_event(State_Machine);
     network_status_update_ip_info(UPDATE_LOST_CONNECTION);
     network_status_safe_reset_sta_ip_string();
     if (nm->last_connected > 0)

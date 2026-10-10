@@ -68,6 +68,8 @@ esp_err_t network_wifi_set_sta_mode();
 size_t network_wifi_get_known_count();
 esp_err_t network_wifi_built_known_ap_list();
 esp_err_t network_wifi_connect_next_in_range();
+esp_err_t network_wifi_mark_ap_failed(const char *ssid);
+esp_err_t network_wifi_mark_ap_success(const char *ssid);
 esp_err_t network_wifi_delete_ap(const char *key);
 void network_wifi_set_found_ap(void);
 size_t network_wifi_get_known_count_in_range(void);

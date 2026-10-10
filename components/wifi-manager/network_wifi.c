@@ -66,9 +66,14 @@ typedef struct known_access_point {
     uint32_t phy_11n : 1;      /**< bit: 2 flag to identify if 11n mode is enabled or not */
     uint32_t phy_lr : 1;       /**< bit: 3 flag to identify if low rate is enabled or not */
     time_t last_try;
+    // Consecutive failures for this SSID, persisted in NVS. Failover prefers
+    // fewer fails (then least-recent try), so a dead AP sinks across reboots.
+    // Reset to 0 on successful connection. Capped to avoid NVS churn.
+    uint16_t fails;
     SLIST_ENTRY(known_access_point)
     next;  //!< next callback
 } known_access_point_t;
+#define AP_FAILS_MAX 999
 
 /** linked list of command structures */
 static EXT_RAM_ATTR SLIST_HEAD(ap_list, known_access_point) s_ap_list;
@@ -169,6 +174,9 @@ esp_err_t network_wifi_add_ap_copy(const known_access_point_t* known_ap) {
     }
     item->ssid = strdup_psram(known_ap->ssid);
     item->password = strdup_psram(known_ap->password);
+    item->found = false;
+    item->last_try = 0;
+    item->fails = known_ap->fails;
     memcpy(&item->bssid, known_ap->bssid, sizeof(item->bssid));
     item->primary = known_ap->primary;
     item->authmode = known_ap->authmode;
@@ -207,6 +215,9 @@ esp_err_t network_wifi_add_ap_from_sta_copy(const wifi_sta_config_t* sta) {
     }
     item->ssid = strdup_psram(ssid_string(sta));
     item->password = strdup_psram(password_string(sta));
+    item->found = false;
+    item->last_try = 0;
+    item->fails = 0;
     memcpy(&item->bssid, sta->bssid, sizeof(item->bssid));
     item->primary = sta->channel;
     const wifi_ap_record_t* seen = network_wifi_get_ssid_info(item->ssid);
@@ -256,19 +267,17 @@ bool network_wifi_known_ap_in_range(){
     return false;
 }
 const char * network_wifi_get_next_ap_in_range(){
+    // Prefer fewest consecutive fails, tie-break least-recently-tried.
     known_access_point_t* it;
-    time_t last_try_min=(esp_timer_get_time() / 1000);
+    known_access_point_t* best = NULL;
     SLIST_FOREACH(it, &s_ap_list, next) {
-        if (it->found && it->last_try < last_try_min) {
-            last_try_min = it->last_try;
+        if (!it->found) continue;
+        if (!best || it->fails < best->fails ||
+            (it->fails == best->fails && it->last_try < best->last_try)) {
+            best = it;
         }
     }
-    SLIST_FOREACH(it, &s_ap_list, next) {
-        if (it->found && it->last_try == last_try_min) {
-            return it->ssid;
-        }
-    }
-    return NULL;
+    return best ? best->ssid : NULL;
 }
 
 esp_err_t network_wifi_alloc_ap_json(known_access_point_t* item, char** json_string) {
@@ -294,6 +303,7 @@ esp_err_t network_wifi_alloc_ap_json(known_access_point_t* item, char** json_str
     cJSON_AddNumberToObject(cjson_item, "g", item->phy_11g ? 1 : 0);
     cJSON_AddNumberToObject(cjson_item, "n", item->phy_11n ? 1 : 0);
     cJSON_AddNumberToObject(cjson_item, "low_rate", item->phy_lr ? 1 : 0);
+    cJSON_AddNumberToObject(cjson_item, "fails", item->fails);
 
     *json_string = cJSON_PrintUnformatted(cjson_item);
     if (!*json_string) {
@@ -314,6 +324,7 @@ bool network_wifi_str2mac(const char* mac, uint8_t* values) {
 esp_err_t network_wifi_add_json_entry(const char* json_text) {
     esp_err_t err = ESP_OK;
     known_access_point_t known_ap;
+    memset(&known_ap, 0, sizeof(known_ap)); // absent fields (incl. fails) default to 0
     if (!json_text || strlen(json_text) == 0) {
         ESP_LOGE(TAG, "Invalid access point json");
         return ESP_ERR_INVALID_ARG;
@@ -357,6 +368,10 @@ esp_err_t network_wifi_add_json_entry(const char* json_text) {
             value = cJSON_GetObjectItemCaseSensitive(cjson_item, "low_rate");
             if (value) {
                 known_ap.phy_lr = value->valueint;
+            }
+            value = cJSON_GetObjectItemCaseSensitive(cjson_item, "fails");
+            if (value && value->valueint > 0) {
+                known_ap.fails = (uint16_t)(value->valueint > AP_FAILS_MAX ? AP_FAILS_MAX : value->valueint);
             }
             value = cJSON_GetObjectItemCaseSensitive(cjson_item, "bssid");
             if (value && cJSON_IsString(value) && strlen(cJSON_GetStringValue(value)) > 0) {
@@ -1194,6 +1209,28 @@ esp_err_t network_wifi_connect_active_ssid() {
         return network_wifi_connect(ssid_string(config), password_string(config));
     }
     return ESP_FAIL;
+}
+// Consecutive-failure accounting for failover ordering. Writes through to
+// NVS only on change, and never past AP_FAILS_MAX (no write churn at cap).
+esp_err_t network_wifi_mark_ap_failed(const char* ssid) {
+    known_access_point_t* it = network_wifi_get_ap_entry(ssid);
+    if (!it) return ESP_ERR_NOT_FOUND;
+    if (it->fails < AP_FAILS_MAX) {
+        it->fails++;
+        ESP_LOGW(TAG, "AP %s consecutive fails: %u", it->ssid, it->fails);
+        return network_wifi_store_ap_json(it);
+    }
+    return ESP_OK;
+}
+esp_err_t network_wifi_mark_ap_success(const char* ssid) {
+    known_access_point_t* it = network_wifi_get_ap_entry(ssid);
+    if (!it) return ESP_ERR_NOT_FOUND;
+    if (it->fails != 0) {
+        it->fails = 0;
+        ESP_LOGI(TAG, "AP %s recovered, fails reset", it->ssid);
+        return network_wifi_store_ap_json(it);
+    }
+    return ESP_OK;
 }
 void network_wifi_clear_config() {
     /* erase configuration */

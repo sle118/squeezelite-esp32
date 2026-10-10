@@ -10,6 +10,7 @@
 #include "esp_log.h"
 #include "esp_ota_ops.h"
 #include "esp_http_client.h"
+#include "esp_wifi.h"
 #include "mqtt_client.h"
 #include "mdns.h"
 #include "cJSON.h"
@@ -120,7 +121,7 @@ static esp_err_t http_evt(esp_http_client_event_t *evt) {
 // Broker resolution order: explicit NVS mqtt_broker -> mDNS _mqtt._tcp
 // discovery (e.g. Mosquitto/Home Assistant advertising MQTT) -> disabled.
 // Returns malloc'd "mqtt://host:port" or NULL. Caller frees.
-static char * ota_mqtt_broker(void) {
+char * ota_mqtt_broker_resolve(void) {
     char *cfg = config_alloc_get(NVS_TYPE_STR, "mqtt_broker");
     if (cfg && strlen(cfg)) return cfg; // explicit config wins
     FREE_AND_NULL(cfg);
@@ -153,7 +154,7 @@ static char * ota_mqtt_broker(void) {
 
 // Best-effort MQTT publish. Disabled when no broker resolves.
 static void mqtt_publish_ota(const char *payload_json) {
-    char *broker = ota_mqtt_broker();
+    char *broker = ota_mqtt_broker_resolve();
     if (!broker) return;
     char *prefix = nvs_str_or("mqtt_prefix", "squeezelite");
     char *host = nvs_str_or("host_name", "squeezelite");
@@ -319,8 +320,7 @@ done:
     return err;
 }
 
-esp_err_t ota_flash_deferred(const char *url) {
-    if (!url || !*url) return ESP_ERR_INVALID_ARG;
+esp_err_t ota_flash_deferred(const char *url) {    if (!url || !*url) return ESP_ERR_INVALID_ARG;
     char *allow = config_alloc_get(NVS_TYPE_STR, "ota_allow_flash");
     bool ok = allow && (!strcmp(allow, "1") || !strcasecmp(allow, "y"));
     FREE_AND_NULL(allow);
@@ -331,4 +331,54 @@ esp_err_t ota_flash_deferred(const char *url) {
         return ESP_ERR_INVALID_STATE;
     }
     return start_ota(url, NULL, 0);
+}
+
+static bool ota_net_up(void) {
+    wifi_ap_record_t ap;
+    memset(&ap, 0, sizeof(ap));
+    // ESP_OK only while associated to an AP (no dependency on main image,
+    // so the recovery build keeps linking).
+    return esp_wifi_sta_get_ap_info(&ap) == ESP_OK;
+}
+
+#define OTA_PERIODIC_STACK 8192
+#define OTA_PERIODIC_PRIO 5
+static void ota_periodic_task(void *arg) {
+    (void)arg;
+    // Grace period: let network/LMS settle before the first check.
+    vTaskDelay(pdMS_TO_TICKS(60000));
+    for (;;) {
+        // Persistent MQTT client (LWT + remote set-topic). No-op when already
+        // running or disabled; retries broker resolution until it succeeds.
+        ota_mqtt_start();
+        char *h = config_alloc_get(NVS_TYPE_STR, "ota_check_h");
+        long hours = h ? atol(h) : 0;
+        FREE_AND_NULL(h);
+        if (hours <= 0) {
+            // Disabled: re-read every minute so enabling needs no reboot.
+            vTaskDelay(pdMS_TO_TICKS(60000));
+            continue;
+        }
+        if (hours > 168) hours = 168; // cap: 1 week
+        if (ota_net_up()) {
+            esp_err_t err = ota_check_notify(NULL);
+            if (err != ESP_OK && err != ESP_ERR_NOT_FOUND) {
+                ESP_LOGW(TAG, "Periodic OTA check failed: %s", esp_err_to_name(err));
+            }
+        } else {
+            ESP_LOGD(TAG, "Skipping periodic OTA check: no wifi association");
+        }
+        vTaskDelay(pdMS_TO_TICKS((uint32_t)hours * 3600UL * 1000UL));
+    }
+}
+
+void ota_start_periodic_check(void) {
+    static bool started = false;
+    if (started) return;
+    started = true;
+    if (xTaskCreate(&ota_periodic_task, "ota_periodic", OTA_PERIODIC_STACK,
+                    NULL, OTA_PERIODIC_PRIO, NULL) != pdPASS) {
+        ESP_LOGE(TAG, "Failed to start periodic OTA check task");
+        started = false;
+    }
 }
