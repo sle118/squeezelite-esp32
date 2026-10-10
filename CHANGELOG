@@ -1,3 +1,20 @@
+2026-10-10
+ - wifi-manager: sequential failover across known APs (least-recently-tried,
+   fewest consecutive fails first), APSTA portal fallback timer (staapdelay),
+   AUTH_FAIL no longer spins on the same AP, per-SSID fail counters in NVS
+ - fix uint16 ms overflow in network timers (pollmx 600s wrapped to 10176ms),
+   handle EN_TIMER in AP portal state, DELETE /ap.json to forget one AP
+ - sanitize legacy '-s -disable' LMS server from autoexec1 at boot
+ - squeezelite-ota: notify-only ota_check (variant/build filter, persisted fw
+   identity, periodic task via ota_check_h), deferred ota_flash gate
+   (ota_allow_flash), MQTT notify with HA discovery, mDNS broker discovery,
+   persistent client with LWT, remote check/flash set-topic, LMS CLASS_OTA
+   bridge into MQTT state topic
+ - web UI src: known-AP badge plus forget button, device-update check button
+   (dist rebuild still needs era CI env)
+ - homeassistant/squeezelite_ota_notify.yaml blueprint for update notifies
+ - platform_config: ignore empty-key lookups without warn spam
+
 2026-10-09
  - blank stat struct in stdout_fstat to avoid newlib using a large buffer on each stack for logs (crash when telnet activated)
  - fix WM8978 register initialiaztion for stereo audio
