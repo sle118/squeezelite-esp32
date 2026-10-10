@@ -1,0 +1,64 @@
+blueprint:
+  name: Squeezelite-ESP32 OTA update notifier
+  description: >
+    Notify when a Squeezelite-ESP32 device reports a newer firmware release.
+
+    The device publishes retained JSON to <prefix>/<host>/ota containing
+    ota_current, available (empty when up to date), url and notes, and is
+    auto-discovered as sensor.<host>_ota (state = available tag).
+
+    To ask the device to check on demand, publish {"cmd":"check"} to
+    <prefix>/<host>/ota/set (see the manual automation snippet below).
+    {"cmd":"flash","url":"..."} only flashes when the device NVS
+    ota_allow_flash is 1; otherwise it stays notify-only.
+  domain: automation
+  input:
+    ota_sensor:
+      name: Squeezelite OTA sensor
+      description: The MQTT sensor auto-discovered as sensor.<host>_ota
+      selector:
+        entity:
+          domain: sensor
+    notify_target:
+      name: Notification service
+      description: e.g. notify.mobile_app_phone
+      default: notify.notify
+      selector:
+        text:
+
+trigger:
+  - platform: state
+    entity_id: !input ota_sensor
+
+variables:
+  sensor_entity: !input ota_sensor
+  available: "{{ states(sensor_entity) }}"
+  current: "{{ state_attr(sensor_entity, 'ota_current') }}"
+  dl_url: "{{ state_attr(sensor_entity, 'url') }}"
+
+condition:
+  - condition: template
+    value_template: "{{ available not in ['unknown', 'unavailable', 'none', ''] }}"
+
+action:
+  - service: !input notify_target
+    data:
+      title: "Squeezelite update available"
+      message: "{{ available }} available (installed {{ current }}). {{ dl_url }}"
+      data:
+        url: "{{ dl_url }}"
+        tag: "squeezelite-ota"
+        group: squeezelite-ota
+
+mode: single
+
+# Manual on-demand check automation (paste into automations.yaml, adjust host):
+# - alias: "Squeezelite bedroom check for firmware"
+#   trigger:
+#     - platform: time
+#       at: "04:30:00"
+#   action:
+#     - service: mqtt.publish
+#       data:
+#         topic: squeezelite/squeezelite-abc123/ota/set
+#         payload: '{"cmd":"check"}'

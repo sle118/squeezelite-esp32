@@ -16,15 +16,19 @@
 
 static const char *TAG = "ota_mqtt";
 static esp_mqtt_client_handle_t s_cli = NULL;
+static bool s_connected = false;
 static char s_set_topic[160] = {0};
 static char s_status_topic[160] = {0};
+static char s_state_topic[160] = {0};
+static RingbufHandle_t s_msg_sub = NULL;
+
+static void ota_mqtt_bridge_task(void *arg);
 // Client config keeps string pointers: everything cfg points at must be static.
 static char s_broker[128] = {0};
 static char s_user[64] = {0};
 static char s_pass[64] = {0};
 
-static char * s_nvs_or(const char *key, const char *dflt) {
-    char *v = config_alloc_get(NVS_TYPE_STR, key);
+static char * s_nvs_or(const char *key, const char *dflt) {    char *v = config_alloc_get(NVS_TYPE_STR, key);
     if (!v && dflt) v = strdup(dflt);
     return v;
 }
@@ -71,12 +75,14 @@ static void ota_mqtt_evt(void *arg, esp_event_base_t base, int32_t id, void *dat
     switch (id) {
     case MQTT_EVENT_CONNECTED:
         ESP_LOGI(TAG, "Connected, subscribing %s", s_set_topic);
+        s_connected = true;
         esp_mqtt_client_subscribe(evt->client, s_set_topic, 1);
         esp_mqtt_client_publish(evt->client, s_status_topic, "online", 0, 1, 1);
         messaging_post_message(MESSAGING_INFO, MESSAGING_CLASS_OTA, "MQTT connected");
         break;
     case MQTT_EVENT_DISCONNECTED:
         ESP_LOGW(TAG, "Disconnected (auto-reconnect active)");
+        s_connected = false;
         break;
     case MQTT_EVENT_DATA:
         if (evt->topic_len == (int)strlen(s_set_topic) &&
@@ -116,6 +122,7 @@ void ota_mqtt_start(void) {
     s_sanitize_host(host);
     snprintf(s_set_topic, sizeof(s_set_topic), "%s/%s/ota/set", prefix, host);
     snprintf(s_status_topic, sizeof(s_status_topic), "%s/%s/status", prefix, host);
+    snprintf(s_state_topic, sizeof(s_state_topic), "%s/%s/ota", prefix, host);
     char *user = config_alloc_get(NVS_TYPE_STR, "mqtt_user");
     char *pass = config_alloc_get(NVS_TYPE_STR, "mqtt_pass");
     // IDF v4.4 flat config fields. Copy into static storage: init keeps pointers.
@@ -142,5 +149,53 @@ void ota_mqtt_start(void) {
         s_cli = NULL;
     } else {
         ESP_LOGI(TAG, "MQTT client started: set=%s status=%s", s_set_topic, s_status_topic);
+    }
+    // Bridge LMS CLASS_OTA messages into the MQTT state topic so the portal
+    // message feed and Home Assistant stay in sync.
+    if (!s_msg_sub) {
+        s_msg_sub = messaging_register_subscriber(8, "ota_mqtt");
+    }
+    if (s_msg_sub) {
+        static bool bridge_started = false;
+        if (!bridge_started) {
+            bridge_started = true;
+            if (xTaskCreate(&ota_mqtt_bridge_task, "ota_mqttb", 4096,
+                            NULL, 5, NULL) != pdPASS) {
+                ESP_LOGE(TAG, "Failed to start MQTT bridge task");
+                bridge_started = false;
+            }
+        }
+    }
+}
+
+// Drain our messaging subscription; forward OTA-class messages to the state
+// topic. Runs in its own task, publishes only while connected.
+static void ota_mqtt_bridge_task(void *arg) {
+    (void)arg;
+    for (;;) {
+        if (s_msg_sub && s_cli && s_connected) {
+            // Cap per cycle so a message burst can't starve the task.
+            for (int i = 0; i < 8; i++) {
+                single_message_t *msg = messaging_retrieve_message(s_msg_sub);
+                if (!msg) break;
+                if (msg->msg_class == MESSAGING_CLASS_OTA && msg->message[0]) {
+                    cJSON *o = cJSON_CreateObject();
+                    cJSON_AddStringToObject(o, "type",
+                        msg->type == MESSAGING_ERROR ? "error" :
+                        msg->type == MESSAGING_WARNING ? "warning" : "info");
+                    cJSON_AddStringToObject(o, "class", "ota");
+                    cJSON_AddStringToObject(o, "message", msg->message);
+                    cJSON_AddNumberToObject(o, "sent_time", (double)msg->sent_time);
+                    char *js = cJSON_PrintUnformatted(o);
+                    if (js) {
+                        esp_mqtt_client_publish(s_cli, s_state_topic, js, 0, 0, 0);
+                        free(js);
+                    }
+                    cJSON_Delete(o);
+                }
+                free(msg);
+            }
+        }
+        vTaskDelay(pdMS_TO_TICKS(2000));
     }
 }
