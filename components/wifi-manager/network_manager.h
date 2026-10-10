@@ -76,12 +76,16 @@ typedef struct
 	esp_netif_t *wifi_netif;
 	esp_netif_t *eth_netif;
 	esp_netif_t *wifi_ap_netif;
-    uint16_t sta_polling_min_ms;
-    uint16_t sta_polling_max_ms;
-    uint16_t ap_duration_ms;
-    uint16_t eth_link_down_reboot_ms;
-    uint16_t dhcp_timeout;
-    uint16_t wifi_dhcp_fail_ms;    
+    uint32_t sta_polling_min_ms;
+    uint32_t sta_polling_max_ms;
+    uint32_t ap_duration_ms;
+    uint32_t eth_link_down_reboot_ms;
+    uint32_t dhcp_timeout;
+    uint32_t wifi_dhcp_fail_ms;
+    // Sequential failover: how long to stay STA-only retrying known APs
+    // before bringing up APSTA portal (while continuing background STA polls).
+    // 0 = use sta_polling_max_ms.
+    uint32_t sta_ap_fallback_ms;
 	queue_message * event_parameters;
     char * timer_tag;
 } network_t;
@@ -310,7 +314,7 @@ void network_manager_initialise_mdns();
  * @brief Register a callback to a custom function when specific network manager states are reached.
  */
 bool network_is_wifi_prioritized();
-void network_set_timer(uint16_t duration, const char * tag);
+void network_set_timer(uint32_t duration, const char * tag);
 void network_set_hostname(esp_netif_t * netif);
 esp_err_t network_get_ip_info_for_netif(esp_netif_t* netif, tcpip_adapter_ip_info_t* ipInfo);
 void network_start_stop_dhcp_client(esp_netif_t* netif, bool start);

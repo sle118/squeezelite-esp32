@@ -786,6 +786,48 @@ esp_err_t connect_delete_handler(httpd_req_t *req){
 
     return ESP_OK;
 }
+// DELETE /ap.json {"ssid":"..."} — forget one known access point so the
+// sequential failover no longer tries it. Deleting the active SSID
+// disconnects and falls back to the next known AP (or portal).
+esp_err_t ap_delete_handler(httpd_req_t *req){
+	char success[]="{}";
+    ESP_LOGD_LOC(TAG, "serving [%s]", req->uri);
+    if(!is_user_authenticated(req)){
+    	// todo:  redirect to login page
+    	// return ESP_OK;
+    }
+	esp_err_t err = post_handler_buff_receive(req);
+	if(err != ESP_OK){
+		return err;
+	}
+	err = set_content_type_from_req(req);
+	if(err != ESP_OK){
+		return err;
+	}
+	char *body = ((rest_server_context_t *)(req->user_ctx))->scratch;
+	cJSON *root = cJSON_Parse(body);
+	if(root == NULL){
+		ESP_LOGE_LOC(TAG, "Parsing ap delete json failed. Received: %s", body);
+		httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Malformed json. Expect {\"ssid\":\"...\"}.");
+		return ESP_FAIL;
+	}
+	cJSON *ssid_item = cJSON_GetObjectItemCaseSensitive(root, "ssid");
+	const char *ssid = (ssid_item && cJSON_IsString(ssid_item)) ? cJSON_GetStringValue(ssid_item) : NULL;
+	if(!ssid || strlen(ssid) == 0 || strlen(ssid) > MAX_SSID_SIZE){
+		httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing or invalid ssid.");
+		cJSON_Delete(root);
+		return ESP_FAIL;
+	}
+	ESP_LOGI(TAG, "Forgetting known access point: %s", ssid);
+	err = network_wifi_delete_ap(ssid);
+	cJSON_Delete(root);
+	if(err != ESP_OK){
+		httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "Unknown access point.");
+		return ESP_FAIL;
+	}
+	httpd_resp_send(req, (const char *)success, strlen(success));
+    return ESP_OK;
+}
 esp_err_t reboot_ota_post_handler(httpd_req_t *req){
 	char success[]="{}";
 	ESP_LOGD_LOC(TAG, "serving [%s]", req->uri);

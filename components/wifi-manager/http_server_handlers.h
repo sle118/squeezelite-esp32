@@ -48,6 +48,7 @@ esp_err_t root_get_handler(httpd_req_t *req);
 esp_err_t resource_filehandler(httpd_req_t *req);
 
 esp_err_t ap_get_handler(httpd_req_t *req);
+esp_err_t ap_delete_handler(httpd_req_t *req);
 esp_err_t config_get_handler(httpd_req_t *req);
 esp_err_t config_post_handler(httpd_req_t *req);
 esp_err_t connect_post_handler(httpd_req_t *req);

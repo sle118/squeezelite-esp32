@@ -1,3 +1,10 @@
+Most important:
+- Adjust wifi-manager/esp_app_main to at least contain two SSID's and two passwords. 
+Also, the wificonnection is very unstable, so research is going to be necessary on how to solve this.
+- Adjust squeezelite-ota/esp_app_main or related firmware to save the last type of flashed firmware (in this instance: tag I2S-4MFlash.16.1769.master-v4.3 and automatically pick up the next new release, when this drops.
+So, filtering: I2S-4MFlash.*(>16.1769).master*(>-v4.3). Next step would be, a notification in my home assistant music assistant add-on/app.
+
+Less important:
 - in squeezelite some buffers (stream, output, header, recv) are allocated 
 although they are almost static (expect output). This creates a risk of 
 memory fragmentation, especially because the large output is re-allocated for

@@ -94,6 +94,9 @@ void register_regular_handlers(httpd_handle_t server){
 	httpd_uri_t connect_delete = { .uri = "/connect.json", .method = HTTP_DELETE, .handler = connect_delete_handler, .user_ctx = rest_context };
 	httpd_register_uri_handler(server, &connect_delete);
 
+	httpd_uri_t ap_delete = { .uri = "/ap.json", .method = HTTP_DELETE, .handler = ap_delete_handler, .user_ctx = rest_context };
+	httpd_register_uri_handler(server, &ap_delete);
+
 	if(is_recovery_running){
 		httpd_uri_t flash_post = { .uri = "/flash.json", .method = HTTP_POST, .handler = flash_post_handler, .user_ctx = rest_context };
 		httpd_register_uri_handler(server, &flash_post);

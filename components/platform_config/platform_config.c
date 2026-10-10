@@ -668,6 +668,26 @@ void * config_alloc_get_str(const char *key, char *lead, char *fallback) {
 void * config_alloc_get_default(nvs_type_t nvs_type, const char *key, void * default_value, size_t blob_size) {
 
 	void * value = NULL;
+	// Guard: some comma-split parsers query a trailing empty token as key.
+	// Skip lock/cJSON traversal and warn-spam; serve default from a copy
+	// without touching the cache.
+	if(!key || !key[0]){
+		ESP_LOGD(TAG, "Ignoring config lookup with empty key, returning default.");
+		if(default_value == NULL) return NULL;
+		if(nvs_type == NVS_TYPE_STR) return strdup_psram((char *)default_value);
+		size_t sz = 0;
+		switch(nvs_type){
+			case NVS_TYPE_I8: case NVS_TYPE_U8: sz = 1; break;
+			case NVS_TYPE_I16: case NVS_TYPE_U16: sz = 2; break;
+			case NVS_TYPE_I32: case NVS_TYPE_U32: sz = 4; break;
+			case NVS_TYPE_I64: case NVS_TYPE_U64: sz = 8; break;
+			default: break;
+		}
+		if(sz == 0) return NULL;
+		value = malloc_init_external(sz);
+		if(value) memcpy(value, default_value, sz);
+		return value;
+	}
 	ESP_LOGV(TAG, "Retrieving key %s from nvs cache for type %s.", key,type_to_str(nvs_type));
 	if(nvs_json==NULL){
 		ESP_LOGE(TAG,"configuration not loaded!");

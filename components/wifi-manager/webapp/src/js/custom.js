@@ -1039,6 +1039,15 @@ $(document).ready(function () {
   setIcons(true);
   handleNVSVisible();
   flashState.init();
+  // Forget-saved-AP buttons are re-rendered with the wifi table; delegate.
+  // stopPropagation (in handleForgetAP) keeps the row's connect dialog closed.
+  $(document).off('click', '.forget-ap').on('click', '.forget-ap', function (evt) {
+    window.handleForgetAP(evt);
+  });
+  // OTA-section button (also has inline onclick; bind here for bundler safety)
+  $(document).off('click', '#chkDeviceUpdate').on('click', function () {
+    window.handleOtaCheck();
+  });
   $('#fw-url-input').on('input', function () {
     if ($(this).val().length > 8 && ($(this).val().startsWith('http://') || $(this).val().startsWith('https://'))) {
       $('#start-flash').show();
@@ -1549,15 +1558,68 @@ function refreshAP() {
     });
   });
 }
-function formatAP(ssid, rssi, auth) {
+function formatAP(ssid, rssi, auth, known) {
   const rssi_icon = rssiToIcon(rssi);
   const auth_icon = { label: auth == 0 ? '🔓' : '🔒', icon: auth == 0 ? 'no_encryption' : 'lock' };
+  const safeSsid = String(ssid).encodeHTML();
+  const attrSsid = String(ssid).encodeHTML().replace(/"/g, '&quot;');
+  const knownBadge = known ? `<span title="Saved - used by auto-failover">★</span> ` : '';
+  const forgetBtn = known ? `<button type="button" class="btn btn-sm btn-outline-danger forget-ap" data-ssid="${attrSsid}" title="Forget this network">✕</button>` : '';
 
-  return `<tr data-bs-toggle="modal" data-bs-target="#WifiConnectDialog"><td></td><td>${ssid}</td><td>
+  return `<tr data-bs-toggle="modal" data-bs-target="#WifiConnectDialog"><td></td><td>${knownBadge}${safeSsid} ${forgetBtn}</td><td>
   <span class="material-icons" style="fill:white; display: inline" aria-label="${rssi_icon.label}" icon="${rssi_icon.icon}" >${getIcon(rssi_icon)}</span>
   	</td><td>
     <span class="material-icons" aria-label="${auth_icon.label}" icon="${auth_icon.icon}">${getIcon(auth_icon)}</span>
   </td></tr>`;
+}
+window.handleForgetAP = function (evt) {
+  evt.stopPropagation();
+  const btn = evt.currentTarget;
+  const ssid = btn.getAttribute('data-ssid');
+  // Decode the HTML-escaped attribute back to the raw SSID
+  const txt = document.createElement('textarea');
+  txt.innerHTML = ssid;
+  const rawSsid = txt.value;
+  if (!confirm(`Forget saved network "${rawSsid}"? Auto-failover will no longer try it.`)) {
+    return;
+  }
+  $.ajax({
+    url: '/ap.json',
+    dataType: 'text',
+    method: 'DELETE',
+    cache: false,
+    contentType: 'application/json; charset=utf-8',
+    data: JSON.stringify({
+      timestamp: Date.now(),
+      ssid: rawSsid
+    }),
+    error: handleExceptionResponse,
+    complete: function () {
+      refreshAP();
+    },
+  });
+}
+window.handleOtaCheck = function () {
+  const box = $('#ota-check-result');
+  box.html('Checking for device update…');
+  $.ajax({
+    url: '/commands.json',
+    dataType: 'text',
+    method: 'POST',
+    cache: false,
+    contentType: 'application/json; charset=utf-8',
+    data: JSON.stringify({
+      timestamp: Date.now(),
+      command: 'ota_check'
+    }),
+    error: function (xhr, ajaxOptions, thrownError) {
+      box.html('Check failed to start. See messages.');
+      handleExceptionResponse(xhr, ajaxOptions, thrownError);
+    },
+    success: function () {
+      box.html('Check started. Result appears below and in Messages / MQTT.');
+    },
+  });
 }
 function refreshAPHTML2(data) {
   let h = '';
@@ -1565,7 +1627,7 @@ function refreshAPHTML2(data) {
   $('#wifiTable tr').removeClass('table-success table-warning');
   if (data) {
     data.forEach(function (e) {
-      h += formatAP(e.ssid, e.rssi, e.auth);
+      h += formatAP(e.ssid, e.rssi, e.auth, e.known);
     });
     $('#wifiTable').html(h);
   }

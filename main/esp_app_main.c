@@ -113,6 +113,12 @@ const DefaultStringVal defaultStringVals[] = {
     {"pollmin", "15"},
     {"ethtmout", "8"},
     {"dhcp_tmout", "8"},
+    {"staapdelay", "60"},
+    {"ota_allow_flash", "0"},
+    {"mqtt_broker", ""},
+    {"mqtt_prefix", "squeezelite"},
+    {"mqtt_user", ""},
+    {"mqtt_pass", ""},
     {"target", CONFIG_TARGET},
     {"led_vu_config", ""},
 	{"autoexec", "1"},	
@@ -315,6 +321,28 @@ void register_default_nvs(){
 	ESP_LOGD(TAG,"Done setting default values in nvs.");
 }
 
+// Legacy NVS values shipped "-s -disable" as the LMS server, which makes
+// squeezelite start with "LMS is disabled". Strip that token so an empty
+// -s falls back to LMS discovery instead of a host literally named -disable.
+static void sanitize_autoexec_lms(void) {
+	char *cmd = config_alloc_get(NVS_TYPE_STR, "autoexec1");
+	if (!cmd) return;
+	const char *bad1 = " -s -disable";
+	const char *bad2 = " -s disable";
+	char *p = strstr(cmd, bad1);
+	const char *bad = bad1;
+	if (!p) { p = strstr(cmd, bad2); bad = bad2; }
+	if (p) {
+		size_t badlen = strlen(bad);
+		size_t tail = strlen(p + badlen);
+		memmove(p, p + badlen, tail + 1);
+		ESP_LOGW(TAG, "Sanitized legacy '-s -disable' from autoexec1, new: %s", cmd);
+		config_set_value(NVS_TYPE_STR, "autoexec1", cmd);
+		wait_for_commit();
+	}
+	free(cmd);
+}
+
 uint32_t halSTORAGE_RebootCounterRead(void) { return RebootCounter ; }
 uint32_t halSTORAGE_RebootCounterUpdate(int32_t xValue) { 
 	if(RebootCounter >100) {
@@ -394,6 +422,7 @@ void app_main()
 
 	ESP_LOGI(TAG,"Registering default values");
 	register_default_nvs();
+	sanitize_autoexec_lms();
 	MEMTRACE_PRINT_DELTA();
 	ESP_LOGI(TAG,"Configuring services");
 	services_init();

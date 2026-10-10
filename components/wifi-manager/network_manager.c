@@ -670,7 +670,7 @@ esp_err_t network_get_hostname(const char** hostname) {
     return esp_netif_get_hostname(get_connected_interface(), hostname);
 }
 
-void network_set_timer(uint16_t duration, const char * tag) {
+void network_set_timer(uint32_t duration, const char * tag) {
     if (duration > 0) {
         if(tag){
             ESP_LOGD(TAG, "Setting timer tag to %s", tag);

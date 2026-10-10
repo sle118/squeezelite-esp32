@@ -1170,8 +1170,12 @@ esp_err_t network_wifi_connect(const char* ssid, const char* password) {
     return err;
 }
 esp_err_t network_wifi_connect_next_in_range(){
+    // Refresh in-range flags from latest scan before picking.
+    // Caller may already have scanned; harmless to re-evaluate.
+    network_wifi_set_found_ap();
     const char * ssid = network_wifi_get_next_ap_in_range();
     if(ssid){
+        ESP_LOGI(TAG, "Sequential failover: trying next known AP in range: %s", ssid);
         return network_wifi_connect_ssid(ssid);
     }
     return ESP_FAIL;

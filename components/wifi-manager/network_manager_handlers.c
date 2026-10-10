@@ -224,18 +224,29 @@ static state_machine_result_t NETWORK_INSTANTIATED_STATE_handler(state_machine_t
     network_t* const nm = (network_t *)State_Machine;
     State_Machine->State = &network_states[NETWORK_INSTANTIATED_STATE];
     State_Machine->Event = EN_START;
-    config_get_uint16t_from_str("pollmx",&nm->sta_polling_max_ms,600);
-    nm->sta_polling_max_ms = nm->sta_polling_max_ms * 1000;
-    config_get_uint16t_from_str("apdelay",&nm->ap_duration_ms,20);
-    nm->ap_duration_ms = nm->ap_duration_ms * 1000;
-    config_get_uint16t_from_str("pollmin",&nm->sta_polling_min_ms,15);
-    nm->sta_polling_min_ms = nm->sta_polling_min_ms*1000;
-    config_get_uint16t_from_str("ethtmout",&nm->eth_link_down_reboot_ms,30);
-    nm->eth_link_down_reboot_ms = nm->eth_link_down_reboot_ms*1000;
-    config_get_uint16t_from_str("dhcp_tmout",&nm->dhcp_timeout,30);
-    nm->dhcp_timeout = nm->dhcp_timeout*1000;
-    ESP_LOGI(TAG,"Network manager configuration: polling max %d, polling min %d, ap delay %d, dhcp timeout %d, eth timeout %d",
-        nm->sta_polling_max_ms,nm->sta_polling_min_ms,nm->ap_duration_ms,nm->dhcp_timeout, nm->eth_link_down_reboot_ms);
+    // Overflow-safe: NVS holds seconds (uint16), stored as ms (uint32).
+    // Old code did uint16*1000 which wrapped 600s -> 10176ms.
+    uint16_t tmp = 0;
+    config_get_uint16t_from_str("pollmx",&tmp,600);
+    nm->sta_polling_max_ms = (uint32_t)tmp * 1000UL;
+    config_get_uint16t_from_str("apdelay",&tmp,20);
+    nm->ap_duration_ms = (uint32_t)tmp * 1000UL;
+    config_get_uint16t_from_str("pollmin",&tmp,15);
+    nm->sta_polling_min_ms = (uint32_t)tmp * 1000UL;
+    config_get_uint16t_from_str("ethtmout",&tmp,30);
+    nm->eth_link_down_reboot_ms = (uint32_t)tmp * 1000UL;
+    config_get_uint16t_from_str("dhcp_tmout",&tmp,30);
+    nm->dhcp_timeout = (uint32_t)tmp * 1000UL;
+    config_get_uint16t_from_str("staapdelay",&tmp,60);
+    nm->sta_ap_fallback_ms = (uint32_t)tmp * 1000UL;
+    if (nm->sta_ap_fallback_ms == 0) nm->sta_ap_fallback_ms = nm->sta_polling_max_ms;
+    if (nm->sta_polling_max_ms < nm->sta_polling_min_ms) {
+        ESP_LOGW(TAG,"pollmx (%u) < pollmin (%u), clamping max to min",
+            nm->sta_polling_max_ms, nm->sta_polling_min_ms);
+        nm->sta_polling_max_ms = nm->sta_polling_min_ms;
+    }
+    ESP_LOGI(TAG,"Network manager configuration: polling max %u, polling min %u, ap delay %u, dhcp timeout %u, eth timeout %u, sta/ap fallback %u",
+        nm->sta_polling_max_ms,nm->sta_polling_min_ms,nm->ap_duration_ms,nm->dhcp_timeout, nm->eth_link_down_reboot_ms, nm->sta_ap_fallback_ms);
     HANDLE_GLOBAL_EVENT(State_Machine);
     if (State_Machine->Event == EN_START) {
         result= local_traverse_state(State_Machine, &network_states[NETWORK_INITIALIZING_STATE],__FUNCTION__);
@@ -643,6 +654,20 @@ static state_machine_result_t NETWORK_WIFI_CONFIGURING_ACTIVE_STATE_handler(stat
         case EN_CONNECT_NEW:
             result= local_traverse_state(State_Machine, &Wifi_Configuring_State[WIFI_CONFIGURING_CONNECT_STATE],__FUNCTION__);
             break;
+        case EN_TIMER: {
+            // APSTA portal stays up; keep polling known APs in background
+            // (sequential failover). Previously unhandled -> "Unhandled Event" log.
+            ESP_LOGI(TAG,"AP portal background STA poll (%s)",
+                STR_OR_ALT(((network_t*)State_Machine)->timer_tag,"timer"));
+            network_wifi_set_found_ap();
+            if (network_wifi_connect_next_in_range() != ESP_OK) {
+                network_wifi_start_scan();
+            }
+            network_set_timer(((network_t*)State_Machine)->sta_polling_min_ms,
+                "AP portal background STA poll");
+            result = EVENT_HANDLED;
+            break;
+        }
         case EN_LINK_UP:
             ESP_LOGW(TAG, "Ethernet link up in wifi mode");
             break;
@@ -815,15 +840,43 @@ static state_machine_result_t WIFI_CONNECTING_STATE_handler(state_machine_t* con
         case EN_CONNECTED:
             // nothing to do here. Let's wait for IP address 
             break;
-        case EN_TIMER:
-            // try connecting again.
-            // todo: implement multi-ap logic
-            ESP_LOGI(TAG, "Timer: %s ",STR_OR_ALT(nm->timer_tag,"Ethernet link not detected"));
+        case EN_TIMER: {
+            // Sequential failover: try next known AP in range first
+            // (least-recently-tried), fall back to active SSID.
+            ESP_LOGI(TAG, "Timer: %s ",STR_OR_ALT(nm->timer_tag,"Wifi polling"));
+            network_wifi_set_found_ap();
+            if (network_wifi_get_known_count_in_range() > 0) {
+                if (network_wifi_connect_next_in_range() == ESP_OK) {
+                    // Re-arm in case the new attempt hangs with no events;
+                    // success path (EN_CONNECTED/EN_GOT_IP) cancels it.
+                    network_set_timer(nm->STA_duration, "Wifi Polling timeout");
+                    break;
+                }
+            }
             network_connect_active_ssid(State_Machine);
+            // Exponential backoff capped at max; APSTA portal takes over
+            // after sta_ap_fallback_ms (see WIFI_LOST_CONNECTION).
+            if (nm->STA_duration < nm->sta_polling_max_ms) {
+                nm->STA_duration = (uint32_t)(nm->STA_duration * 1.25f);
+                if (nm->STA_duration > nm->sta_polling_max_ms) nm->STA_duration = nm->sta_polling_max_ms;
+            }
+            network_set_timer(nm->STA_duration, "Wifi Polling timeout");
             break;
+        }
         case EN_LOST_CONNECTION:
             if(nm->event_parameters->disconnected_event->reason == WIFI_REASON_ASSOC_LEAVE || nm->event_parameters->disconnected_event->reason == WIFI_REASON_AUTH_EXPIRE || nm->event_parameters->disconnected_event->reason ==  WIFI_REASON_ASSOC_EXPIRE) {
                 ESP_LOGI(TAG,"Wifi was disconnected from previous access point. Waiting to connect.");
+            }
+            else if (nm->event_parameters->disconnected_event->reason == WIFI_REASON_AUTH_FAIL) {
+                // Wrong password / auth mismatch: report, don't spin on same AP.
+                ESP_LOGW(TAG,"Auth failed - check password/authmode, trying next known AP");
+                network_status_update_ip_info(UPDATE_FAILED_ATTEMPT);
+                network_wifi_set_found_ap();
+                if (network_wifi_get_known_count_in_range() > 1 &&
+                    network_wifi_connect_next_in_range() == ESP_OK) {
+                    break;
+                }
+                result = local_traverse_state(State_Machine, &Wifi_Configuring_State[WIFI_CONFIGURING_STATE],__FUNCTION__);
             }
             else if(nm->event_parameters->disconnected_event->reason != WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT) {
                 network_status_update_ip_info(UPDATE_FAILED_ATTEMPT);
@@ -1054,18 +1107,19 @@ static state_machine_result_t WIFI_LOST_CONNECTION_STATE_entry_handler(state_mac
             wifi_mode_t mode;
             ESP_LOGW(TAG, " All connect retry attempts failed.");
 
-            /* put us in softAP mode first */
+            /* put us in softAP mode after sta_ap_fallback budget, keep STA polling */
             esp_wifi_get_mode(&mode);
             if (WIFI_MODE_APSTA != mode) {
                  nm->STA_duration = nm->sta_polling_min_ms;
                 network_async_configure();
-            } else if (nm->STA_duration < nm->sta_polling_max_ms) {
-                nm->STA_duration *= 1.25;
+            } else if (nm->STA_duration < nm->sta_ap_fallback_ms) {
+                nm->STA_duration = (uint32_t)(nm->STA_duration * 1.25f);
+                if (nm->STA_duration > nm->sta_ap_fallback_ms) nm->STA_duration = nm->sta_ap_fallback_ms;
             }
 
             /* keep polling for existing connection */
             network_set_timer(nm->STA_duration, "Wifi Polling timeout");
-            ESP_LOGD(TAG, " STA search slow polling of %d", nm->STA_duration);
+            ESP_LOGD(TAG, " STA search slow polling of %u", nm->STA_duration);
         }
     }
 
