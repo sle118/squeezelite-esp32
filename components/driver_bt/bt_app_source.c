@@ -13,6 +13,7 @@
 #include "esp_console.h"
 #include "esp_pthread.h"
 #include "esp_system.h"
+#include "esp_timer.h"
 #include "esp_wifi.h"
 #include "freertos/timers.h"
 #include "argtable3/argtable3.h"
@@ -99,6 +100,8 @@ static TimerHandle_t s_tmr=NULL;
 static int prev_duration=10000;
 static esp_avrc_rn_evt_cap_mask_t s_avrc_peer_rn_cap;
 static int s_connecting_intv = 0;
+static int s_connect_failures = 0;
+static int64_t s_next_connect_attempt = 0;
 cJSON * peers_list=NULL;
 
 static struct {
@@ -348,9 +351,25 @@ static void bt_app_gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *pa
 				ESP_LOGI(TAG,"Discovery completed.  Ready to start connecting to %s. ", s_peer_bdname);
                 esp_a2d_source_connect(s_peer_bda);
             } else {
-                // not discovered, continue to discover
-                ESP_LOGI(TAG, "Device discovery failed, continue to discover...");
-                esp_bt_gap_start_discovery(ESP_BT_INQ_MODE_GENERAL_INQUIRY, 10, 0);
+                // Not discovered. If a peer is already known (bonded earlier) do not
+                // stay in the inquiry loop forever - a speaker that is paired but not
+                // discoverable would never be reconnected. Fall back to direct
+                // connection attempts against the known address instead.
+                bool have_peer = false;
+                for (int i = 0; i < ESP_BD_ADDR_LEN; i++) {
+                    if (s_peer_bda[i]) {
+                        have_peer = true;
+                        break;
+                    }
+                }
+                if (have_peer) {
+                    ESP_LOGW(TAG, "Device discovery failed, retrying the known peer %s directly", s_peer_bdname);
+                    s_next_connect_attempt = esp_timer_get_time() + 5LL * 1000 * 1000;
+                    set_app_source_state(APP_AV_STATE_UNCONNECTED);
+                } else {
+                    ESP_LOGI(TAG, "Device discovery failed, continue to discover...");
+                    esp_bt_gap_start_discovery(ESP_BT_INQ_MODE_GENERAL_INQUIRY, 10, 0);
+                }
             }
         } else if (param->disc_st_chg.state == ESP_BT_GAP_DISCOVERY_STARTED) {
             ESP_LOGI(TAG, "Discovery started.");
@@ -481,18 +500,39 @@ static void handle_connect_state_connecting(uint16_t event, esp_a2d_cb_param_t *
     {
         case ESP_A2D_CONNECTION_STATE_DISCONNECTED:
             if(param->conn_stat.disc_rsn!=ESP_A2D_DISC_RSN_NORMAL){
-                ESP_LOGE(TAG,"A2DP had an abnormal disconnect event");
+                ESP_LOGE(TAG,"A2DP had an abnormal disconnect event (reason %d)", param->conn_stat.disc_rsn);
             }
             else {
-                ESP_LOGW(TAG,"A2DP connect unsuccessful");
+                ESP_LOGW(TAG,"A2DP connect unsuccessful (reason %d: the sink refused or dropped the link)", param->conn_stat.disc_rsn);
             }
+            s_connect_failures++;
+            // do not hammer the sink once a second: pause before the next attempt,
+            // and after two failures rescan instead of retrying the cached address
+            // (the speaker may be asleep, off, or busy with another source)
+            s_next_connect_attempt = esp_timer_get_time() + 3LL * 1000 * 1000;
             set_app_source_state(APP_AV_STATE_UNCONNECTED);
             break;
         case ESP_A2D_CONNECTION_STATE_CONNECTING:
             break;
         case ESP_A2D_CONNECTION_STATE_CONNECTED:
+            // remember who connected: the sink may have initiated the link (an
+            // already bonded speaker reconnecting on its own), in which case the
+            // address was never learned through discovery. Without it the
+            // fallback below cannot re-establish the link when the sink is not
+            // discoverable.
+            if (param->conn_stat.remote_bda[0] || param->conn_stat.remote_bda[1] ||
+                param->conn_stat.remote_bda[2] || param->conn_stat.remote_bda[3] ||
+                param->conn_stat.remote_bda[4] || param->conn_stat.remote_bda[5]) {
+                memcpy(s_peer_bda, param->conn_stat.remote_bda, ESP_BD_ADDR_LEN);
+                if (!s_peer_bdname[0] && squeezelite_conf.sink_name) {
+                    strncpy((char *)s_peer_bdname, squeezelite_conf.sink_name, ESP_BT_GAP_MAX_BDNAME_LEN);
+                    s_peer_bdname[ESP_BT_GAP_MAX_BDNAME_LEN] = 0;
+                }
+            }
             set_app_source_state(APP_AV_STATE_CONNECTED);
             set_a2dp_media_state(APP_AV_MEDIA_STATE_IDLE);
+            s_connect_failures = 0;
+            s_next_connect_attempt = 0;
             ESP_LOGD(TAG,"Setting scan mode to ESP_BT_NON_CONNECTABLE, ESP_BT_NON_DISCOVERABLE");
             esp_bt_gap_set_scan_mode(ESP_BT_NON_CONNECTABLE, ESP_BT_NON_DISCOVERABLE);
             ESP_LOGD(TAG,"Done setting scan mode. App state is now CONNECTED and media state IDLE.");
@@ -883,6 +923,20 @@ static void bt_app_av_state_unconnected(uint16_t event, void *param)
 		default:
 			break;
 		}
+        if (esp_timer_get_time() < s_next_connect_attempt) {
+            ESP_LOGD(TAG, "backing off before the next connection attempt");
+            break;
+        }
+        if (s_connect_failures >= 2) {
+            // the cached address keeps being refused: forget it and look for the
+            // sink again, it may have been powered off/on or be busy elsewhere
+            s_connect_failures = 0;
+            ESP_LOGW(TAG, "several connection attempts failed, rescanning for %s",
+                     squeezelite_conf.sink_name ? squeezelite_conf.sink_name : "the sink");
+            set_app_source_state(APP_AV_STATE_DISCOVERING);
+            esp_bt_gap_start_discovery(ESP_BT_INQ_MODE_GENERAL_INQUIRY, 10, 0);
+            break;
+        }
         uint8_t *p = s_peer_bda;
         ESP_LOGI(TAG, "a2dp connecting to %s, BT peer: %02x:%02x:%02x:%02x:%02x:%02x",s_peer_bdname,p[0], p[1], p[2], p[3], p[4], p[5]);
         if(esp_a2d_source_connect(s_peer_bda)==ESP_OK) {  
