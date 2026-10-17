@@ -497,6 +497,7 @@ static void handle_connect_state_connecting(uint16_t event, esp_a2d_cb_param_t *
             set_app_source_state(APP_AV_STATE_CONNECTED);
             set_a2dp_media_state(APP_AV_MEDIA_STATE_IDLE);
             s_last_hw_volume = -1;  // force a resync of the sink volume on the next volume update
+            ESP_LOGI(TAG, "a2dp connected, waiting for the AVRCP (RC) channel");
             ESP_LOGD(TAG,"Setting scan mode to ESP_BT_NON_CONNECTABLE, ESP_BT_NON_DISCOVERABLE");
             esp_bt_gap_set_scan_mode(ESP_BT_NON_CONNECTABLE, ESP_BT_NON_DISCOVERABLE);
             ESP_LOGD(TAG,"Done setting scan mode. App state is now CONNECTED and media state IDLE.");
@@ -727,12 +728,23 @@ static void bt_av_hdl_stack_evt(uint16_t event, void *p_param)
         esp_bt_gap_register_callback(bt_app_gap_cb);
 
         /* initialize AVRCP controller */
-        esp_avrc_ct_init();
-        esp_avrc_ct_register_callback(bt_app_rc_ct_cb);
+        esp_err_t err;
+        err = esp_avrc_ct_init();
+        ESP_LOGI(TAG, "avrc ct init: %s", esp_err_to_name(err));
+        err = esp_avrc_ct_register_callback(bt_app_rc_ct_cb);
+        ESP_LOGI(TAG, "avrc ct register callback: %s", esp_err_to_name(err));
 
-        esp_avrc_rn_evt_cap_mask_t evt_set = {0};
-        esp_avrc_rn_evt_bit_mask_operation(ESP_AVRC_BIT_MASK_OP_SET, &evt_set, ESP_AVRC_RN_VOLUME_CHANGE);
-        assert(esp_avrc_tg_set_rn_evt_cap(&evt_set) == ESP_OK);
+        // Some sinks only open the AVRCP (RC) channel when the target side of the
+        // profile is also initialised, so register it here as well. Older code called
+        // esp_avrc_tg_set_rn_evt_cap() without initialising the target first, which
+        // simply fails with ESP_ERR_INVALID_STATE.
+        err = esp_avrc_tg_init();
+        ESP_LOGI(TAG, "avrc tg init: %s", esp_err_to_name(err));
+        if (err == ESP_OK) {
+            esp_avrc_rn_evt_cap_mask_t evt_set = {0};
+            esp_avrc_rn_evt_bit_mask_operation(ESP_AVRC_BIT_MASK_OP_SET, &evt_set, ESP_AVRC_RN_VOLUME_CHANGE);
+            ESP_LOGI(TAG, "avrc tg rn cap: %s", esp_err_to_name(esp_avrc_tg_set_rn_evt_cap(&evt_set)));
+        }
 
 
         /* initialize A2DP source */
