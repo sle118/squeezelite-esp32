@@ -1,12 +1,14 @@
 <script>
   import Status from './views/Status.svelte';
+  import Player from './views/Player.svelte';
+  import Nvs from './views/Nvs.svelte';
   import Placeholder from './views/Placeholder.svelte';
 
   const tabs = [
     { id: 'status', label: 'Статус' },
-    { id: 'audio', label: 'Звук' },
-    { id: 'hardware', label: 'Железо' },
+    { id: 'player', label: 'Плеер' },
     { id: 'nvs', label: 'NVS' },
+    { id: 'audio', label: 'Звук' },
     { id: 'firmware', label: 'Прошивка' },
   ];
 
@@ -29,11 +31,15 @@
 <main>
   {#if tab === 'status'}
     <Status />
+  {:else if tab === 'player'}
+    <Player />
+  {:else if tab === 'nvs'}
+    <Nvs />
   {:else}
     <Placeholder name={tabs.find((t) => t.id === tab)?.label ?? ''} />
   {/if}
 </main>
 
 <footer>
-  <span class="muted">Squeezelite-ESP32 web UI · ранняя версия</span>
+  <span class="muted">Squeezelite-ESP32 web UI · ранняя версия · <a href="/">встроенный интерфейс</a></span>
 </footer>

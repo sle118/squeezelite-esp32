@@ -35,5 +35,23 @@ export const getCommands = () => request('/commands.json');
 export const getScan = () => request('/scan.json');
 export const reboot = () => request('/reboot.json', { method: 'POST' });
 
+// Write NVS entries: { key: "value" } or { key: { type, value } } -> POST /config.json
+export async function setConfig(entries) {
+  const config = {};
+  for (const [key, val] of Object.entries(entries)) {
+    const entry = val && typeof val === 'object' ? val : { type: 33, value: val };
+    // type 33 == NVS_TYPE_STR; anything else is numeric in this firmware
+    config[key] = {
+      type: entry.type ?? 33,
+      value: (entry.type ?? 33) === 33 ? String(entry.value) : Number(entry.value),
+    };
+  }
+  return request('/config.json', {
+    method: 'POST',
+    body: JSON.stringify({ config }),
+    timeout: 15000,
+  });
+}
+
 export const post = (path, payload) =>
   request(path, { method: 'POST', body: JSON.stringify(payload) });
