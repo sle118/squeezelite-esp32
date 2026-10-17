@@ -334,3 +334,37 @@ button:disabled {
   font-size: 11.5px;
   line-height: 1.3;
 }
+
+/* --- buttons --- */
+button {
+  background: #1c2029;
+  border: 1px solid var(--line);
+  color: var(--fg);
+  border-radius: 8px;
+  padding: 7px 14px;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+button:hover:not(:disabled) {
+  border-color: #3b4354;
+  background: #232936;
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #07101f;
+  font-weight: 600;
+}
+
+button.primary:hover:not(:disabled) {
+  background: #5f9bff;
+  border-color: #5f9bff;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
