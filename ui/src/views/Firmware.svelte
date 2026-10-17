@@ -68,6 +68,24 @@
     }
   }
 
+  // The firmware posts its progress as a message whose text is itself JSON:
+  // {"ota_dsc":"...","ota_pct":N}. /messages.json wraps it as
+  // { message, type, class, sent_time, current_time } and drains the queue,
+  // so every message has to be parsed here before it is lost.
+  function readProgress(messages) {
+    let latest = null;
+    for (const item of messages ?? []) {
+      if (!item?.message) continue;
+      try {
+        const parsed = JSON.parse(item.message);
+        if (parsed && parsed.ota_pct !== undefined) latest = parsed;
+      } catch {
+        /* not a JSON message - ignore */
+      }
+    }
+    return latest;
+  }
+
   async function install(release) {
     installing = release.tag;
     progress = { pct: 0, dsc: 'передаю команду на обновление' };
@@ -78,8 +96,7 @@
           try {
             const res = await fetch('/messages.json', { cache: 'no-store' });
             if (!res.ok) return;
-            const messages = await res.json();
-            const ota = (messages ?? []).filter((m) => m && m.ota_pct !== undefined).pop();
+            const ota = readProgress(await res.json());
             if (ota) progress = { pct: ota.ota_pct, dsc: ota.ota_dsc };
           } catch {
             /* the device reboots during the update, so failures are expected */
