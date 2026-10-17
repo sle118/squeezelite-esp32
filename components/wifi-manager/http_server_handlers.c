@@ -380,7 +380,7 @@ esp_err_t app_get_handler(httpd_req_t *req){
 		"<!doctype html><html lang=\"ru\"><head><meta charset=\"utf-8\">"
 		"<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
 		"<title>Squeezelite-ESP32</title>"
-		"<link rel=\"icon\" href=\"data:,\">"
+		"<link rel=\"icon\" type=\"image/svg+xml\" href=\"%s/favicon.svg?v=%08x\">"
 		"<style>body{margin:0;background:#0f1115;color:#8b93a7;"
 		"font:15px/1.5 system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}"
 		"#boot{padding:2em}a{color:#4c8dff}</style>"
@@ -398,7 +398,7 @@ esp_err_t app_get_handler(httpd_req_t *req){
 	// expires. The page itself is tiny and always loaded fresh.
 	uint32_t nonce = esp_random();
 
-	int len = snprintf(body, sizeof(body), page, base, nonce, base, nonce);
+	int len = snprintf(body, sizeof(body), page, base, nonce, base, nonce, base, nonce);
 
 	ESP_LOGD_LOC(TAG, "serving remote UI shell from [%s]", base);
 	httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
