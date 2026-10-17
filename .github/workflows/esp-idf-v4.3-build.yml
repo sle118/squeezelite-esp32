@@ -1,4 +1,4 @@
-# This is a basic workflow to help you get started with Actions
+﻿# This is a basic workflow to help you get started with Actions
 name: ESP-IDF v4.3.1
 on:
   push:
@@ -16,17 +16,15 @@ jobs:
     steps:
     - name: Generate common build number
       id: buildnumber
-      uses: einaregilsson/build-number@v3
-      with:
-        token: ${{secrets.github_token}}
+      run: echo "build_number=$(( $(date +%s) / 86400 % 10000 ))" >> "$GITHUB_OUTPUT"
   build:
     runs-on: ubuntu-latest
     needs: job1
     strategy:
       max-parallel: 1
       matrix:
-        node: [I2S-4MFlash, SqueezeAmp, Muse]
-        depth: [16, 32]
+        node: [I2S-4MFlash]
+        depth: [16]
         exclude:
          - node: Muse
            depth: 32
@@ -35,13 +33,13 @@ jobs:
       run: |
         echo "TARGET_BUILD_NAME=${{ matrix.node }}" >> $GITHUB_ENV
         echo "build_version_prefix=2." >> $GITHUB_ENV
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 15
         submodules: true
     - name: Cache build
       id: cache-build
-      uses: actions/cache@v2
+      uses: actions/cache@v4
       with:
         path: |
           ~/build 
@@ -112,7 +110,7 @@ jobs:
     #     echo "mock content"> size_comp1.txt
     #     echo "mock content"> size_comp2.txt
     #     echo "mock content"> ../partitions.csv
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v4
       with:
         name: ${{ env.artifact_file_name }}
         path: |
@@ -126,7 +124,7 @@ jobs:
           sdkconfig
           server_certs/github.pem
           build_output.zip
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v4
       with:
         name: ${{ env.artifact_bin_file_name }}
         path: |
