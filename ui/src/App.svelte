@@ -1,4 +1,5 @@
 <script>
+  import { onMount } from 'svelte';
   import Status from './views/Status.svelte';
   import Player from './views/Player.svelte';
   import Nvs from './views/Nvs.svelte';
@@ -12,7 +13,23 @@
     { id: 'firmware', label: 'Прошивка' },
   ];
 
-  let tab = 'status';
+  const fromHash = () => {
+    const id = (typeof location !== 'undefined' ? location.hash : '').replace(/^#/, '');
+    return tabs.some((t) => t.id === id) ? id : 'status';
+  };
+
+  let tab = fromHash();
+
+  function select(id) {
+    tab = id;
+    if (typeof history !== 'undefined') history.replaceState(null, '', `#${id}`);
+  }
+
+  onMount(() => {
+    const onHash = () => (tab = fromHash());
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  });
 </script>
 
 <header class="topbar">
@@ -23,7 +40,7 @@
   </div>
   <nav>
     {#each tabs as t}
-      <button class:active={tab === t.id} onclick={() => (tab = t.id)}>{t.label}</button>
+      <button class:active={tab === t.id} onclick={() => select(t.id)}>{t.label}</button>
     {/each}
   </nav>
 </header>
