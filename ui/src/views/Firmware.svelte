@@ -86,7 +86,6 @@
 
   onMount(async () => {
     await loadMeta();
-    await loadReleases();
   });
 
   onDestroy(() => {
@@ -99,6 +98,11 @@
   <p class="muted small">
     Текущая версия: <code>{version || '—'}</code>. Во время установки плата перезагрузится,
     соединение на несколько секунд пропадёт.
+  </p>
+  <p class="muted small">
+    Список загружается только по кнопке: GitHub отдаёт неавторизованным клиентам
+    ограниченное число запросов в час, и тратить их на каждое открытие страницы
+    не стоит.
   </p>
 
   {#if error}
@@ -113,9 +117,17 @@
   {/if}
 
   <div class="actions">
-    <button onclick={loadReleases} disabled={loading}>{loading ? 'Загружаю…' : 'Проверить обновления'}</button>
+    <button onclick={loadReleases} disabled={loading}>
+      {loading ? 'Загружаю…' : releases.length ? 'Обновить список' : 'Получить список'}
+    </button>
     {#if releasesUrl}<a class="muted small" href={releasesUrl} target="_blank" rel="noreferrer">страница релизов</a>{/if}
   </div>
+
+  {#if !releases.length && !loading && !error}
+    <p class="muted small">
+      Список ещё не загружен — нажмите «Получить список».
+    </p>
+  {/if}
 
   {#if releases.length}
     <div class="releases">
