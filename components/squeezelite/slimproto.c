@@ -22,6 +22,8 @@
  *   -Launch script on power status change from LMS
  */
 
+#include <math.h>
+
 #include "squeezelite.h"
 #include "slimproto.h"
 
@@ -474,6 +476,45 @@ static void process_aude(u8_t *pkt, int len) {
 	UNLOCK_O;
 }
 
+#if EMBEDDED
+/*
+ * Convert the 16.16 gain sent by the server (audg) into a volume position 0..127
+ * for AVRCP absolute volume.
+ *
+ * The server does NOT send a linear volume: it maps 0..100 to a piecewise linear
+ * dB curve (Slim::Player::Squeezebox2 / aioslimproto SlimProtoVolume for software
+ * players: -74 dB at 0, -37 dB at 25, 0 dB at 100) and then to amplitude.
+ * A linear gain -> volume mapping therefore squeezes the whole upper half of the
+ * slider into the first few steps of the sink. Invert the curve instead.
+ */
+static int gain_to_avrcp_volume(u32_t gain) {
+#define AVRCP_RANGE_DB     74.0f   /* total range of the server volume curve */
+#define AVRCP_KNEE_DB      37.0f   /* dB at the knee (volume 25) */
+#define AVRCP_KNEE_VOLUME  25.0f
+#define AVRCP_TOP_VOLUME   100.0f
+
+	float db, volume;
+
+	if (gain == 0) return 0;
+	if (gain >= FIXED_ONE) return 127;
+
+	db = 20.0f * log10f((float)gain / (float)FIXED_ONE);
+
+	if (db > -AVRCP_KNEE_DB) {
+		// upper (shallower) segment: -37 dB at 25 .. 0 dB at 100
+		volume = AVRCP_TOP_VOLUME - (db * (AVRCP_TOP_VOLUME - AVRCP_KNEE_VOLUME) / AVRCP_KNEE_DB);
+	} else {
+		// lower (steeper) segment: -74 dB at 0 .. -37 dB at 25
+		volume = (db + AVRCP_RANGE_DB) * (AVRCP_KNEE_VOLUME / AVRCP_KNEE_DB);
+	}
+
+	if (volume < 0) volume = 0;
+	if (volume > AVRCP_TOP_VOLUME) volume = AVRCP_TOP_VOLUME;
+
+	return (int)((volume * 127.0f + 50.0f) / 100.0f);
+}
+#endif
+
 static void process_audg(u8_t *pkt, int len) {
 	struct audg_packet *audg = (struct audg_packet *)pkt;
 	audg->gainL = unpackN(&audg->gainL);
@@ -486,7 +527,7 @@ static void process_audg(u8_t *pkt, int len) {
 #if EMBEDDED
 	// mirror the player volume on the A2DP sink (AVRCP absolute volume), if one is connected
 	if (audg->adjust) {
-		hal_bluetooth_set_volume((int)(((u64_t)audg->gainL * 127 + 32768) >> 16));
+		hal_bluetooth_set_volume(gain_to_avrcp_volume(audg->gainL));
 	}
 #endif
 }
