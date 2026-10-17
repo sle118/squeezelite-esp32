@@ -3,7 +3,7 @@
   import { getConfig, setConfig, reboot } from '../api.js';
 
   const HINTS = {
-    autoexec1: 'Командная строка плеера (её собирает вкладка «Плеер» и штатная морда)',
+    autoexec1: 'Командная строка плеера (её формируют вкладка «Плеер» и встроенный интерфейс)',
     autoexec: 'Выполнять autoexec при старте',
     a2dp_sink_name: 'Имя Bluetooth-колонки для вывода звука',
     a2dp_spin: 'PIN Bluetooth-колонки (обычно 1234)',

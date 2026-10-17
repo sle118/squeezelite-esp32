@@ -380,6 +380,7 @@ esp_err_t app_get_handler(httpd_req_t *req){
 		"<!doctype html><html lang=\"ru\"><head><meta charset=\"utf-8\">"
 		"<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
 		"<title>Squeezelite-ESP32</title>"
+		"<link rel=\"icon\" href=\"data:,\">"
 		"<style>body{margin:0;background:#0f1115;color:#8b93a7;"
 		"font:15px/1.5 system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}"
 		"#boot{padding:2em}a{color:#4c8dff}</style>"
