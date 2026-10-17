@@ -515,6 +515,20 @@ static void handle_connect_state_connecting(uint16_t event, esp_a2d_cb_param_t *
         case ESP_A2D_CONNECTION_STATE_CONNECTING:
             break;
         case ESP_A2D_CONNECTION_STATE_CONNECTED:
+            // remember who connected: the sink may have initiated the link (an
+            // already bonded speaker reconnecting on its own), in which case the
+            // address was never learned through discovery. Without it the
+            // fallback below cannot re-establish the link when the sink is not
+            // discoverable.
+            if (param->conn_stat.remote_bda[0] || param->conn_stat.remote_bda[1] ||
+                param->conn_stat.remote_bda[2] || param->conn_stat.remote_bda[3] ||
+                param->conn_stat.remote_bda[4] || param->conn_stat.remote_bda[5]) {
+                memcpy(s_peer_bda, param->conn_stat.remote_bda, ESP_BD_ADDR_LEN);
+                if (!s_peer_bdname[0] && squeezelite_conf.sink_name) {
+                    strncpy((char *)s_peer_bdname, squeezelite_conf.sink_name, ESP_BT_GAP_MAX_BDNAME_LEN);
+                    s_peer_bdname[ESP_BT_GAP_MAX_BDNAME_LEN] = 0;
+                }
+            }
             set_app_source_state(APP_AV_STATE_CONNECTED);
             set_a2dp_media_state(APP_AV_MEDIA_STATE_IDLE);
             s_connect_failures = 0;
