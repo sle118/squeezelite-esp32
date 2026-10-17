@@ -502,7 +502,8 @@ static int gain_to_avrcp_volume(u32_t gain) {
 
 	if (db > -AVRCP_KNEE_DB) {
 		// upper (shallower) segment: -37 dB at 25 .. 0 dB at 100
-		volume = AVRCP_TOP_VOLUME - (db * (AVRCP_TOP_VOLUME - AVRCP_KNEE_VOLUME) / AVRCP_KNEE_DB);
+		// db is negative, so it has to be subtracted from the top volume
+		volume = AVRCP_TOP_VOLUME + (db * (AVRCP_TOP_VOLUME - AVRCP_KNEE_VOLUME) / AVRCP_KNEE_DB);
 	} else {
 		// lower (steeper) segment: -74 dB at 0 .. -37 dB at 25
 		volume = (db + AVRCP_RANGE_DB) * (AVRCP_KNEE_VOLUME / AVRCP_KNEE_DB);
