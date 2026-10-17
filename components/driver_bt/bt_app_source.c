@@ -101,6 +101,7 @@ static int prev_duration=10000;
 static esp_avrc_rn_evt_cap_mask_t s_avrc_peer_rn_cap;
 static int s_connecting_intv = 0;
 static int s_last_hw_volume = -1;
+static int s_desired_volume = -1;
 cJSON * peers_list=NULL;
 
 static struct {
@@ -1003,23 +1004,29 @@ static void bt_av_volume_changed(void)
     }
 }
 
+static void bt_push_desired_volume(void)
+{
+    if (s_desired_volume < 0) return;
+    if (bt_app_source_a2d_state != APP_AV_STATE_CONNECTED) return;
+    if (!esp_avrc_rn_evt_bit_mask_operation(ESP_AVRC_BIT_MASK_OP_TEST, &s_avrc_peer_rn_cap, ESP_AVRC_RN_VOLUME_CHANGE)) return;
+    if (s_desired_volume == s_last_hw_volume) return;
+
+    s_last_hw_volume = s_desired_volume;
+    ESP_LOGI(BT_RC_CT_TAG, "Set absolute volume: volume %d", s_desired_volume);
+    esp_avrc_ct_send_set_absolute_volume_cmd(APP_RC_CT_TL_SET_VOLUME, s_desired_volume);
+}
+
 /**
  * Push a volume (0..127, AVRCP scale) to the connected A2DP sink.
  * Called by squeezelite whenever the player volume changes, so that the
  * hardware volume of the sink follows the server volume.
- * Does nothing when BT is not the active output or the sink does not
- * support absolute volume notifications.
+ * The value is remembered even if the sink is not connected right now, and
+ * pushed as soon as the AVRCP link and its capabilities are available.
  */
 void hal_bluetooth_set_volume(int vol_127)
 {
-    uint8_t vol = vol_127 < 0 ? 0 : (vol_127 > 127 ? 127 : vol_127);
-
-    if (bt_app_source_a2d_state != APP_AV_STATE_CONNECTED) return;
-    if (!esp_avrc_rn_evt_bit_mask_operation(ESP_AVRC_BIT_MASK_OP_TEST, &s_avrc_peer_rn_cap, ESP_AVRC_RN_VOLUME_CHANGE)) return;
-    if (vol == s_last_hw_volume) return;
-
-    s_last_hw_volume = vol;
-    esp_avrc_ct_send_set_absolute_volume_cmd(APP_RC_CT_TL_SET_VOLUME, vol);
+    s_desired_volume = vol_127 < 0 ? 0 : (vol_127 > 127 ? 127 : vol_127);
+    bt_push_desired_volume();
 }
 
 static void bt_av_notify_evt_handler(uint8_t event_id, esp_avrc_rn_param_t *event_parameter)
@@ -1076,6 +1083,8 @@ static void bt_av_hdl_avrc_ct_evt(uint16_t event, void *p_param)
         s_avrc_peer_rn_cap.bits = rc->get_rn_caps_rsp.evt_set.bits;
 
         bt_av_volume_changed();
+        // the sink is now known to support volume, push the current player volume to it
+        bt_push_desired_volume();
         break;
     }
     case ESP_AVRC_CT_SET_ABSOLUTE_VOLUME_RSP_EVT: {
