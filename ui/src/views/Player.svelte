@@ -6,7 +6,6 @@
   let original = '';
   let name = '';
   let server = '';
-  let buffers = '';
   let timeout = '';
   let preview = '';
   let msg = '';
@@ -21,7 +20,6 @@
       const tokens = tokenize(original);
       name = getOpt(tokens, '-n');
       server = getOpt(tokens, '-s');
-      buffers = getOpt(tokens, '-b');
       timeout = getOpt(tokens, '-C');
       preview = original;
     } catch (e) {
@@ -33,7 +31,6 @@
     let t = tokenize(original);
     t = setOpt(t, '-n', name.trim());
     t = setOpt(t, '-s', server.trim());
-    t = setOpt(t, '-b', buffers.trim());
     t = setOpt(t, '-C', timeout.trim());
     preview = join(t);
     return preview;
@@ -74,11 +71,6 @@
     <label>
       Сервер <span class="muted">(-s)</span>
       <input bind:value={server} oninput={build} placeholder="192.168.88.111" />
-    </label>
-
-    <label>
-      Буферы <span class="muted">(-b)</span>
-      <input bind:value={buffers} oninput={build} placeholder="500:1000" />
     </label>
 
     <label>

@@ -47,3 +47,16 @@ export function setOpt(tokens, flag, value) {
   else next.push(flag, value);
   return next;
 }
+
+// Flags without a value, e.g. -R (resampling).
+export function hasFlag(tokens, flag) {
+  return tokens.includes(flag);
+}
+
+export function setFlag(tokens, flag, enabled) {
+  const i = tokens.indexOf(flag);
+  const next = tokens.slice();
+  if (enabled && i < 0) next.push(flag);
+  if (!enabled && i >= 0) next.splice(i, 1);
+  return next;
+}

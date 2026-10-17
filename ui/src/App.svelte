@@ -3,6 +3,7 @@
   import Status from './views/Status.svelte';
   import Player from './views/Player.svelte';
   import Nvs from './views/Nvs.svelte';
+  import Audio from './views/Audio.svelte';
   import Placeholder from './views/Placeholder.svelte';
 
   const tabs = [
@@ -52,6 +53,8 @@
     <Player />
   {:else if tab === 'nvs'}
     <Nvs />
+  {:else if tab === 'audio'}
+    <Audio />
   {:else}
     <Placeholder name={tabs.find((t) => t.id === tab)?.label ?? ''} />
   {/if}

@@ -368,3 +368,42 @@ button:disabled {
   opacity: 0.45;
   cursor: default;
 }
+
+/* --- select + inline checkbox --- */
+select {
+  background: #0f1218;
+  border: 1px solid var(--line);
+  color: var(--fg);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+  min-width: 0;
+}
+
+select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.check {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  color: var(--fg);
+}
+
+.check input {
+  width: auto;
+}
+
+.badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  background: #22304a;
+  color: #9fc2ff;
+  vertical-align: middle;
+}
