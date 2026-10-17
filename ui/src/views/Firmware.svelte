@@ -12,6 +12,7 @@
   let progress = null;
   let timer = null;
   let showAll = false;
+  let onlyMine = true;
 
   // сколько релизов запрашивать у GitHub и сколько показывать сразу
   const REQUEST_LIMIT = 20;
@@ -50,6 +51,8 @@
           const bin = (r.assets ?? []).find((a) => a.name.endsWith('.bin'));
           return {
             tag: r.tag_name,
+            platform: String(r.tag_name ?? '').split('.')[0],
+            depth: String(r.tag_name ?? '').split('.')[1] ?? '',
             name: r.name,
             published: r.published_at,
             url: bin?.browser_download_url ?? '',
@@ -90,7 +93,9 @@
     }
   }
 
-  $: visible = showAll ? releases : releases.slice(0, VISIBLE_LIMIT);
+  $: platform = String(version ?? '').replace(/-\d+$/, '');
+  $: filtered = releases.filter((r) => !onlyMine || r.platform === platform);
+  $: visible = showAll ? filtered : filtered.slice(0, VISIBLE_LIMIT);
 
   const kb = (n) => (n ? `${(n / 1024).toFixed(0)} КБ` : '');
   const date = (s) => (s ? new Date(s).toLocaleDateString() : '');
@@ -134,6 +139,13 @@
     {#if releasesUrl}<a class="muted small" href={releasesUrl} target="_blank" rel="noreferrer">страница релизов</a>{/if}
   </div>
 
+  {#if releases.length}
+    <label class="check">
+      <input type="checkbox" bind:checked={onlyMine} />
+      Только сборки для этой платы (<code>{platform || '—'}</code>)
+    </label>
+  {/if}
+
   {#if !releases.length && !loading && !error}
     <p class="muted small">
       Список ещё не загружен — нажмите «Получить список».
@@ -146,6 +158,7 @@
         <div class="release">
           <div>
             <strong>{r.name || r.tag}</strong>
+            {#if r.platform !== platform}<span class="badge">{r.platform}</span>{/if}
             <span class="muted small">{date(r.published)} · {kb(r.size)}</span>
           </div>
           <div class="actions">
@@ -159,9 +172,9 @@
         </div>
       {/each}
     </div>
-    {#if releases.length > VISIBLE_LIMIT && !showAll}
+    {#if filtered.length > VISIBLE_LIMIT && !showAll}
       <div class="actions">
-        <button onclick={() => (showAll = true)}>Показать все ({releases.length})</button>
+        <button onclick={() => (showAll = true)}>Показать все ({filtered.length})</button>
       </div>
     {/if}
   {/if}
