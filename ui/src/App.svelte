@@ -4,6 +4,7 @@
   import Player from './views/Player.svelte';
   import Nvs from './views/Nvs.svelte';
   import Audio from './views/Audio.svelte';
+  import Firmware from './views/Firmware.svelte';
   import Placeholder from './views/Placeholder.svelte';
 
   const tabs = [
@@ -55,6 +56,8 @@
     <Nvs />
   {:else if tab === 'audio'}
     <Audio />
+  {:else if tab === 'firmware'}
+    <Firmware />
   {:else}
     <Placeholder name={tabs.find((t) => t.id === tab)?.label ?? ''} />
   {/if}

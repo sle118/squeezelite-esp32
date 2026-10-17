@@ -407,3 +407,46 @@ select:focus {
   color: #9fc2ff;
   vertical-align: middle;
 }
+
+/* --- releases --- */
+.releases {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.release {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #141821;
+}
+
+.release .actions {
+  margin: 0;
+}
+
+.bar {
+  height: 6px;
+  border-radius: 999px;
+  background: #10202f;
+  margin-top: 8px;
+  overflow: hidden;
+}
+
+.bar i {
+  display: block;
+  height: 100%;
+  background: var(--ok);
+  transition: width 0.3s ease;
+}
+
+a.muted {
+  text-decoration: none;
+  border-bottom: 1px dashed var(--line);
+}
