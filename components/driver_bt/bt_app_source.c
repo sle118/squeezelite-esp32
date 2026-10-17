@@ -1028,17 +1028,45 @@ static void bt_push_desired_volume(void)
     esp_avrc_ct_send_set_absolute_volume_cmd(APP_RC_CT_TL_SET_VOLUME, s_desired_volume);
 }
 
+static esp_timer_handle_t s_vol_timer = NULL;
+
+static void bt_volume_timer_cb(void *arg)
+{
+    bt_push_desired_volume();
+}
+
 /**
  * Push a volume (0..127, AVRCP scale) to the connected A2DP sink.
  * Called by squeezelite whenever the player volume changes, so that the
  * hardware volume of the sink follows the server volume.
  * The value is remembered even if the sink is not connected right now, and
  * pushed as soon as the AVRCP link and its capabilities are available.
+ * Bursts of volume changes (dragging the slider) are coalesced: only the last
+ * value is sent once the user stops moving, which avoids the sink jittering
+ * through every intermediate step.
  */
 void hal_bluetooth_set_volume(int vol_127)
 {
     s_desired_volume = vol_127 < 0 ? 0 : (vol_127 > 127 ? 127 : vol_127);
-    bt_push_desired_volume();
+
+    if (!s_vol_timer) {
+        const esp_timer_create_args_t args = {
+            .callback = bt_volume_timer_cb,
+            .name = "bt_volume",
+        };
+        if (esp_timer_create(&args, &s_vol_timer) != ESP_OK) {
+            s_vol_timer = NULL;
+        }
+    }
+
+    if (s_vol_timer) {
+        if (esp_timer_is_active(s_vol_timer)) {
+            return;  // a flush is already scheduled, it will pick up the latest value
+        }
+        esp_timer_start_once(s_vol_timer, 150 * 1000);
+    } else {
+        bt_push_desired_volume();
+    }
 }
 
 static void bt_av_notify_evt_handler(uint8_t event_id, esp_avrc_rn_param_t *event_parameter)
