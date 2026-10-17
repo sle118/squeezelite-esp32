@@ -365,8 +365,51 @@ esp_err_t root_get_handler(httpd_req_t *req){
 }
 
 
-esp_err_t resource_filehandler(httpd_req_t *req){
-    char filepath[FILE_PATH_MAX];
+/*
+ * A thin shell for the "remote" web UI: the page itself is served from the
+ * device (so all API calls stay same-origin), while the application bundle is
+ * loaded over HTTPS from GitHub Pages. A remote page could not talk to the
+ * device directly because of the mixed-content rules.
+ *
+ * The bundle location can be overridden with the NVS parameter "ui_url".
+ */
+#define UI_SHELL_DEFAULT_URL "https://denser.github.io/squeezelite-esp32"
+
+esp_err_t app_get_handler(httpd_req_t *req){
+	static const char *page =
+		"<!doctype html><html lang=\"ru\"><head><meta charset=\"utf-8\">"
+		"<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+		"<title>Squeezelite-ESP32</title>"
+		"<style>body{margin:0;background:#0f1115;color:#8b93a7;"
+		"font:15px/1.5 system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}"
+		"#boot{padding:2em}a{color:#4c8dff}</style>"
+		"<link rel=\"stylesheet\" href=\"%s/app.css\"></head><body>"
+		"<div id=\"app\"><p id=\"boot\">Загружаю интерфейс…<br>"
+		"Если этого не произошло, откройте <a href=\"/\">встроенный интерфейс</a>.</p></div>"
+		"<script type=\"module\" src=\"%s/app.js\"></script></body></html>";
+
+	char *ui_url = config_alloc_get_default(NVS_TYPE_STR, "ui_url", UI_SHELL_DEFAULT_URL, 0);
+	const char *base = (ui_url && strlen(ui_url)) ? ui_url : UI_SHELL_DEFAULT_URL;
+	static char body[1024];
+
+	int len = snprintf(body, sizeof(body), page, base, base);
+
+	ESP_LOGD_LOC(TAG, "serving remote UI shell from [%s]", base);
+	httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+	httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+	httpd_resp_set_type(req, "text/html");
+	esp_err_t err = ESP_FAIL;
+	if (len > 0 && len < (int) sizeof(body)) {
+		err = httpd_resp_send(req, body, len);
+	}
+
+	if (ui_url) {
+		free(ui_url);
+	}
+	return err;
+}
+
+esp_err_t resource_filehandler(httpd_req_t *req){    char filepath[FILE_PATH_MAX];
    ESP_LOGD_LOC(TAG, "serving [%s]", req->uri);
 
    const char *filename = get_path_from_uri(filepath, req->uri, sizeof(filepath));

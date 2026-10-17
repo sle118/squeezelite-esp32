@@ -1,0 +1,50 @@
+name: UI
+
+on:
+  push:
+    branches:
+      - '**4.3'
+    paths:
+      - 'ui/**'
+      - '.github/workflows/ui.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
+
+      - name: Install
+        working-directory: ui
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        working-directory: ui
+        run: pnpm run build
+
+      - name: Publish to the "ui" branch (GitHub Pages)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          cd ui/dist
+          touch .nojekyll
+          git init -q -b ui
+          git add -A
+          git -c user.name=github-actions -c user.email=github-actions@github.com \
+              commit -q -m "ui: build ${GITHUB_SHA}"
+          git push -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ui

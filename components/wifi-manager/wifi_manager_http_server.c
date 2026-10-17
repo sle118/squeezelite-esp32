@@ -61,6 +61,10 @@ void register_regular_handlers(httpd_handle_t server){
 	httpd_uri_t root_get = { .uri = "/", .method = HTTP_GET, .handler = root_get_handler, .user_ctx = rest_context };
 	httpd_register_uri_handler(server, &root_get);
 
+	// thin shell that loads the remote (GitHub Pages) web UI
+	httpd_uri_t app_get = { .uri = "/app", .method = HTTP_GET, .handler = app_get_handler, .user_ctx = rest_context };
+	httpd_register_uri_handler(server, &app_get);
+
 	httpd_uri_t ap_get = { .uri = "/ap.json", .method = HTTP_GET, .handler = ap_get_handler, .user_ctx = rest_context };
 	httpd_register_uri_handler(server, &ap_get);
 	httpd_uri_t scan_get = { .uri = "/scan.json", .method = HTTP_GET, .handler = ap_scan_handler, .user_ctx = rest_context };
