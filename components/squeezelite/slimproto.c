@@ -25,6 +25,11 @@
 #include "squeezelite.h"
 #include "slimproto.h"
 
+#if EMBEDDED
+// implemented in components/driver_bt/bt_app_source.c - no-op unless the BT output is connected
+extern void hal_bluetooth_set_volume(int vol_127);
+#endif
+
 static log_level loglevel;
 
 #define SQUEEZENETWORK "mysqueezebox.com:3483"
@@ -477,6 +482,13 @@ static void process_audg(u8_t *pkt, int len) {
 	LOG_DEBUG("audg gainL: %u gainR: %u adjust: %u", audg->gainL, audg->gainR, audg->adjust);
 
 	set_volume(audg->adjust ? audg->gainL : FIXED_ONE, audg->adjust ? audg->gainR : FIXED_ONE);
+
+#if EMBEDDED
+	// mirror the player volume on the A2DP sink (AVRCP absolute volume), if one is connected
+	if (audg->adjust) {
+		hal_bluetooth_set_volume((int)(((u64_t)audg->gainL * 127 + 32768) >> 16));
+	}
+#endif
 }
 
 static void process_dsco(u8_t *pkt, int len) {

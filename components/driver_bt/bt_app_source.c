@@ -58,6 +58,7 @@ static char *  ESP_AVRC_CT_DESC[]={
 // AVRCP used transaction label
 #define APP_RC_CT_TL_GET_CAPS            (0)
 #define APP_RC_CT_TL_RN_VOLUME_CHANGE    (1)
+#define APP_RC_CT_TL_SET_VOLUME          (2)
 #define PEERS_LIST_MAINTAIN_RESET -129
 #define PEERS_LIST_MAINTAIN_PURGE -129
 
@@ -99,6 +100,7 @@ static TimerHandle_t s_tmr=NULL;
 static int prev_duration=10000;
 static esp_avrc_rn_evt_cap_mask_t s_avrc_peer_rn_cap;
 static int s_connecting_intv = 0;
+static int s_last_hw_volume = -1;
 cJSON * peers_list=NULL;
 
 static struct {
@@ -493,6 +495,7 @@ static void handle_connect_state_connecting(uint16_t event, esp_a2d_cb_param_t *
         case ESP_A2D_CONNECTION_STATE_CONNECTED:
             set_app_source_state(APP_AV_STATE_CONNECTED);
             set_a2dp_media_state(APP_AV_MEDIA_STATE_IDLE);
+            s_last_hw_volume = -1;  // force a resync of the sink volume on the next volume update
             ESP_LOGD(TAG,"Setting scan mode to ESP_BT_NON_CONNECTABLE, ESP_BT_NON_DISCOVERABLE");
             esp_bt_gap_set_scan_mode(ESP_BT_NON_CONNECTABLE, ESP_BT_NON_DISCOVERABLE);
             ESP_LOGD(TAG,"Done setting scan mode. App state is now CONNECTED and media state IDLE.");
@@ -1000,13 +1003,32 @@ static void bt_av_volume_changed(void)
     }
 }
 
+/**
+ * Push a volume (0..127, AVRCP scale) to the connected A2DP sink.
+ * Called by squeezelite whenever the player volume changes, so that the
+ * hardware volume of the sink follows the server volume.
+ * Does nothing when BT is not the active output or the sink does not
+ * support absolute volume notifications.
+ */
+void hal_bluetooth_set_volume(int vol_127)
+{
+    uint8_t vol = vol_127 < 0 ? 0 : (vol_127 > 127 ? 127 : vol_127);
+
+    if (bt_app_source_a2d_state != APP_AV_STATE_CONNECTED) return;
+    if (!esp_avrc_rn_evt_bit_mask_operation(ESP_AVRC_BIT_MASK_OP_TEST, &s_avrc_peer_rn_cap, ESP_AVRC_RN_VOLUME_CHANGE)) return;
+    if (vol == s_last_hw_volume) return;
+
+    s_last_hw_volume = vol;
+    esp_avrc_ct_send_set_absolute_volume_cmd(APP_RC_CT_TL_SET_VOLUME, vol);
+}
+
 static void bt_av_notify_evt_handler(uint8_t event_id, esp_avrc_rn_param_t *event_parameter)
 {
     switch (event_id) {
     case ESP_AVRC_RN_VOLUME_CHANGE:
+        // the sink changed its own volume (its buttons/remote): just track it, do not override the user
         ESP_LOGI(BT_RC_CT_TAG, "Volume changed: %d", event_parameter->volume);
-        ESP_LOGI(BT_RC_CT_TAG, "Set absolute volume: volume %d", event_parameter->volume + 5);
-        esp_avrc_ct_send_set_absolute_volume_cmd(APP_RC_CT_TL_RN_VOLUME_CHANGE, event_parameter->volume + 5);
+        s_last_hw_volume = event_parameter->volume;
         bt_av_volume_changed();
         break;
     }
