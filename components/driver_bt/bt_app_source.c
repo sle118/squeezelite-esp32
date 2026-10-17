@@ -351,9 +351,25 @@ static void bt_app_gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *pa
 				ESP_LOGI(TAG,"Discovery completed.  Ready to start connecting to %s. ", s_peer_bdname);
                 esp_a2d_source_connect(s_peer_bda);
             } else {
-                // not discovered, continue to discover
-                ESP_LOGI(TAG, "Device discovery failed, continue to discover...");
-                esp_bt_gap_start_discovery(ESP_BT_INQ_MODE_GENERAL_INQUIRY, 10, 0);
+                // Not discovered. If a peer is already known (bonded earlier) do not
+                // stay in the inquiry loop forever - a speaker that is paired but not
+                // discoverable would never be reconnected. Fall back to direct
+                // connection attempts against the known address instead.
+                bool have_peer = false;
+                for (int i = 0; i < ESP_BD_ADDR_LEN; i++) {
+                    if (s_peer_bda[i]) {
+                        have_peer = true;
+                        break;
+                    }
+                }
+                if (have_peer) {
+                    ESP_LOGW(TAG, "Device discovery failed, retrying the known peer %s directly", s_peer_bdname);
+                    s_next_connect_attempt = esp_timer_get_time() + 5LL * 1000 * 1000;
+                    set_app_source_state(APP_AV_STATE_UNCONNECTED);
+                } else {
+                    ESP_LOGI(TAG, "Device discovery failed, continue to discover...");
+                    esp_bt_gap_start_discovery(ESP_BT_INQ_MODE_GENERAL_INQUIRY, 10, 0);
+                }
             }
         } else if (param->disc_st_chg.state == ESP_BT_GAP_DISCOVERY_STARTED) {
             ESP_LOGI(TAG, "Discovery started.");
