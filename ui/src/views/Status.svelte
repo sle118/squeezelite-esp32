@@ -67,22 +67,6 @@
     </dl>
   </section>
 
-  {#if status?.heap_internal !== undefined || status?.heap_external !== undefined}
-    <section class="card">
-      <h2>Ресурсы</h2>
-      <dl>
-        {#if status?.heap_internal !== undefined}
-          <dt>Внутренняя память</dt>
-          <dd>{Math.round(status.heap_internal / 1024)} КБ</dd>
-        {/if}
-        {#if status?.heap_external !== undefined}
-          <dt>PSRAM</dt>
-          <dd>{Math.round(status.heap_external / 1024)} КБ</dd>
-        {/if}
-      </dl>
-    </section>
-  {/if}
-
   <section class="card">
     <h2>Сеть</h2>
     <dl>
@@ -131,6 +115,22 @@
       <p class="muted">нет данных</p>
     {/if}
   </section>
+
+  {#if status?.heap_internal !== undefined || status?.heap_external !== undefined}
+    <section class="card">
+      <h2>Ресурсы</h2>
+      <dl>
+        {#if status?.heap_internal !== undefined}
+          <dt>Внутренняя память</dt>
+          <dd>{Math.round(status.heap_internal / 1024)} КБ</dd>
+        {/if}
+        {#if status?.heap_external !== undefined}
+          <dt>PSRAM</dt>
+          <dd>{Math.round(status.heap_external / 1024)} КБ</dd>
+        {/if}
+      </dl>
+    </section>
+  {/if}
 </div>
 
 <p class="muted small">
