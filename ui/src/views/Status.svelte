@@ -25,6 +25,16 @@
 
   onDestroy(() => clearInterval(timer));
 
+  function fmtUptime(sec) {
+    const s = Number(sec) || 0;
+    const d = Math.floor(s / 86400);
+    const h = Math.floor((s % 86400) / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    if (d) return `${d} д ${h} ч`;
+    if (h) return `${h} ч ${m} мин`;
+    return `${m} мин`;
+  }
+
   $: bt = status ? describeBt(status.bt_status, status.bt_sub_status) : null;
   $: rssi = status?.rssi ?? null;
   $: rssiLevel = rssi === null ? 0 : rssi >= -55 ? 4 : rssi >= -65 ? 3 : rssi >= -75 ? 2 : 1;
@@ -46,8 +56,32 @@
       <dd><code>{status?.version ?? '—'}</code></dd>
       <dt>Режим</dt>
       <dd>{status?.recovery ? 'recovery' : 'обычный'}</dd>
+      {#if status?.depth}
+        <dt>Разрядность ядра</dt>
+        <dd>{status.depth} бит</dd>
+      {/if}
+      {#if status?.uptime !== undefined}
+        <dt>Время работы</dt>
+        <dd>{fmtUptime(status.uptime)}</dd>
+      {/if}
     </dl>
   </section>
+
+  {#if status?.heap_internal !== undefined || status?.heap_external !== undefined}
+    <section class="card">
+      <h2>Ресурсы</h2>
+      <dl>
+        {#if status?.heap_internal !== undefined}
+          <dt>Внутренняя память</dt>
+          <dd>{Math.round(status.heap_internal / 1024)} КБ</dd>
+        {/if}
+        {#if status?.heap_external !== undefined}
+          <dt>PSRAM</dt>
+          <dd>{Math.round(status.heap_external / 1024)} КБ</dd>
+        {/if}
+      </dl>
+    </section>
+  {/if}
 
   <section class="card">
     <h2>Сеть</h2>
