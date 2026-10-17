@@ -527,7 +527,9 @@ static void process_audg(u8_t *pkt, int len) {
 #if EMBEDDED
 	// mirror the player volume on the A2DP sink (AVRCP absolute volume), if one is connected
 	if (audg->adjust) {
-		hal_bluetooth_set_volume(gain_to_avrcp_volume(audg->gainL));
+		int sink_volume = gain_to_avrcp_volume(audg->gainL);
+		LOG_INFO("audg gain %u -> sink volume %d", audg->gainL, sink_volume);
+		hal_bluetooth_set_volume(sink_volume);
 	}
 #endif
 }
