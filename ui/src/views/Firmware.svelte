@@ -11,6 +11,11 @@
   let installing = '';
   let progress = null;
   let timer = null;
+  let showAll = false;
+
+  // сколько релизов запрашивать у GitHub и сколько показывать сразу
+  const REQUEST_LIMIT = 20;
+  const VISIBLE_LIMIT = 8;
 
   const versionNumber = (v) => {
     const m = String(v ?? '').match(/(\d+)\s*$/);
@@ -34,7 +39,10 @@
     error = '';
     try {
       if (!relApi) throw new Error('В настройках не задан адрес списка обновлений (rel_api)');
-      const res = await fetch(relApi, { cache: 'no-store' });
+      // ask for a bounded page: the API returns 30 by default and the JSON grows
+      // quickly, so be explicit about how much is enough for a picker
+      const url = relApi.includes('?') ? `${relApi}&per_page=${REQUEST_LIMIT}` : `${relApi}?per_page=${REQUEST_LIMIT}`;
+      const res = await fetch(url, { cache: 'no-store' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       releases = (data ?? [])
@@ -49,6 +57,7 @@
           };
         })
         .filter((r) => r.url);
+      showAll = false;
     } catch (e) {
       error = e?.message ?? String(e);
     } finally {
@@ -80,6 +89,8 @@
       progress = null;
     }
   }
+
+  $: visible = showAll ? releases : releases.slice(0, VISIBLE_LIMIT);
 
   const kb = (n) => (n ? `${(n / 1024).toFixed(0)} КБ` : '');
   const date = (s) => (s ? new Date(s).toLocaleDateString() : '');
@@ -131,7 +142,7 @@
 
   {#if releases.length}
     <div class="releases">
-      {#each releases as r}
+      {#each visible as r}
         <div class="release">
           <div>
             <strong>{r.name || r.tag}</strong>
@@ -148,5 +159,10 @@
         </div>
       {/each}
     </div>
+    {#if releases.length > VISIBLE_LIMIT && !showAll}
+      <div class="actions">
+        <button onclick={() => (showAll = true)}>Показать все ({releases.length})</button>
+      </div>
+    {/if}
   {/if}
 </section>
