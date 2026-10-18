@@ -450,3 +450,9 @@ a.muted {
   text-decoration: none;
   border-bottom: 1px dashed var(--line);
 }
+
+.banner.warn {
+  border-color: #5c4a24;
+  background: #2a2314;
+  color: #ffd479;
+}

@@ -44,6 +44,13 @@
   <div class="banner error">Нет связи с устройством: {error}</div>
 {/if}
 
+{#if status?.recovery}
+  <div class="banner warn">
+    Плата в аварийном режиме (recovery): музыка сейчас не играет. Доступны только
+    настройка сети и заливка прошивки — выберите сборку на вкладке «Прошивка».
+  </div>
+{/if}
+
 <div class="grid">
   <section class="card">
     <h2>Устройство</h2>
@@ -55,7 +62,7 @@
       <dt>Прошивка</dt>
       <dd><code>{status?.version ?? '—'}</code></dd>
       <dt>Режим</dt>
-      <dd>{status?.recovery ? 'recovery' : 'обычный'}</dd>
+      <dd>{status?.recovery ? 'аварийный (recovery)' : 'основная прошивка'}</dd>
       {#if status?.depth}
         <dt>Разрядность ядра</dt>
         <dd>{status.depth} бит</dd>
