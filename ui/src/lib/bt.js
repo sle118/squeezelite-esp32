@@ -21,7 +21,16 @@ const MEDIA = [
 
 export function describeBt(status, sub) {
   const a2d = A2D[status];
-  if (!a2d) return { label: 'неизвестно', tone: 'off', media: null };
-  const media = a2d.name === 'Connected' ? MEDIA[sub] ?? null : null;
-  return { label: a2d.name, tone: a2d.tone, media };
+  if (!a2d) {
+    return { label: 'неизвестно', tone: 'off', media: null, a2dName: null, mediaName: MEDIA[sub] ?? null };
+  }
+  const mediaName = MEDIA[sub] ?? null;
+  return {
+    label: a2d.name,
+    tone: a2d.tone,
+    // the media state only means something while the link is up
+    media: a2d.name === 'Connected' ? mediaName : null,
+    a2dName: a2d.name,
+    mediaName,
+  };
 }

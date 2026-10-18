@@ -114,9 +114,9 @@
       </p>
       <dl>
         <dt>Состояние A2DP</dt>
-        <dd>{status.bt_status}</dd>
+        <dd>{bt.a2dName ?? '—'} <span class="muted">({status.bt_status})</span></dd>
         <dt>Медиа</dt>
-        <dd>{status.bt_sub_status}</dd>
+        <dd>{bt.mediaName ?? '—'} <span class="muted">({status.bt_sub_status})</span></dd>
       </dl>
     {:else}
       <p class="muted">нет данных</p>
