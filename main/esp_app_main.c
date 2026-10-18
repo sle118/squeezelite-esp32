@@ -109,6 +109,7 @@ const DefaultStringVal defaultStringVals[] = {
     {"telnet_block", "500"},
     {"stats", "n"},
     {"rel_api", CONFIG_RELEASE_API},
+    {"ui_url", "https://denser.github.io/squeezelite-esp32"},
     {"pollmx", "600"},
     {"pollmin", "15"},
     {"ethtmout", "8"},

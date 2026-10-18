@@ -45,6 +45,7 @@ extern "C" {
 
 
 esp_err_t root_get_handler(httpd_req_t *req);
+esp_err_t app_get_handler(httpd_req_t *req);
 esp_err_t resource_filehandler(httpd_req_t *req);
 
 esp_err_t ap_get_handler(httpd_req_t *req);
