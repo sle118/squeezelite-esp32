@@ -31,12 +31,16 @@
     changed = {};
     try {
       const cfg = await getConfig();
-      rows = Object.entries(cfg?.config ?? {}).map(([key, item]) => ({
-        key,
-        type: item?.type ?? 33,
-        value: item?.value ?? '',
-        original: item?.value ?? '',
-      }));
+      rows = Object.entries(cfg?.config ?? {})
+        .map(([key, item]) => ({
+          key,
+          type: item?.type ?? 33,
+          value: item?.value ?? '',
+          original: item?.value ?? '',
+        }))
+        // alphabetical: keys that belong together (a2dp_*, display_*, telnet_*)
+        // end up next to each other regardless of the order the device reports
+        .sort((a, b) => a.key.localeCompare(b.key));
     } catch (e) {
       error = e?.message ?? String(e);
     }
