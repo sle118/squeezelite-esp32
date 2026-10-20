@@ -26,6 +26,7 @@
 
 #include "squeezelite.h"
 #include "slimproto.h"
+#include "display.h"
 
 #if EMBEDDED
 // implemented in components/driver_bt/bt_app_source.c - no-op unless the BT output is connected
@@ -531,6 +532,11 @@ static void process_audg(u8_t *pkt, int len) {
 		int sink_volume = gain_to_avrcp_volume(audg->gainL);
 		LOG_INFO("audg gain %u -> sink volume %d", audg->gainL, sink_volume);
 		hal_bluetooth_set_volume(sink_volume);
+
+		// keep a local display in sync: a minimal server (Music Assistant, for
+		// instance) sends its volume screen once at connection and never again,
+		// so the number would otherwise stay frozen
+		displayer_volume((sink_volume * 100 + 63) / 127);
 	}
 #endif
 }
