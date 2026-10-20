@@ -24,6 +24,10 @@
 
 #include "squeezelite.h"
 #include "slimproto.h"
+#ifdef EMBEDDED
+#include "network_ethernet.h"
+extern uint32_t halSTORAGE_RebootCounterUpdate(int32_t xValue);
+#endif
 
 static log_level loglevel;
 
@@ -994,8 +998,15 @@ void slimproto(log_level level, char *server, u8_t mac[6], const char *name, con
 			// in embedded we give up after a while no matter what
 			if (++failed_connect > MAX_SERVER_RETRIES && !server) {
 				slimproto_ip = serv_addr.sin_addr.s_addr = discover_server(NULL, MAX_SERVER_RETRIES);
-				if (!slimproto_ip && !output.external) return;
-			} else if (reconnect && MAX_SERVER_RETRIES && failed_connect > 5 * MAX_SERVER_RETRIES && !output.external) return;
+			}
+
+			/* A wedged TCP path must not exit slimproto(): the caller reboots on return.
+			 * Periodically restart Ethernet instead, then keep retrying indefinitely. */
+			if (reconnect && MAX_SERVER_RETRIES &&
+				failed_connect % (5 * MAX_SERVER_RETRIES) == 0) {
+				LOG_WARN("LMS reconnect still failing; restarting Ethernet without reboot");
+				network_ethernet_recover();
+			}
 #else
 			// rediscover server if it was not set at startup or exit 
 			if (!server && ++failed_connect > 5) {
@@ -1010,6 +1021,10 @@ void slimproto(log_level level, char *server, u8_t mac[6], const char *name, con
 
 			LOG_INFO("connected");
 
+#ifdef EMBEDDED
+			/* A successful LMS session proves the app is healthy; discard stale crash counts. */
+			halSTORAGE_RebootCounterUpdate(0);
+#endif
 			var_cap[0] = '\0';
 			failed_connect = 0;
 

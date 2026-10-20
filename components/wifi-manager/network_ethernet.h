@@ -26,6 +26,8 @@ typedef network_ethernet_driver_t* network_ethernet_detect_func_t(const char* Dr
 network_ethernet_driver_t* network_ethernet_driver_autodetect(const char* Driver);
 void destroy_network_ethernet();
 void init_network_ethernet();
+/* Restart the ESP-IDF Ethernet stack without rebooting the ESP32. */
+esp_err_t network_ethernet_recover();
 bool network_ethernet_wait_for_link(uint16_t max_wait_ms);
 
 void network_ethernet_start_timer();

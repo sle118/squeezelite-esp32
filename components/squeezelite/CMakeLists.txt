@@ -13,6 +13,7 @@ idf_component_register( SRC_DIRS . external ac101 tas57xx wm8978
 						  			platform_config 
 						 			services 
 									spotify
+									wifi-manager
 						 			raop   
 						 			display
 						 			tools
