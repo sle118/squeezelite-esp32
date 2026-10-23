@@ -33,4 +33,9 @@ void bt_sink_deinit(void);
  */
 void bt_disconnect(void);
 
+/**
+ * @brief     Set Bluetooth discoverable mode based on settings
+ */
+void bt_set_discoverable(void);
+
 #endif /* __BT_APP_SINK_H__*/

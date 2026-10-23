@@ -290,6 +290,11 @@ menu "Squeezelite-ESP32"
 			default y
 			help
 				Enable bluetooth sink (Note that you obviously can't at the same time be a Bluetooth receiver and transmitter)
+		config BT_VISIBLE
+			bool "Enable Bluetooth visibility"
+			default y
+			help
+				If enabled, the device will be visible to new Bluetooth devices. If disabled, only previously paired devices will be able to connect.
 		config BT_NAME
 			depends on BT_SINK
 			string "Name of Bluetooth A2DP device"
