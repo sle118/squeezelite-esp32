@@ -38,6 +38,7 @@ bool display_is_valid_driver(const char * driver);
 void displayer_scroll(char *string, int speed, int pause);
 void displayer_control(enum displayer_cmd_e cmd, ...);
 void displayer_metadata(char *artist, char *album, char *title);
+void displayer_volume(int volume);
 void displayer_artwork(uint8_t *data);
 void displayer_timer(enum displayer_time_e mode, int elapsed, int duration);
 bool displayer_can_artwork(void);

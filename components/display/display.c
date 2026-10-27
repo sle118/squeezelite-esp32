@@ -9,6 +9,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <arpa/inet.h>
 #include "esp_log.h"
 #include "globdefs.h"
@@ -308,6 +309,46 @@ void displayer_artwork(uint8_t *data) {
  */
 bool displayer_can_artwork(void) {
 	return displayer.artwork.active;
+}
+
+/****************************************************************************************
+ * Local volume screen.
+ *
+ * Servers are free to drive the display themselves, but a minimal slimproto
+ * implementation (Music Assistant, for instance) only sends the volume text once
+ * when the player connects and never again, so the number stays stale on screen.
+ * Drawing it here keeps the display in sync with whatever changed the volume.
+ */
+void displayer_volume(int volume) {
+	if (!display) return;
+
+	int width = GDS_GetWidth(display), height = GDS_GetHeight(display);
+	if (width <= 0 || height <= 0) return;
+
+	if (volume < 0) volume = 0;
+	if (volume > 100) volume = 100;
+
+	char text[16];
+	snprintf(text, sizeof(text), "VOLUME %d", volume);
+
+	xSemaphoreTake(displayer.mutex, portMAX_DELAY);
+
+	GDS_Clear(display, GDS_COLOR_BLACK);
+
+	// number in the middle, bar along the bottom
+	GDS_TextPos(display, GDS_FONT_DEFAULT, GDS_TEXT_CENTERED, GDS_TEXT_CLEAR | GDS_TEXT_UPDATE, text);
+
+	const int bar_height = 8, margin = 6;
+	int bar_bottom = height - 4, bar_top = bar_bottom - bar_height;
+	int filled = ((width - 2 * margin) * volume) / 100;
+
+	GDS_DrawBox(display, margin, bar_top, width - margin - 1, bar_bottom, GDS_COLOR_WHITE, false);
+	if (filled > 2) {
+		GDS_DrawBox(display, margin + 2, bar_top + 2, margin + filled - 1, bar_bottom - 2, GDS_COLOR_WHITE, true);
+	}
+	GDS_Update(display);
+
+	xSemaphoreGive(displayer.mutex);
 }
 
 /****************************************************************************************

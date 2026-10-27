@@ -58,6 +58,7 @@ static char *  ESP_AVRC_CT_DESC[]={
 // AVRCP used transaction label
 #define APP_RC_CT_TL_GET_CAPS            (0)
 #define APP_RC_CT_TL_RN_VOLUME_CHANGE    (1)
+#define APP_RC_CT_TL_SET_VOLUME          (2)
 #define PEERS_LIST_MAINTAIN_RESET -129
 #define PEERS_LIST_MAINTAIN_PURGE -129
 
@@ -99,6 +100,8 @@ static TimerHandle_t s_tmr=NULL;
 static int prev_duration=10000;
 static esp_avrc_rn_evt_cap_mask_t s_avrc_peer_rn_cap;
 static int s_connecting_intv = 0;
+static int s_last_hw_volume = -1;
+static int s_desired_volume = -1;
 cJSON * peers_list=NULL;
 
 static struct {
@@ -493,6 +496,8 @@ static void handle_connect_state_connecting(uint16_t event, esp_a2d_cb_param_t *
         case ESP_A2D_CONNECTION_STATE_CONNECTED:
             set_app_source_state(APP_AV_STATE_CONNECTED);
             set_a2dp_media_state(APP_AV_MEDIA_STATE_IDLE);
+            s_last_hw_volume = -1;  // force a resync of the sink volume on the next volume update
+            ESP_LOGI(TAG, "a2dp connected, waiting for the AVRCP (RC) channel");
             ESP_LOGD(TAG,"Setting scan mode to ESP_BT_NON_CONNECTABLE, ESP_BT_NON_DISCOVERABLE");
             esp_bt_gap_set_scan_mode(ESP_BT_NON_CONNECTABLE, ESP_BT_NON_DISCOVERABLE);
             ESP_LOGD(TAG,"Done setting scan mode. App state is now CONNECTED and media state IDLE.");
@@ -723,12 +728,23 @@ static void bt_av_hdl_stack_evt(uint16_t event, void *p_param)
         esp_bt_gap_register_callback(bt_app_gap_cb);
 
         /* initialize AVRCP controller */
-        esp_avrc_ct_init();
-        esp_avrc_ct_register_callback(bt_app_rc_ct_cb);
+        esp_err_t err;
+        err = esp_avrc_ct_init();
+        ESP_LOGI(TAG, "avrc ct init: %s", esp_err_to_name(err));
+        err = esp_avrc_ct_register_callback(bt_app_rc_ct_cb);
+        ESP_LOGI(TAG, "avrc ct register callback: %s", esp_err_to_name(err));
 
-        esp_avrc_rn_evt_cap_mask_t evt_set = {0};
-        esp_avrc_rn_evt_bit_mask_operation(ESP_AVRC_BIT_MASK_OP_SET, &evt_set, ESP_AVRC_RN_VOLUME_CHANGE);
-        assert(esp_avrc_tg_set_rn_evt_cap(&evt_set) == ESP_OK);
+        // Some sinks only open the AVRCP (RC) channel when the target side of the
+        // profile is also initialised, so register it here as well. Older code called
+        // esp_avrc_tg_set_rn_evt_cap() without initialising the target first, which
+        // simply fails with ESP_ERR_INVALID_STATE.
+        err = esp_avrc_tg_init();
+        ESP_LOGI(TAG, "avrc tg init: %s", esp_err_to_name(err));
+        if (err == ESP_OK) {
+            esp_avrc_rn_evt_cap_mask_t evt_set = {0};
+            esp_avrc_rn_evt_bit_mask_operation(ESP_AVRC_BIT_MASK_OP_SET, &evt_set, ESP_AVRC_RN_VOLUME_CHANGE);
+            ESP_LOGI(TAG, "avrc tg rn cap: %s", esp_err_to_name(esp_avrc_tg_set_rn_evt_cap(&evt_set)));
+        }
 
 
         /* initialize A2DP source */
@@ -1000,13 +1016,66 @@ static void bt_av_volume_changed(void)
     }
 }
 
+static void bt_push_desired_volume(void)
+{
+    if (s_desired_volume < 0) return;
+    if (bt_app_source_a2d_state != APP_AV_STATE_CONNECTED) return;
+    if (!esp_avrc_rn_evt_bit_mask_operation(ESP_AVRC_BIT_MASK_OP_TEST, &s_avrc_peer_rn_cap, ESP_AVRC_RN_VOLUME_CHANGE)) return;
+    if (s_desired_volume == s_last_hw_volume) return;
+
+    s_last_hw_volume = s_desired_volume;
+    ESP_LOGI(BT_RC_CT_TAG, "Set absolute volume: volume %d", s_desired_volume);
+    esp_avrc_ct_send_set_absolute_volume_cmd(APP_RC_CT_TL_SET_VOLUME, s_desired_volume);
+}
+
+static esp_timer_handle_t s_vol_timer = NULL;
+
+static void bt_volume_timer_cb(void *arg)
+{
+    bt_push_desired_volume();
+}
+
+/**
+ * Push a volume (0..127, AVRCP scale) to the connected A2DP sink.
+ * Called by squeezelite whenever the player volume changes, so that the
+ * hardware volume of the sink follows the server volume.
+ * The value is remembered even if the sink is not connected right now, and
+ * pushed as soon as the AVRCP link and its capabilities are available.
+ * Bursts of volume changes (dragging the slider) are coalesced: only the last
+ * value is sent once the user stops moving, which avoids the sink jittering
+ * through every intermediate step.
+ */
+void hal_bluetooth_set_volume(int vol_127)
+{
+    s_desired_volume = vol_127 < 0 ? 0 : (vol_127 > 127 ? 127 : vol_127);
+
+    if (!s_vol_timer) {
+        const esp_timer_create_args_t args = {
+            .callback = bt_volume_timer_cb,
+            .name = "bt_volume",
+        };
+        if (esp_timer_create(&args, &s_vol_timer) != ESP_OK) {
+            s_vol_timer = NULL;
+        }
+    }
+
+    if (s_vol_timer) {
+        if (esp_timer_is_active(s_vol_timer)) {
+            return;  // a flush is already scheduled, it will pick up the latest value
+        }
+        esp_timer_start_once(s_vol_timer, 150 * 1000);
+    } else {
+        bt_push_desired_volume();
+    }
+}
+
 static void bt_av_notify_evt_handler(uint8_t event_id, esp_avrc_rn_param_t *event_parameter)
 {
     switch (event_id) {
     case ESP_AVRC_RN_VOLUME_CHANGE:
+        // the sink changed its own volume (its buttons/remote): just track it, do not override the user
         ESP_LOGI(BT_RC_CT_TAG, "Volume changed: %d", event_parameter->volume);
-        ESP_LOGI(BT_RC_CT_TAG, "Set absolute volume: volume %d", event_parameter->volume + 5);
-        esp_avrc_ct_send_set_absolute_volume_cmd(APP_RC_CT_TL_RN_VOLUME_CHANGE, event_parameter->volume + 5);
+        s_last_hw_volume = event_parameter->volume;
         bt_av_volume_changed();
         break;
     }
@@ -1054,6 +1123,8 @@ static void bt_av_hdl_avrc_ct_evt(uint16_t event, void *p_param)
         s_avrc_peer_rn_cap.bits = rc->get_rn_caps_rsp.evt_set.bits;
 
         bt_av_volume_changed();
+        // the sink is now known to support volume, push the current player volume to it
+        bt_push_desired_volume();
         break;
     }
     case ESP_AVRC_CT_SET_ABSOLUTE_VOLUME_RSP_EVT: {
