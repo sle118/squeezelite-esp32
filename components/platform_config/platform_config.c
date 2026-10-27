@@ -72,6 +72,12 @@ void config_set_entry_changed_flag(cJSON * entry, cJSON_bool flag);
 static void * malloc_fn(size_t sz){
 
 	void * ptr = is_recovery_running?malloc(sz):heap_caps_malloc(sz, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+	if(ptr==NULL && !is_recovery_running){
+		// PSRAM can be tight (audio buffers take most of it) - the command and
+		// config JSON is small enough to live in internal RAM, so fall back
+		// instead of failing the whole request with HTTP 500
+		ptr = malloc(sz);
+	}
 	if(ptr==NULL){
 		ESP_LOGE(TAG,"malloc_fn:  unable to allocate memory!");
 	}
