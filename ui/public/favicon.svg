@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Squeezelite-ESP32">
+  <rect width="64" height="64" rx="14" fill="#0f1115"/>
+  <g fill="none" stroke="#4c8dff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M26 44V20l18-3v24"/>
+  </g>
+  <circle cx="21" cy="46" r="6" fill="#4c8dff"/>
+  <circle cx="39" cy="43" r="6" fill="#4c8dff"/>
+</svg>

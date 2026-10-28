@@ -8,6 +8,8 @@
 #include "bt_app_core.h"
 #endif
 #include "esp_log.h"
+#include "esp_timer.h"
+#include "esp_heap_caps.h"
 #include "lwip/inet.h"
 #include "monitor.h"
 #include "network_ethernet.h"
@@ -270,11 +272,14 @@ cJSON* network_status_get_basic_info(cJSON** old) {
         *old = network_update_cjson_number(old, "bt_status", bt_app_source_get_a2d_state());
         *old = network_update_cjson_number(old, "bt_sub_status", bt_app_source_get_media_state());
 #endif        
-#if DEPTH == 16
-        *old = network_update_cjson_number(old, "depth", 16);
-#elif DEPTH == 32
+#if BYTES_PER_FRAME == 8
         *old = network_update_cjson_number(old, "depth", 32);
-#endif        
+#else
+        *old = network_update_cjson_number(old, "depth", 16);
+#endif
+        *old = network_update_cjson_number(old, "uptime", (int)(esp_timer_get_time() / 1000000LL));
+        *old = network_update_cjson_number(old, "heap_internal", (int)heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+        *old = network_update_cjson_number(old, "heap_external", (int)heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
 #if CONFIG_I2C_LOCKED
         *old = network_status_update_bool(old, "is_i2c_locked", true);
 #else

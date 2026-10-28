@@ -10,6 +10,7 @@ Copyright (c) 2017-2021 Sebastien L
 #include "nvs_utilities.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <strings.h>
 #include "cJSON.h"
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
@@ -215,24 +216,140 @@ session_context_t* get_session_context(httpd_req_t *req){
 	return (session_context_t *)req->sess_ctx;
 }
 
+/*
+ * Access control.
+ *
+ * NVS:
+ *   web_token - shared secret ("key", like Zigbee2MQTT uses). Empty = protection off.
+ *   web_auth  - "all" (every request needs the key), "write" (only POST does),
+ *               anything else = off.
+ *
+ * The key can be presented three ways, so both the built-in interface and the
+ * remote one keep working without inventing sessions on the device:
+ *   Authorization: Bearer <token>   - our web UI (fetched same-origin)
+ *   Cookie: auth=<token>            - the built-in interface, set below
+ *   ?token=<token>                  - one-off link
+ */
+static bool auth_mode_is_write(httpd_req_t *req) {
+	return req->method == HTTP_POST || req->method == HTTP_PUT || req->method == HTTP_DELETE;
+}
+
+/* web_allow_ip: comma separated addresses, a trailing '*' allows a whole subnet */
+static bool ip_is_allowed(const char *ip, const char *list) {
+	char buf[160];
+	snprintf(buf, sizeof(buf), "%s", list);
+	char *save = NULL;
+	for (char *tok = strtok_r(buf, ",", &save); tok; tok = strtok_r(NULL, ",", &save)) {
+		while (*tok == ' ') tok++;
+		size_t len = strlen(tok);
+		while (len && tok[len - 1] == ' ') tok[--len] = '\0';
+		if (!len) continue;
+		if (tok[len - 1] == '*') {
+			if (!strncmp(ip, tok, len - 1)) return true;
+		} else if (!strcmp(ip, tok)) {
+			return true;
+		}
+	}
+	return false;
+}
+static bool token_matches(httpd_req_t *req, const char *token) {
+	size_t token_len = strlen(token);
+	bool ok = false;
+
+	/* Authorization: Bearer <token> */
+	size_t len = httpd_req_get_hdr_value_len(req, "Authorization");
+	if (len > 0 && len < 256) {
+		char *header = calloc(1, len + 1);
+		if (header && httpd_req_get_hdr_value_str(req, "Authorization", header, len + 1) == ESP_OK) {
+			if (!strncasecmp(header, "Bearer ", 7)) {
+				ok = !strcmp(header + 7, token);
+			}
+		}
+		FREE_RESET(header);
+	}
+
+	/* Cookie: auth=<token> */
+	if (!ok) {
+		len = httpd_req_get_hdr_value_len(req, "Cookie");
+		if (len > 0 && len < 512) {
+			char *header = calloc(1, len + 1);
+			if (header && httpd_req_get_hdr_value_str(req, "Cookie", header, len + 1) == ESP_OK) {
+				char *cookie = strstr(header, "auth=");
+				if (cookie) {
+					cookie += 5;
+					char saved = cookie[token_len];
+					if (saved) cookie[token_len] = '\0';
+					ok = !strcmp(cookie, token);
+					if (saved) cookie[token_len] = saved;
+				}
+			}
+			FREE_RESET(header);
+		}
+	}
+
+	/* ?token=<token> */
+	if (!ok) {
+		const char *query = strstr(req->uri, "token=");
+		if (query) {
+			query += 6;
+			ok = !strncmp(query, token, token_len) &&
+				 (query[token_len] == '\0' || query[token_len] == '&' || query[token_len] == '#');
+		}
+	}
+
+	return ok;
+}
+
 bool is_user_authenticated(httpd_req_t *req){
 	session_context_t *ctx_data = get_session_context(req);
 
-	if(ctx_data->authenticated){
-		ESP_LOGD_LOC(TAG,"User is authenticated.");
+	char *mode = config_alloc_get(NVS_TYPE_STR, "web_auth");
+	bool enabled = mode && (strcasestr(mode, "all") || (strcasestr(mode, "write") && auth_mode_is_write(req)));
+	FREE_RESET(mode);
+
+	if (!enabled) return true;
+	if (ctx_data->authenticated) return true;
+
+	/* an allowlisted address never needs the key (recovery path) */
+	char *allow = config_alloc_get(NVS_TYPE_STR, "web_allow_ip");
+	if (allow && strlen(allow)) {
+		u16_t peer_port = 0;
+		char *peer = http_alloc_get_socket_address(req, 0, &peer_port);
+		if (peer && ip_is_allowed(peer, allow)) {
+			ctx_data->authenticated = true;
+			FREE_RESET(peer);
+			FREE_RESET(allow);
+			return true;
+		}
+		FREE_RESET(peer);
+	}
+	FREE_RESET(allow);
+
+	char *token = config_alloc_get(NVS_TYPE_STR, "web_token");
+	if (!token || !strlen(token)) {
+		/* a mode without a key would lock everyone out - stay open */
+		FREE_RESET(token);
 		return true;
 	}
 
-	ESP_LOGD(TAG, "Heap internal:%zu (min:%zu) external:%zu (min:%zu) dma:%zu (min:%zu)",
-			heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
-			heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL),
-			heap_caps_get_free_size(MALLOC_CAP_SPIRAM),
-			heap_caps_get_minimum_free_size(MALLOC_CAP_SPIRAM),
-			heap_caps_get_free_size(MALLOC_CAP_DMA),
-			heap_caps_get_minimum_free_size(MALLOC_CAP_DMA));
+	bool ok = token_matches(req, token);
 
-	// todo:  ask for user to authenticate
-	return false;
+	if (ok) {
+		ctx_data->authenticated = true;
+		/* remember the key for the built-in interface, which cannot send headers */
+		char cookie[80];
+		snprintf(cookie, sizeof(cookie), "auth=%s; Path=/; SameSite=Strict", token);
+		httpd_resp_set_hdr(req, "Set-Cookie", cookie);
+	} else {
+		ESP_LOGW(TAG, "rejecting %s from an unauthenticated client", req->uri);
+		httpd_resp_set_hdr(req, "WWW-Authenticate", "Bearer realm=\"squeezelite-esp32\"");
+		httpd_resp_set_type(req, "application/json");
+		httpd_resp_set_status(req, "401 Unauthorized");
+		httpd_resp_send(req, "{\"error\":\"authentication required\"}", HTTPD_RESP_USE_STRLEN);
+	}
+
+	FREE_RESET(token);
+	return ok;
 }
 
 
@@ -344,9 +461,10 @@ esp_err_t root_get_handler(httpd_req_t *req){
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
     httpd_resp_set_hdr(req, "Accept-Encoding", "identity");
 
-    if(!is_user_authenticated(req)){
-    	// todo:  send password entry page and return
-    }
+    // The page itself is public on purpose: it holds no secrets, and a client that is
+    // not in web_allow_ip has to be able to load it in order to be asked for the key.
+    // Everything that exposes data or changes state stays behind is_user_authenticated().
+
 	int idx=-1;
 	if((idx=resource_get_index("index.html"))>=0){
 		const size_t file_size = (resource_map_end[idx] - resource_map_start[idx]);
@@ -365,8 +483,60 @@ esp_err_t root_get_handler(httpd_req_t *req){
 }
 
 
-esp_err_t resource_filehandler(httpd_req_t *req){
-    char filepath[FILE_PATH_MAX];
+/*
+ * A thin shell for the "remote" web UI: the page itself is served from the
+ * device (so all API calls stay same-origin), while the application bundle is
+ * loaded over HTTPS from GitHub Pages. A remote page could not talk to the
+ * device directly because of the mixed-content rules.
+ *
+ * The bundle location can be overridden with the NVS parameter "ui_url".
+ */
+#define UI_SHELL_DEFAULT_URL "https://denser.github.io/squeezelite-esp32"
+
+esp_err_t app_get_handler(httpd_req_t *req){
+	// Public shell: the interface has to load before it can ask for the key. The data
+	// endpoints it calls (status/config/messages/...) are the ones that are protected.
+
+	static const char *page =
+		"<!doctype html><html lang=\"ru\"><head><meta charset=\"utf-8\">"
+		"<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+		"<title>Squeezelite-ESP32</title>"
+		"<link rel=\"icon\" type=\"image/svg+xml\" href=\"%s/favicon.svg?v=%08x\">"
+		"<style>body{margin:0;background:#0f1115;color:#8b93a7;"
+		"font:15px/1.5 system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}"
+		"#boot{padding:2em}a{color:#4c8dff}</style>"
+		"<link rel=\"stylesheet\" href=\"%s/app.css?v=%08x\"></head><body>"
+		"<div id=\"app\"><p id=\"boot\">Загружаю интерфейс…<br>"
+		"Если этого не произошло, откройте <a href=\"/\">встроенный интерфейс</a>.</p></div>"
+		"<script type=\"module\" src=\"%s/app.js?v=%08x\"></script></body></html>";
+
+	char *ui_url = config_alloc_get_default(NVS_TYPE_STR, "ui_url", UI_SHELL_DEFAULT_URL, 0);
+	const char *base = (ui_url && strlen(ui_url)) ? ui_url : UI_SHELL_DEFAULT_URL;
+	static char body[1024];
+
+	// random cache buster: the bundle lives on GitHub Pages, whose CDN caches
+	// aggressively, so an updated UI would otherwise not show up until the cache
+	// expires. The page itself is tiny and always loaded fresh.
+	uint32_t nonce = esp_random();
+
+	int len = snprintf(body, sizeof(body), page, base, nonce, base, nonce, base, nonce);
+
+	ESP_LOGD_LOC(TAG, "serving remote UI shell from [%s]", base);
+	httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+	httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+	httpd_resp_set_type(req, "text/html; charset=utf-8");
+	esp_err_t err = ESP_FAIL;
+	if (len > 0 && len < (int) sizeof(body)) {
+		err = httpd_resp_send(req, body, len);
+	}
+
+	if (ui_url) {
+		free(ui_url);
+	}
+	return err;
+}
+
+esp_err_t resource_filehandler(httpd_req_t *req){    char filepath[FILE_PATH_MAX];
    ESP_LOGD_LOC(TAG, "serving [%s]", req->uri);
 
    const char *filename = get_path_from_uri(filepath, req->uri, sizeof(filepath));
@@ -408,10 +578,8 @@ esp_err_t resource_filehandler(httpd_req_t *req){
 esp_err_t ap_scan_handler(httpd_req_t *req){
     const char empty[] = "{}";
 	ESP_LOGD_LOC(TAG, "serving [%s]", req->uri);
-    if(!is_user_authenticated(req)){
-    	// todo:  redirect to login page
-    	// return ESP_OK;
-    }
+    if (!is_user_authenticated(req)) return ESP_FAIL;
+
 	network_async_scan();
 	esp_err_t err = set_content_type_from_req(req);
 	if(err == ESP_OK){
@@ -422,10 +590,8 @@ esp_err_t ap_scan_handler(httpd_req_t *req){
 
 esp_err_t console_cmd_get_handler(httpd_req_t *req){
     ESP_LOGD_LOC(TAG, "serving [%s]", req->uri);
-    if(!is_user_authenticated(req)){
-    	// todo:  redirect to login page
-    	// return ESP_OK;
-    }
+    if (!is_user_authenticated(req)) return ESP_FAIL;
+
     /* if we can get the mutex, write the last version of the AP list */
 	esp_err_t err = set_content_type_from_req(req);
 	cJSON * cmdlist = get_cmd_list();
@@ -451,10 +617,8 @@ esp_err_t console_cmd_post_handler(httpd_req_t *req){
 	if(err!=ESP_OK){
 		return err;
 	}
-	if(!is_user_authenticated(req)){
-		// todo:  redirect to login page
-		// return ESP_OK;
-	}
+	if (!is_user_authenticated(req)) return ESP_FAIL;
+
 	err = set_content_type_from_req(req);
 	if(err != ESP_OK){
 		return err;
@@ -496,10 +660,8 @@ esp_err_t console_cmd_post_handler(httpd_req_t *req){
 }
 esp_err_t ap_get_handler(httpd_req_t *req){
     ESP_LOGD_LOC(TAG, "serving [%s]", req->uri);
-    if(!is_user_authenticated(req)){
-    	// todo:  redirect to login page
-    	// return ESP_OK;
-    }
+    if (!is_user_authenticated(req)) return ESP_FAIL;
+
     /* if we can get the mutex, write the last version of the AP list */
 	esp_err_t err = set_content_type_from_req(req);
 	if( err == ESP_OK && network_status_lock_json_buffer(( TickType_t ) 200/portTICK_PERIOD_MS)){
@@ -524,10 +686,8 @@ esp_err_t ap_get_handler(httpd_req_t *req){
 
 esp_err_t config_get_handler(httpd_req_t *req){
     ESP_LOGD_LOC(TAG, "serving [%s]", req->uri);
-    if(!is_user_authenticated(req)){
-    	// todo:  redirect to login page
-    	// return ESP_OK;
-    }
+    if (!is_user_authenticated(req)) return ESP_FAIL;
+
 	esp_err_t err = set_content_type_from_req(req);
 	if(err == ESP_OK){
 		char * json = config_alloc_get_json(false);
@@ -592,10 +752,8 @@ esp_err_t config_post_handler(httpd_req_t *req){
     if(err!=ESP_OK){
         return err;
     }
-    if(!is_user_authenticated(req)){
-    	// todo:  redirect to login page
-    	// return ESP_OK;
-    }
+    if (!is_user_authenticated(req)) return ESP_FAIL;
+
 	err = set_content_type_from_req(req);
 	if(err != ESP_OK){
 		return err;
@@ -726,10 +884,8 @@ esp_err_t connect_post_handler(httpd_req_t *req){
 	}
 
 	char *buf = ((rest_server_context_t *)(req->user_ctx))->scratch;
-    if(!is_user_authenticated(req)){
-    	// todo:  redirect to login page
-    	// return ESP_OK;
-    }
+    if (!is_user_authenticated(req)) return ESP_FAIL;
+
 	cJSON *root = cJSON_Parse(buf);
 
 	if(root==NULL){
@@ -773,10 +929,8 @@ esp_err_t connect_post_handler(httpd_req_t *req){
 esp_err_t connect_delete_handler(httpd_req_t *req){
 	char success[]="{}";
     ESP_LOGD_LOC(TAG, "serving [%s]", req->uri);
-    if(!is_user_authenticated(req)){
-    	// todo:  redirect to login page
-    	// return ESP_OK;
-    }
+    if (!is_user_authenticated(req)) return ESP_FAIL;
+
 	esp_err_t err = set_content_type_from_req(req);
 	if(err != ESP_OK){
 		return err;
@@ -789,10 +943,8 @@ esp_err_t connect_delete_handler(httpd_req_t *req){
 esp_err_t reboot_ota_post_handler(httpd_req_t *req){
 	char success[]="{}";
 	ESP_LOGD_LOC(TAG, "serving [%s]", req->uri);
-    if(!is_user_authenticated(req)){
-    	// todo:  redirect to login page
-    	// return ESP_OK;
-    }
+    if (!is_user_authenticated(req)) return ESP_FAIL;
+
     esp_err_t err = set_content_type_from_req(req);
 	if(err != ESP_OK){
 		return err;
@@ -805,10 +957,8 @@ esp_err_t reboot_ota_post_handler(httpd_req_t *req){
 esp_err_t reboot_post_handler(httpd_req_t *req){
     ESP_LOGD_LOC(TAG, "serving [%s]", req->uri);
     char success[]="{}";
-    if(!is_user_authenticated(req)){
-    	// todo:  redirect to login page
-    	// return ESP_OK;
-    }
+    if (!is_user_authenticated(req)) return ESP_FAIL;
+
     esp_err_t err = set_content_type_from_req(req);
 	if(err != ESP_OK){
 		return err;
@@ -820,10 +970,8 @@ esp_err_t reboot_post_handler(httpd_req_t *req){
 esp_err_t recovery_post_handler(httpd_req_t *req){
     ESP_LOGD_LOC(TAG, "serving [%s]", req->uri);
     char success[]="{}";
-    if(!is_user_authenticated(req)){
-    	// todo:  redirect to login page
-    	// return ESP_OK;
-    }
+    if (!is_user_authenticated(req)) return ESP_FAIL;
+
     esp_err_t err = set_content_type_from_req(req);
 	if(err != ESP_OK){
 		return err;
@@ -839,10 +987,8 @@ esp_err_t flash_post_handler(httpd_req_t *req){
 	if(is_recovery_running){
 		ESP_LOGD_LOC(TAG, "serving [%s]", req->uri);
 		char success[]="File uploaded. Flashing started.";
-		if(!is_user_authenticated(req)){
-			// todo:  redirect to login page
-			// return ESP_OK;
-		}
+		if (!is_user_authenticated(req)) return ESP_FAIL;
+
 		err = httpd_resp_set_type(req, HTTPD_TYPE_TEXT);
 		if(err != ESP_OK){
 			return err;
@@ -1083,10 +1229,8 @@ esp_err_t redirect_ev_handler(httpd_req_t *req){
 
 esp_err_t messages_get_handler(httpd_req_t *req){
     ESP_LOGD_LOC(TAG, "serving [%s]", req->uri);
-    if(!is_user_authenticated(req)){
-    	// todo:  redirect to login page
-    	// return ESP_OK;
-    }
+    if (!is_user_authenticated(req)) return ESP_FAIL;
+
     esp_err_t err = set_content_type_from_req(req);
 	if(err != ESP_OK){
 		return err;
@@ -1106,10 +1250,8 @@ esp_err_t messages_get_handler(httpd_req_t *req){
 
 esp_err_t status_get_handler(httpd_req_t *req){
     ESP_LOGD_LOC(TAG, "serving [%s]", req->uri);
-    if(!is_user_authenticated(req)){
-    	// todo:  redirect to login page
-    	// return ESP_OK;
-    }
+    if (!is_user_authenticated(req)) return ESP_FAIL;
+
     esp_err_t err = set_content_type_from_req(req);
 	if(err != ESP_OK){
 		return err;
