@@ -2,8 +2,11 @@
 name: Cross-Build
 
 on:
+  workflow_dispatch:
   push:
-    branches: 
+    branches:
+      - main  # ou la branche que tu veux
+
       - 'master-cmake'
       - '!**4.3'
   pull_request:
