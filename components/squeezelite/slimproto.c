@@ -93,6 +93,8 @@ static struct {
 
 static int autostart;
 static bool sentSTMu, sentSTMo, sentSTMl;
+// set by strm-p, cleared by strm-u/q, a new server session or an external sink: holds autostart
+static bool server_paused;
 static u32_t new_server;
 static char *new_server_cap;
 #define PLAYER_NAME_LEN 64
@@ -318,6 +320,7 @@ static void process_strm(u8_t *pkt, int len) {
 	case 'q':
 		decode_flush(true);
 		if (!output.external) output_flush();
+		server_paused = false;
 		status.frames_played = 0;
 		if (stream_disconnect() && strm->command == 'f') sendSTAT("STMf", 0);
 		buf_flush(streambuf);
@@ -334,6 +337,7 @@ static void process_strm(u8_t *pkt, int len) {
 				output.state = OUTPUT_STOPPED;
 				output.stop_time = gettime_ms();
 			}
+			if (!interval) server_paused = true;
 			UNLOCK_O;
 			if (!interval) sendSTAT("STMp", 0);
 			LOG_DEBUG("pause interval: %u", interval);
@@ -355,6 +359,7 @@ static void process_strm(u8_t *pkt, int len) {
 			LOCK_O;
 			output.state = jiffies ? OUTPUT_START_AT : OUTPUT_RUNNING;
 			output.start_at = jiffies;
+			server_paused = false;
 			UNLOCK_O;
 
 			LOG_DEBUG("unpause at: %u now: %u", jiffies, gettime_ms());
@@ -401,7 +406,10 @@ static void process_strm(u8_t *pkt, int len) {
 			sentSTMu = sentSTMo = sentSTMl = false;
 #if EMBEDDED
 			// not protected so that restore can call synchronously sink handlers
-			if (output.external) decode_restore(output.external);
+			if (output.external) {
+				decode_restore(output.external);
+				server_paused = false;
+			}
 			LOCK_O;
 			output.external = 0;
 			_buf_limit(outputbuf, 0);
@@ -752,7 +760,7 @@ static void slimproto_run() {
 					output.pa_reopen = false;
 				}
 #endif
-				if (_start_output && (output.state == OUTPUT_STOPPED || output.state == OUTPUT_OFF)) {
+				if (_start_output && !server_paused && (output.state == OUTPUT_STOPPED || output.state == OUTPUT_OFF)) {
 					output.state = OUTPUT_BUFFER;
 				}
 				if (output.state == OUTPUT_RUNNING && !sentSTMu && status.output_full == 0 && status.stream_state <= DISCONNECT &&
@@ -1030,6 +1038,7 @@ void slimproto(log_level level, char *server, u8_t mac[6], const char *name, con
 				new_server_cap = NULL;
 			}
 
+			if (!reconnect) server_paused = false;
 			sendHELO(reconnect, fixed_cap, var_cap, mac);
 
 #if EMBEDDED
